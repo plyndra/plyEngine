@@ -1,10 +1,20 @@
 # plyEngine
 
-An open-source 2D game engine in C++20. Games render natively on a PC to a
-shared screen; players join from phones as companion controllers through a web
-browser / PWA (Jackbox-style).
+**A free, open-source 2D game engine that helps you create games.**
 
-> **Status:** M0 — scaffold. Not yet usable for games.
+plyEngine gives you the tools to build 2D games in C++20 and run them on a PC —
+with a twist: players join from their phones as controllers through any web
+browser, no app install. Render the game to a shared screen, and every phone
+becomes a companion controller for party-style play (think Jackbox).
+
+> **Status:** M0 — early scaffold. Actively developed; not yet usable for games.
+
+## What you'll be able to build
+
+- **2D games** — sprites, sprite atlases, orthographic camera, physics, audio.
+- **Shared-screen party games** — the PC renders the game; each player controls
+  it from their phone via a web browser / PWA.
+- **Native desktop games** — Windows / Linux / macOS, OpenGL 3.3.
 
 ## Tech stack
 
