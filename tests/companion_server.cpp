@@ -113,10 +113,11 @@ std::string httpGet(int port, const std::string& path) {
 }
 
 bool recvExactly(int sock, void* out, size_t length) {
-    auto* cursor = static_cast<unsigned char*>(out);
+    // char* rather than unsigned char*: winsock's recv() takes a char buffer.
+    auto* cursor = static_cast<char*>(out);
     size_t got = 0;
     while (got < length) {
-        const SockResult n = recv(sock, cursor + got, length - got, 0);
+        const SockResult n = recv(sock, cursor + got, static_cast<int>(length - got), 0);
         if (n <= 0) {
             return false;
         }
@@ -126,10 +127,10 @@ bool recvExactly(int sock, void* out, size_t length) {
 }
 
 bool sendAll(int sock, const void* data, size_t length) {
-    const auto* cursor = static_cast<const unsigned char*>(data);
+    const auto* cursor = static_cast<const char*>(data);
     size_t sent = 0;
     while (sent < length) {
-        const SockResult n = send(sock, cursor + sent, length - sent, 0);
+        const SockResult n = send(sock, cursor + sent, static_cast<int>(length - sent), 0);
         if (n <= 0) {
             return false;
         }
