@@ -31,6 +31,12 @@ public:
               const TextureRegion& region,
               const glm::vec4& color = {1.0f, 1.0f, 1.0f, 1.0f});
 
+    /// Draw a quad transformed by an arbitrary world matrix (e.g. a
+    /// GlobalTransform), with its origin at the quad's centre.
+    void draw(const glm::mat4& transform, const glm::vec2& size,
+              const TextureRegion& region,
+              const glm::vec4& color = {1.0f, 1.0f, 1.0f, 1.0f});
+
     void end();
 
     /// Quads submitted since the last flush (diagnostics/tests).

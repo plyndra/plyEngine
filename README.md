@@ -16,6 +16,16 @@ becomes a companion controller for party-style play (think Jackbox).
   it from their phone via a web browser / PWA.
 - **Native desktop games** — Windows / Linux / macOS, OpenGL 3.3.
 
+## Engine core
+
+- **Archetype ECS** — cache-friendly component columns; entities carry
+  generation-checked handles so stale references are detected.
+- **Transform hierarchy** — parent/child composition with dirty-flag caching.
+- **Fixed-timestep loop** — deterministic 60 Hz simulation with render
+  interpolation, owned by `ply::App`.
+- **Sprite batch renderer** — atlas-backed quads in a single draw call,
+  centre-anchored, with per-texture filtering.
+
 ## Tech stack
 
 | Layer | Choice |
@@ -49,10 +59,11 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Run the hello example (a textured quad):
+Run the examples:
 
 ```sh
-./build/ply_hello
+./build/ply_hello          # batching + atlas + camera
+./build/ply_ecs            # App + ECS + transform hierarchy
 ```
 
 Linux needs SDL3's build dependencies (X11/Wayland dev libraries) plus

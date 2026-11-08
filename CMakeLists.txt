@@ -57,6 +57,10 @@ add_library(plyEngine STATIC
     engine/src/SpriteAtlas.cpp
     engine/src/SpriteBatch.cpp
     engine/src/OrthoCamera.cpp
+    engine/src/World.cpp
+    engine/src/Transform.cpp
+    engine/src/FixedTimestep.cpp
+    engine/src/App.cpp
 )
 target_include_directories(plyEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
@@ -77,10 +81,25 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_atlas_test tests/atlas.cpp)
     target_link_libraries(ply_atlas_test PRIVATE plyEngine)
     add_test(NAME atlas COMMAND ply_atlas_test)
+
+    add_executable(ply_world_test tests/world.cpp)
+    target_link_libraries(ply_world_test PRIVATE plyEngine)
+    add_test(NAME world COMMAND ply_world_test)
+
+    add_executable(ply_timestep_test tests/timestep.cpp)
+    target_link_libraries(ply_timestep_test PRIVATE plyEngine)
+    add_test(NAME timestep COMMAND ply_timestep_test)
+
+    add_executable(ply_transform_test tests/transform.cpp)
+    target_link_libraries(ply_transform_test PRIVATE plyEngine)
+    add_test(NAME transform COMMAND ply_transform_test)
 endif()
 
 # --- Examples ----------------------------------------------------------------
 if(PLY_BUILD_EXAMPLES)
     add_executable(ply_hello examples/hello/main.cpp)
     target_link_libraries(ply_hello PRIVATE plyEngine)
+
+    add_executable(ply_ecs examples/ecs/main.cpp)
+    target_link_libraries(ply_ecs PRIVATE plyEngine)
 endif()

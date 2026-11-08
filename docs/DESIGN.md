@@ -41,6 +41,32 @@ send inputs only.
 4. **Companion** — embedded Crow server, JSON protocol, room code + QR join.
 5. **Game layer** — native C++ API (games link against plyEngine).
 
+## ECS conventions (settled in M3)
+
+**Entity handles are packed index+generation.** A stale handle to a destroyed
+entity is detectable, so it can never silently address a recycled slot.
+
+**Components may be any movable type.** Columns relocate and destroy through
+type-erased function pointers (`ComponentMeta`), so a component holding a
+`std::vector` (e.g. `Children`) is supported and its destructor runs exactly
+once.
+
+**Archetype storage.** Entities with the same component set share an archetype;
+each component type is a contiguous column. Adding/removing a component moves
+the entity between archetypes.
+
+**Transforms are hierarchical with dirty propagation.** `Transform` is local;
+`GlobalTransform` is the cached world matrix. Mutating a `Transform` through a
+raw pointer requires `markTransformDirty()`; `setTransform()` does it for you and
+is the preferred API. Cycles in `Parent` links are rejected.
+
+**Single-threaded, parallel-ready.** Systems run sequentially in M3. Archetype
+layout and system signatures are chosen so a parallel scheduler can be added
+without an API break.
+
+**`ply::App` owns the loop.** Fixed-step accumulator with interpolation alpha;
+raw pieces stay public for games that want their own loop.
+
 ## Renderer conventions (settled in M2 review)
 
 **Sprite anchor: centre.** `SpriteBatch::draw()` takes the sprite's centre, not

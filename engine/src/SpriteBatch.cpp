@@ -116,6 +116,36 @@ void SpriteBatch::draw(const glm::vec2& center, const glm::vec2& size,
     ++totalQuads_;
 }
 
+void SpriteBatch::draw(const glm::mat4& transform, const glm::vec2& size,
+                       const TextureRegion& region, const glm::vec4& color) {
+    if (!drawing_) {
+        return;
+    }
+    if (vertices_.size() >= maxQuads_ * 4) {
+        flush();
+    }
+
+    const float hw = size.x * 0.5f;
+    const float hh = size.y * 0.5f;
+
+    auto corner = [&](float lx, float ly) {
+        const glm::vec4 world = transform * glm::vec4(lx, ly, 0.0f, 1.0f);
+        return glm::vec2(world.x, world.y);
+    };
+
+    auto push = [&](const glm::vec2& p, float u, float v) {
+        vertices_.push_back({p.x, p.y, u, v, color.r, color.g, color.b, color.a});
+    };
+
+    // bottom-left, bottom-right, top-right, top-left; v0 is the region's top.
+    push(corner(-hw, -hh), region.u0, region.v1);
+    push(corner(hw, -hh), region.u1, region.v1);
+    push(corner(hw, hh), region.u1, region.v0);
+    push(corner(-hw, hh), region.u0, region.v0);
+
+    ++totalQuads_;
+}
+
 void SpriteBatch::end() {
     if (!drawing_) {
         return;
