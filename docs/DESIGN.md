@@ -17,7 +17,7 @@ send inputs only.
 | 4 | Renderer: OpenGL 3.3 core, desktop only |
 | 5 | ECS: archetype (Bevy-style SoA) |
 | 6 | Math: GLM |
-| 7 | Build: CMake + vcpkg manifest |
+| 7 | Build: CMake + FetchContent (pinned versions) |
 | 8 | GDevelop Core: deferred; own JSON scene format (optional M4 spike) |
 | 9 | Scripting: native-only through 1.0-alpha |
 | 10 | Topology: Jackbox-style companion controllers |
@@ -28,7 +28,7 @@ send inputs only.
 
 ## Adoption posture
 
-- **Adopt (code):** SDL3 (zlib), Crow (BSD-3), GLM (MIT).
+- **Adopt (code):** SDL3 (zlib), glad (MIT), Crow (BSD-3), GLM (MIT).
 - **Adopt (architecture):** Bevy — ECS, plugin system, render graph.
 - **Rejected:** Frostfire-Forge (PolyForm Noncommercial — not open source);
   Bevy code (Rust); GDevelop GDJS runtime (JavaScript; GDCpp removed in v5).

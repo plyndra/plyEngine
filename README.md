@@ -26,7 +26,7 @@ becomes a companion controller for party-style play (think Jackbox).
 | ECS | Archetype (Bevy-style SoA) |
 | Math | GLM |
 | Companion | Crow (embedded HTTP + WebSocket), JSON protocol, TypeScript + Vite PWA |
-| Build | CMake + vcpkg |
+| Build | CMake + FetchContent (pinned) |
 | License | MIT |
 
 ## Architecture
@@ -48,6 +48,16 @@ cmake -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+Run the hello example (a textured quad):
+
+```sh
+./build/ply_hello
+```
+
+Linux needs SDL3's build dependencies (X11/Wayland dev libraries) plus
+Python 3 with `jinja2` for the GL loader — see
+[SDL3's Linux docs](https://wiki.libsdl.org/SDL3/README-linux#build-dependencies).
 
 ## Contributing
 
