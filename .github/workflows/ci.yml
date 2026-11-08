@@ -52,7 +52,15 @@ jobs:
 
       - name: Install Python deps (glad codegen)
         if: runner.os != 'Linux'
-        run: python -m pip install jinja2
+        shell: bash
+        run: |
+          # glad runs whatever interpreter CMake's FindPython resolves
+          # (e.g. Homebrew 3.15 on macOS), which is not necessarily the
+          # `python` on PATH — so expose jinja2 to *all* interpreters via
+          # PYTHONPATH instead of installing into one of them.
+          PY="$(command -v python3 || command -v python)"
+          "$PY" -m pip install --target "$GITHUB_WORKSPACE/.ci-pylib" jinja2
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/.ci-pylib" >> "$GITHUB_ENV"
 
       - name: Build companion PWA
         run: |
