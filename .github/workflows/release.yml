@@ -195,6 +195,9 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
+          # v1.0.0-alpha.N is a semver prerelease: flag it so GitHub does not
+          # advertise it as the latest stable release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
             Prebuilt demo binaries (Windows / Linux / macOS), the built
             companion PWA and a source tarball are attached.
