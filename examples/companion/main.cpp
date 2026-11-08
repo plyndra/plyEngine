@@ -12,6 +12,7 @@
 // game reaching a win for player 1. Not just "pixels were drawn".
 
 #include "plyEngine/App.hpp"
+#include "plyEngine/AudioSystem.hpp"
 #include "plyEngine/CompanionServer.hpp"
 #include "plyEngine/Font.hpp"
 #include "plyEngine/PhysicsBody.hpp"
@@ -31,9 +32,12 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -52,10 +56,10 @@ double monotonicSeconds() {
     return std::chrono::duration<double>(Clock::now() - epoch).count();
 }
 
-// 6 cells: p1, p2, tile, coin, saw, flag.
+// 8 cells: p1..p4, tile, coin, saw, flag.
 std::vector<unsigned char> buildAtlas(int& outSize) {
     const int cell = 32;
-    outSize = cell * 6;
+    outSize = cell * 8;
     std::vector<unsigned char> pixels(static_cast<size_t>(outSize) * outSize * 4, 0);
 
     auto fill = [&](int index, int r, int g, int b) {
@@ -73,13 +77,62 @@ std::vector<unsigned char> buildAtlas(int& outSize) {
         }
     };
 
-    fill(0, 90, 200, 255);    // p1
-    fill(1, 255, 160, 60);    // p2
-    fill(2, 90, 110, 120);    // tile
-    fill(3, 250, 210, 60);    // coin
-    fill(4, 220, 70, 70);     // saw
-    fill(5, 90, 220, 120);    // flag
+    fill(0, 90, 200, 255);    // p1 blue
+    fill(1, 255, 160, 60);    // p2 orange
+    fill(2, 235, 90, 190);    // p3 magenta
+    fill(3, 90, 220, 120);    // p4 green
+    fill(4, 90, 110, 120);    // tile
+    fill(5, 250, 210, 60);    // coin
+    fill(6, 220, 70, 70);     // saw
+    fill(7, 140, 200, 255);   // flag
     return pixels;
+}
+
+// --- Audio ------------------------------------------------------------------
+
+// The demo ships no binary assets: the three sound effects are synthesised as
+// tiny WAV files at startup (written to the temp directory and loaded back
+// through ply::AudioSystem). Keeps --verify hermetic and the archive small.
+bool writeToneWav(const std::filesystem::path& path, float frequencyHz,
+                  float seconds, float decay) {
+    constexpr int kRate = 22050;
+    const int frames = static_cast<int>(kRate * seconds);
+    std::vector<int16_t> pcm(static_cast<size_t>(frames));
+    for (int i = 0; i < frames; ++i) {
+        const float t = static_cast<float>(i) / kRate;
+        const float envelope = std::exp(-decay * t);
+        const float sample = std::sin(2.0f * 3.14159265f * frequencyHz * t) * envelope;
+        pcm[static_cast<size_t>(i)] = static_cast<int16_t>(sample * 9000.0f);
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        return false;
+    }
+    const uint32_t dataBytes = static_cast<uint32_t>(pcm.size() * sizeof(int16_t));
+    auto u32 = [&](uint32_t v) {
+        char b[4] = {static_cast<char>(v & 0xFF), static_cast<char>((v >> 8) & 0xFF),
+                     static_cast<char>((v >> 16) & 0xFF), static_cast<char>((v >> 24) & 0xFF)};
+        out.write(b, 4);
+    };
+    auto u16 = [&](uint16_t v) {
+        char b[2] = {static_cast<char>(v & 0xFF), static_cast<char>((v >> 8) & 0xFF)};
+        out.write(b, 2);
+    };
+    out.write("RIFF", 4);
+    u32(36 + dataBytes);
+    out.write("WAVEfmt ", 8);
+    u32(16);            // PCM chunk size
+    u16(1);             // format = PCM
+    u16(1);             // channels = mono
+    u32(kRate);         // sample rate
+    u32(kRate * 2);     // byte rate
+    u16(2);             // block align
+    u16(16);            // bits per sample
+    out.write("data", 4);
+    u32(dataBytes);
+    out.write(reinterpret_cast<const char*>(pcm.data()), dataBytes);
+    return out.good();
 }
 
 }  // namespace
@@ -147,10 +200,12 @@ int main(int argc, char** argv) {
                                                     ply::TextureFilter::Nearest);
     atlas->addRegion("p1", 0, 0, 32, 32);
     atlas->addRegion("p2", 32, 0, 32, 32);
-    atlas->addRegion("tile", 64, 0, 32, 32);
-    atlas->addRegion("coin", 96, 0, 32, 32);
-    atlas->addRegion("saw", 128, 0, 32, 32);
-    atlas->addRegion("flag", 160, 0, 32, 32);
+    atlas->addRegion("p3", 64, 0, 32, 32);
+    atlas->addRegion("p4", 96, 0, 32, 32);
+    atlas->addRegion("tile", 128, 0, 32, 32);
+    atlas->addRegion("coin", 160, 0, 32, 32);
+    atlas->addRegion("saw", 192, 0, 32, 32);
+    atlas->addRegion("flag", 224, 0, 32, 32);
     auto texture = atlas->texturePtr();
 
     ply::Font font;
@@ -169,7 +224,50 @@ int main(int argc, char** argv) {
     ply::SpriteBatch batch;
     demo::Game game;
     demo::Autopilot autopilot;
-    std::array<uint32_t, 2> synthSeq{0, 0};
+    std::array<uint32_t, demo::kPlayerCount> synthSeq{};
+
+    // --- Audio: synthesise three cues, then play them on gameplay events ----
+    ply::AudioSystem::Config audioConfig;
+    // Headless verify must not require (or fight over) a real device.
+    audioConfig.forceNullDevice = verify;
+    ply::AudioSystem audio;
+    const bool audioReady = audio.init(audioConfig);
+
+    std::array<uint32_t, 4> cueSound{};  // indexed by demo::Sfx
+    {
+        const std::filesystem::path dir =
+            std::filesystem::temp_directory_path() / "ply_companion_sfx";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        struct Cue {
+            const char* file;
+            float hz;
+            float seconds;
+            float decay;
+        };
+        // Index order must match demo::Sfx {Jump, Coin, Death, Win}.
+        const Cue cues[4] = {{"jump.wav", 660.0f, 0.10f, 18.0f},
+                             {"coin.wav", 990.0f, 0.09f, 14.0f},
+                             {"death.wav", 180.0f, 0.22f, 8.0f},
+                             {"win.wav", 1320.0f, 0.28f, 6.0f}};
+        if (audioReady) {
+            for (int i = 0; i < 4; ++i) {
+                const std::filesystem::path path = dir / cues[i].file;
+                if (writeToneWav(path, cues[i].hz, cues[i].seconds, cues[i].decay)) {
+                    cueSound[i] = audio.loadSound(path.string());
+                }
+            }
+        }
+    }
+    size_t soundsLoaded = 0;
+    for (uint32_t id : cueSound) {
+        if (id != 0) {
+            ++soundsLoaded;
+        }
+    }
+    size_t voicesPlayed = 0;
+    constexpr size_t kCueCount = 4;  // demo::Sfx {Jump, Coin, Death, Win}
+    int cueCounts[kCueCount] = {0, 0, 0, 0};
 
     // Attaches render sprites to whatever entities the game currently has.
     // Called after build() and after every reset().
@@ -182,8 +280,8 @@ int main(int argc, char** argv) {
             world.add<ply::Sprite>(entity, sprite);
         };
         for (int i = 0; i < demo::kPlayerCount; ++i) {
-            addSprite(game.players[i].entity, i == 0 ? "p1" : "p2",
-                      glm::vec2{28.0f, 28.0f});
+            const char* regions[demo::kPlayerCount] = {"p1", "p2", "p3", "p4"};
+            addSprite(game.players[i].entity, regions[i], glm::vec2{28.0f, 28.0f});
         }
         for (ply::Entity coin : game.coins) {
             addSprite(coin, "coin", glm::vec2{24.0f, 24.0f});
@@ -274,6 +372,20 @@ int main(int argc, char** argv) {
         }
 
         game.step(world, input, fdt);
+
+        // Drain the gameplay's sound cues into the audio system.
+        for (demo::Sfx cue : game.sfx) {
+            const size_t index = static_cast<size_t>(cue);
+            if (index < kCueCount) {
+                ++cueCounts[index];
+                if (cueSound[index] != 0) {
+                    if (audio.play(cueSound[index], 0.35f) != 0) {
+                        ++voicesPlayed;
+                    }
+                }
+            }
+        }
+        game.sfx.clear();
     });
 
     auto renderScene = [&](ply::App& a, double) {
@@ -328,13 +440,21 @@ int main(int argc, char** argv) {
                        topLeft - glm::vec2{0.0f, 76.0f},
                        glm::vec4{0.6f, 1.0f, 0.75f, 1.0f}, 1.0f);
 
-            // Scores, one coloured run per player.
-            const std::string s1 = "P1  " + std::to_string(game.players[0].score);
-            const std::string s2 = "P2  " + std::to_string(game.players[1].score);
-            const glm::vec2 scorePos = topLeft - glm::vec2{0.0f, 124.0f};
-            text->draw(batch, s1, scorePos, glm::vec4{0.45f, 0.78f, 1.0f, 1.0f}, 1.4f);
-            text->draw(batch, s2, scorePos + glm::vec2{text->measure(s1, 1.4f) + 40.0f, 0.0f},
-                       glm::vec4{1.0f, 0.75f, 0.4f, 1.0f}, 1.4f);
+            // Scores: one coloured run per player, matching the sprite tint.
+            const glm::vec4 kPlayerColors[demo::kPlayerCount] = {
+                {0.45f, 0.78f, 1.0f, 1.0f},   // p1 blue
+                {1.0f, 0.72f, 0.40f, 1.0f},   // p2 orange
+                {0.95f, 0.55f, 0.82f, 1.0f},  // p3 magenta
+                {0.55f, 0.92f, 0.60f, 1.0f},  // p4 green
+            };
+            glm::vec2 scorePos = topLeft - glm::vec2{0.0f, 122.0f};
+            for (int i = 0; i < demo::kPlayerCount; ++i) {
+                const std::string label =
+                    "P" + std::to_string(i + 1) + "  " +
+                    std::to_string(game.players[i].score);
+                text->draw(batch, label, scorePos, kPlayerColors[i], 1.4f);
+                scorePos.x += text->measure(label, 1.4f) + 34.0f;
+            }
 
             // Game state line.
             std::string stateLine;
@@ -391,9 +511,14 @@ int main(int argc, char** argv) {
 
         // Gameplay outcome measurements.
         const demo::Player& p1 = game.players[0];
-        const demo::Player& p2 = game.players[1];
-        const ply::Transform* p2Transform = app.world().get<ply::Transform>(p2.entity);
-        const float p2x = p2Transform ? p2Transform->position.x : p2.spawn.x;
+        std::array<float, demo::kPlayerCount> displacement{};
+        for (int i = 0; i < demo::kPlayerCount; ++i) {
+            const ply::Transform* transform =
+                app.world().get<ply::Transform>(game.players[i].entity);
+            displacement[i] = transform
+                ? std::fabs(transform->position.x - game.players[i].spawn.x)
+                : 0.0f;
+        }
         float sawTravel = 0.0f;
         for (ply::Entity saw : game.hazards) {
             if (const demo::Hazard* hazard = app.world().get<demo::Hazard>(saw)) {
@@ -403,14 +528,17 @@ int main(int argc, char** argv) {
 
         std::printf(
             "companion demo: %d frames, room %s, %ld lit pixels\n"
-            "  outcome: state=%s winner=%d p1.score=%d p1.deaths=%d p2.x=%.0f "
-            "(spawn %.0f) saw.travel=%.0f coins=%d/%d autopilot=%s\n",
+            "  outcome: state=%s winner=%d p1.score=%d p1.deaths=%d "
+            "moved=[%.0f %.0f %.0f %.0f] saw.travel=%.0f coins=%d/%d autopilot=%s\n"
+            "  audio: ready=%d device=%d loaded=%zu played=%zu cues=[%d %d %d %d]\n",
             app.framesRendered(), server.roomCode().c_str(), lit,
             game.state == demo::GameState::Won ? "Won"
                 : game.state == demo::GameState::Paused ? "Paused" : "Playing",
-            game.winner, p1.score, p1.deaths, p2x, p2.spawn.x, sawTravel,
-            game.coinsCollected, game.initialCoinCount,
-            autopilot.stuck ? "STUCK" : "done");
+            game.winner, p1.score, p1.deaths, displacement[0], displacement[1],
+            displacement[2], displacement[3], sawTravel, game.coinsCollected,
+            game.initialCoinCount, autopilot.stuck ? "STUCK" : "done",
+            audio.ready() ? 1 : 0, audio.hasDevice() ? 1 : 0, soundsLoaded,
+            voicesPlayed, cueCounts[0], cueCounts[1], cueCounts[2], cueCounts[3]);
 
         if (verify) {
             auto check = [&](bool ok, const char* what) {
@@ -428,9 +556,30 @@ int main(int argc, char** argv) {
             check(game.winner == 0, "player 1 reached the goal first");
             check(p1.score >= 2, "player 1 collected coins");
             check(p1.deaths >= 2, "player 1 died to the pit and the saw");
-            check(p2x < p2.spawn.x - 60.0f, "player 2 moved independently");
             check(sawTravel > 100.0f, "hazards patrolled");
             check(game.coinsCollected >= 2, "coins were removed from play");
+
+            // Four players, four independent input slots.
+            check(demo::kPlayerCount == 4, "four players in the level");
+            check(server.slots().size() == 4, "four controller slots");
+            for (int i = 1; i < demo::kPlayerCount; ++i) {
+                if (displacement[i] < 40.0f) {
+                    std::fprintf(stderr,
+                                 "VERIFY FAIL: player %d did not move independently "
+                                 "(displaced %.1f)\n",
+                                 i + 1, displacement[i]);
+                    exitCode = 1;
+                }
+            }
+
+            // Audio: the cues came from gameplay, and they were played.
+            check(audio.ready(), "audio system initialised");
+            check(soundsLoaded == 4, "all four sound cues decoded");
+            check(cueCounts[0] > 0, "jump cue emitted");
+            check(cueCounts[1] >= 2, "coin cues emitted");
+            check(cueCounts[2] >= 2, "death cues emitted");
+            check(cueCounts[3] == 1, "exactly one win cue");
+            check(voicesPlayed >= 4, "audio voices actually played");
             if (exitCode == 0) {
                 std::printf("verify: PASS\n");
             }
@@ -450,6 +599,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    audio.shutdown();
     server.stop();
     return exitCode;
 }

@@ -79,6 +79,46 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Install and consume the package (find_package)
+        shell: bash
+        run: |
+          # Guards the installed SDK: cmake --install must produce a prefix a
+          # consumer can find and link. This is the check that would catch an
+          # export regression before an outside user hits it.
+          SDK="$RUNNER_TEMP/plysdk"
+          cmake --install build --config Release --prefix "$SDK"
+
+          CON="$RUNNER_TEMP/consumer"
+          mkdir -p "$CON"
+          cd "$CON"
+          cat > CMakeLists.txt <<'CMAKE'
+          cmake_minimum_required(VERSION 3.24)
+          project(consumer LANGUAGES C CXX)
+          find_package(plyEngine CONFIG REQUIRED)
+          add_executable(mygame main.cpp)
+          target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
+          CMAKE
+          cat > main.cpp <<'CPP'
+          #include "plyEngine/App.hpp"
+          #include "plyEngine/Version.hpp"
+          #include <cstdio>
+          int main() {
+              ply::World world;
+              const ply::Entity e = world.spawn();
+              std::printf("plyEngine %s entities=%zu\n", ply::kVersion,
+                          world.entityCount());
+              return world.alive(e) ? 0 : 1;
+          }
+          CPP
+          cmake -B b -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$SDK"
+          cmake --build b --config Release
+
+          # Run it (multi-config generators put the binary in a subdirectory).
+          EXE=$(find b -name mygame -o -name mygame.exe | head -1)
+          echo "running $EXE"
+          "$EXE" | tee out.txt
+          grep -q "plyEngine 1\\.0\\.0-beta" out.txt
+
       - name: Run hello example (Linux, headless, verified)
         if: runner.os == 'Linux'
         run: |

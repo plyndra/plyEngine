@@ -293,7 +293,8 @@ add_executable(mygame src/main.cpp)
 target_link_libraries(mygame PRIVATE plyEngine)
 ```
 
-Or with `FetchContent`, pinned to a release tag:
+Or with `FetchContent`, pinned to a release tag (the pattern the engine's own
+CI compiles on every OS):
 
 ```cmake
 include(FetchContent)
@@ -301,7 +302,7 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-alpha.2)
+    GIT_TAG        v1.0.0-beta.1)
 FetchContent_MakeAvailable(plyEngine)
 
 target_link_libraries(mygame PRIVATE plyEngine)
@@ -311,6 +312,19 @@ Linking `plyEngine` gives you the include paths, GLM/json propagation and the
 required C++20 standard automatically — do not set `CMAKE_CXX_STANDARD`
 yourself. The first configure downloads the pinned dependencies, so it needs
 network access.
+
+If you would rather not build the engine per project, install it once and use
+`find_package` instead:
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
+cmake --install build --prefix /opt/plyengine
+```
+
+```cmake
+find_package(plyEngine CONFIG REQUIRED)   # pass -DCMAKE_PREFIX_PATH=/opt/plyengine
+target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
+```
 
 ```cpp
 #include "plyEngine/App.hpp"
@@ -329,12 +343,14 @@ The version string comes from `PLY_VERSION_STRING` in the engine's
 ## Where next
 
 - **Phone controllers** — the reference platformer
-  (`examples/companion/`) adds a `CompanionServer`; phones join a room and
-  drive players. See [GETTING_STARTED.md](GETTING_STARTED.md).
+  (`examples/companion/`) adds a `CompanionServer`; up to four phones join a
+  room and drive four players, each with its own colour and score. See
+  [GETTING_STARTED.md](GETTING_STARTED.md).
 - **Real assets** — PNG loading, Aseprite/TexturePackersheets (`ply_assets`
   demo) and the refcounted `AssetCache<T>` (covered by the `assets` ctest
   suite).
 - **Audio** — `ply::AudioSystem` with decoded WAV/OGG effects and per-voice
-  volume/pitch/pan (covered by the `audio` ctest suite; no demo uses it yet).
+  volume/pitch/pan. The reference demo plays synthesised cues for jumps,
+  coins, deaths and the win; the `audio` ctest suite covers the API directly.
 - **Why it works this way** — [DESIGN.md](DESIGN.md) records every settled
   decision (centre anchors, fixed timestep, sRGB passthrough, …).

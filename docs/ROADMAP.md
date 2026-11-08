@@ -9,11 +9,13 @@
 | **M4 — Assets** | ✅ Done | PNG decode, spritesheet loaders (Aseprite/generic/TexturePacker), TTF baking + text, refcounted asset cache, ECS `Sprite` |
 | **M5 — Simulation** | ✅ Done | Per-axis swept AABB physics, tilemap collision, spatial hash broadphase, debug draw, miniaudio |
 | **M6 — Companion** | ✅ Done | Crow HTTP+WebSocket server, versioned JSON protocol, mDNS discovery + room code, reference PWA, fixed-step input queue |
-| **M7 — 1.0-alpha** | ✅ Done | Full reference demo (2 phone players, coins/scoring, saws, pit, staircase, goal, pause/restart) with outcome-asserting `--verify`; `ply_tutorial` + step-by-step tutorial; GETTING_STARTED/BUILDING docs; release workflow with per-OS binaries that are unpacked and executed before publishing; issue templates, CoC, CHANGELOG; 14 ctest suites green in Release and ASan; tagged `v1.0.0-alpha.2` |
+| **M7 — 1.0-alpha** | ✅ Done | Full reference demo (2 phone players at M7, coins/scoring, saws, pit, staircase, goal, pause/restart) with outcome-asserting `--verify`; `ply_tutorial` + step-by-step tutorial; GETTING_STARTED/BUILDING docs; release workflow with per-OS binaries that are unpacked and executed before publishing; issue templates, CoC, CHANGELOG; 14 ctest suites green in Release and ASan; tagged `v1.0.0-alpha.2` |
+
+| **M8 — 1.0-beta** | ✅ Done | Public API frozen; `find_package(plyEngine)` installable SDK with a CI consumer build; reference demo expanded to four phone players with synthesised sound cues asserted by `--verify`; tagged `v1.0.0-beta.1` |
 
 Dependencies land at their milestone: SDL3 + glad (M1), GLM + stb + nlohmann/json (M2/M4), miniaudio + Crow + asio + mdns (M5/M6).
 
-## The 1.0-alpha gate (M7 exit criteria, as run)
+## The alpha gate (M7, as run)
 
 Tagging `v1.0.0-alpha.N` requires all of the following — each is a check
 that can fail, not a claim:
@@ -41,12 +43,25 @@ that can fail, not a claim:
    semver prerelease tags, Keep-a-Changelog, GitHub release marked as a
    prerelease.
 
-## After 1.0-alpha
+## The beta gate (M8, as run)
 
-Post-1.0-alpha branches live in `docs/DESIGN.md` ("Open branches"):
-scripting (Lua), web/WASM build, native mobile, internet play (WebRTC),
-binary protocol. Target: `v1.0.0` once the API stops churning and the
-tutorial/demo content grows.
+1. Every alpha gate below, still green.
+2. **Installable SDK** — `cmake --install` into a clean prefix, then a scratch
+   consumer configures with `find_package(plyEngine CONFIG REQUIRED)` and links
+   `plyEngine::plyEngine`. Built in CI on Linux / Windows / macOS.
+3. **Four-player demo with audio** — `ply_companion --verify` asserts all four
+   players moved independently and that jump/coin/death/win cues were emitted
+   *and* played; `tests/platformer.cpp` asserts the same cues headlessly.
+4. **API freeze declared** — `docs/DESIGN.md` states the policy: additions are
+   minor, removals/renames need a deprecation cycle.
+
+## After 1.0-beta
+
+1. **`v1.0.0`** — the API is already frozen at beta; 1.0 needs the frozen
+   surface to survive a release cycle without a breaking bug, plus any
+   documentation gaps that outside users find.
+2. Then the post-1.0 branches in `docs/DESIGN.md` (scripting, web/WASM,
+   mobile, internet play, binary protocol).
 
 ## Verified per milestone
 
@@ -64,10 +79,11 @@ Each milestone ships with checks that can actually fail, run in CI:
 - `ply_physics --verify` — runs the tilemap physics demo headlessly and asserts pixels were drawn *and* that crates came to rest.
 - `ply_tutorial --verify` — plays the tutorial game with a built-in script and asserts all five coins were collected and the win state reached.
 - `ply_companion_server` — starts a real server, then speaks HTTP and a hand-written WebSocket handshake/join/input round-trip.
-- `ply_companion --verify` — plays a complete two-player match through the
+- `ply_companion --verify` — plays a complete four-player match through the
   real companion-input queue (Autopilot → `CompanionInput.push` → slot
-  routing → gameplay) and asserts score, deaths, independent P2 movement,
-  hazard patrol distance and the win state, plus the room-code HUD.
+  routing → gameplay) and asserts score, deaths, independent movement of all
+  four players, hazard patrol distance, the win state, the room-code HUD, and
+  that the four gameplay sound cues were emitted and actually played.
 - **Release workflow** — re-runs build + ctest + Linux `--verify` on all
   three OSes for every `v*` tag, then unpacks the Linux archive on a
   toolchain-free Ubuntu 22.04, runs it there, asserts the glibc floor, and

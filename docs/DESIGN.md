@@ -295,10 +295,53 @@ The floor (glibc 2.35) and the runtime library list are documented in
 the build tree says nothing about the artifact; the artifact must be
 executed, on a machine unlike the build machine.
 
-## Open branches (post-1.0-alpha)
+## Beta: API freeze and distribution (settled in M8)
 
-- Installable package: `install()` rules + `plyEngineConfig.cmake` so
-  `find_package(plyEngine)` works without FetchContent
+**The public API is frozen at `1.0.0-beta.1`.** Every header under
+`engine/include/plyEngine/` is the contract; from here, additions are minor
+and removals or renames require a deprecation cycle (keep the old spelling,
+mark it `[[deprecated]]`, remove no earlier than 1.1). Bug fixes may still
+change behaviour. The point of freezing before 1.0 is that an engine with
+zero stable surface cannot accumulate users; churn after adoption costs far
+more than a slightly imperfect name.
+
+**The engine installs; it is no longer subproject-only.** `cmake --install`
+writes the engine archive, its internal static archives (glad, stb, miniaudio),
+the public headers, and `plyEngineConfig.cmake`, so consumers call
+`find_package(plyEngine CONFIG REQUIRED)` and link `plyEngine::plyEngine`.
+Three constraints shaped that design:
+
+- **Header-only dependencies must not reach the consumer.** Crow/asio, mdns,
+  stb and miniaudio are only used to *compile* engine translation units, so
+they are `BUILD_INTERFACE`-only; a consumer never configures them. Only what
+  the public headers expose — GLM and nlohmann/json — is a real dependency,
+  along with SDL3 (a static library that must be on the link line) and
+  `Threads`.
+- **Third-party include paths stay PRIVATE.** No public header includes glad,
+  stb, miniaudio, Crow or mdns, so a `BUILD_INTERFACE`-scoped glad include dir
+  is enough for our own examples and tests and nothing third-party is
+  installed except what the API genuinely exposes.
+- **SDL3 owns its own export set.** Adding it to ours makes CMake demand
+  `SDL3_Headers` join too, which cascades; instead the config file appends
+  `SDL3::SDL3` to the imported target after `find_dependency(SDL3)`. SDL3 only
+  installs itself when `SDL_INSTALL` is on, which defaults off for subprojects —
+  easy to miss, and the reason the install test builds from a *clean prefix*.
+
+The install path is guarded the same way the archive was: a consumer project
+that only does `find_package` + link is built in CI, so an export regression
+fails the pipeline rather than the first outside user.
+
+**Demo: four players and sound, because shipped subsystems must be
+visible.** Slots 1-4 map to P1-P4 with per-player colour, score and respawn;
+keyboard fallback covers P1/P2, phones cover all four. Audio is exercised end
+to end without shipping binary assets: the demo synthesises four short WAVs at
+startup and plays them from *gameplay cues*. The game logic stays audio-free —
+it emits `Sfx` events — so the headless suite asserts "a coin cue was emitted"
+and the demo asserts "the cue was played". That split is the rule: logic
+produces intents, the host produces side effects, and tests can check both
+independently.
+
+## Open branches (post-1.0)
 
 - Embedded scripting (Lua binding)
 - Browser/WASM build of the game (web distribution)

@@ -7,6 +7,8 @@
 
 #include "platformer.hpp"
 
+#include <array>
+#include <cmath>
 #include <cstdio>
 
 namespace {
@@ -25,9 +27,12 @@ constexpr float kStep = 1.0f / 60.0f;
 struct RunResult {
     demo::Game game;
     demo::Autopilot autopilot;
-    float p2FinalX = 0.0f;
+    /// Horizontal distance each player ended up from its spawn.
+    std::array<float, demo::kPlayerCount> displacement{};
     float sawTravel = 0.0f;
     int steps = 0;
+    /// Sound cues emitted by the whole run, indexed by demo::Sfx.
+    std::array<int, 4> cues{};
 };
 
 // Runs the scripted playthrough to completion (or until the script sticks).
@@ -42,12 +47,19 @@ RunResult runScripted() {
         }
         const auto input = result.autopilot.update(result.game, world);
         result.game.step(world, input, kStep);
+        for (demo::Sfx cue : result.game.sfx) {
+            result.cues[static_cast<size_t>(cue)] += 1;
+        }
+        result.game.sfx.clear();
         ++result.steps;
     }
 
-    if (const ply::Transform* p2 =
-            world.get<ply::Transform>(result.game.players[1].entity)) {
-        result.p2FinalX = p2->position.x;
+    for (int i = 0; i < demo::kPlayerCount; ++i) {
+        if (const ply::Transform* transform =
+                world.get<ply::Transform>(result.game.players[i].entity)) {
+            result.displacement[static_cast<size_t>(i)] =
+                std::fabs(transform->position.x - result.game.players[i].spawn.x);
+        }
     }
     for (ply::Entity saw : result.game.hazards) {
         if (const demo::Hazard* hazard = world.get<demo::Hazard>(saw)) {
@@ -70,15 +82,37 @@ int main() {
     check(game.winner == 0, "player 1 won");
     check(game.players[0].score >= 2, "player 1 collected coins");
     check(game.players[0].deaths >= 2, "player 1 died to pit and saw");
-    check(run.p2FinalX < game.players[1].spawn.x - 60.0f,
-          "player 2 moved independently");
+    // Four players, four input slots: every non-scripted player must move.
+    check(demo::kPlayerCount == 4, "the demo has four players");
+    for (int i = 1; i < demo::kPlayerCount; ++i) {
+        const float moved = run.displacement[static_cast<size_t>(i)];
+        if (moved < 40.0f) {
+            std::fprintf(stderr, "  FAIL: player %d only moved %.1f\n", i + 1, moved);
+            ++failures;
+        }
+    }
     check(run.sawTravel > 100.0f, "hazards patrolled");
     check(game.coinsCollected >= 2, "coins left play");
-    check(game.coinsCollected == game.players[0].score,
-          "collected coins became player 1's score");
-    std::printf("  scripted run: %d steps, p1 score %d, deaths %d, p2 x %.0f\n",
+    // Coins are contested: with four players the total must equal the sum of
+    // everyone's score, not just player 1's.
+    int totalScore = 0;
+    for (int i = 0; i < demo::kPlayerCount; ++i) {
+        totalScore += game.players[i].score;
+    }
+    check(game.coinsCollected == totalScore,
+          "collected coins became player scores");
+
+    // Sound cues are gameplay evidence, not device evidence.
+    check(run.cues[static_cast<size_t>(demo::Sfx::Jump)] > 0, "a jump cue was emitted");
+    check(run.cues[static_cast<size_t>(demo::Sfx::Coin)] >= 2, "coin cues were emitted");
+    check(run.cues[static_cast<size_t>(demo::Sfx::Death)] >= 2, "death cues were emitted");
+    check(run.cues[static_cast<size_t>(demo::Sfx::Win)] == 1, "exactly one win cue");
+    std::printf("  scripted run: %d steps, p1 score %d, deaths %d, "
+                "moved=[%.0f %.0f %.0f %.0f], cues=[%d %d %d %d]\n",
                 run.steps, game.players[0].score, game.players[0].deaths,
-                run.p2FinalX);
+                run.displacement[0], run.displacement[1], run.displacement[2],
+                run.displacement[3], run.cues[0], run.cues[1], run.cues[2],
+                run.cues[3]);
 
     // --- determinism: an identical run produces an identical outcome -------
     const RunResult again = runScripted();
@@ -86,7 +120,8 @@ int main() {
           "score is deterministic across runs");
     check(again.game.players[0].deaths == game.players[0].deaths,
           "deaths are deterministic across runs");
-    check(again.p2FinalX == run.p2FinalX, "player 2 path is deterministic");
+    check(again.displacement == run.displacement, "player paths are deterministic");
+    check(again.cues == run.cues, "sound cues are deterministic");
     check(again.sawTravel == run.sawTravel, "hazard patrol is deterministic");
 
     // --- pause freezes the simulation --------------------------------------

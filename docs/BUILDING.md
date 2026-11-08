@@ -64,8 +64,7 @@ docs, plus a source tarball.
 
 | Platform | Archive | Minimum requirement |
 |---|---|---|
-| Linux x86-64 | `*-linux-x86_64.tar.gz` | glibc 2.35+ (Ubuntu 22.04+, Debian 12+), OpenGL 3.3 driver — built in a pinned Ubuntu 22.04 container |
-| Windows x86-64 | `*-windows-x86_64.zip` | Windows 10+, OpenGL 3.3 driver |
+| Linux x86-64 | `*-linux-x86_64.tar.gz` | glibc 2.35+ (Ubuntu 22.04+, Debian 12+), OpenGL 3.3 driver — built in a pinned Ubuntu 22.04 container || Windows x86-64 | `*-windows-x86_64.zip` | Windows 10+, OpenGL 3.3 driver |
 | macOS arm64 | `*-macos-arm64.tar.gz` | Apple Silicon, built on GitHub's macOS runner |
 
 The release job does not merely build these archives: it unpacks the Linux
@@ -101,7 +100,9 @@ unpacked directory if Gatekeeper objects.
 | `PLY_BUILD_TESTS` | `ON` | Build the `ctest` suite |
 | `PLY_BUILD_EXAMPLES` | `ON` | Build the demo executables |
 | `PLY_SANITIZE` | `OFF` | Build with AddressSanitizer + UBSan |
-| `PLY_VERSION_STRING` | `1.0.0-alpha.2` | Version reported by `ply::kVersion` (generated header) |
+| `PLY_INSTALL` | `ON` | Generate install rules and `plyEngineConfig.cmake` |
+| `PLY_BUILD_DEPS_INSTALL` | `ON` | Let GLM/json/SDL3 install themselves (needed by `PLY_INSTALL`) |
+| `PLY_VERSION_STRING` | `1.0.0-beta.1` | Version reported by `ply::kVersion` (generated header) |
 
 `ply::kVersion` lives in a **generated** header. `PLY_VERSION_STRING` in
 `CMakeLists.txt` is the only place the version is authored; the git tag must
@@ -114,6 +115,39 @@ cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DPLY_SANITIZE=ON
 cmake --build build-asan -j
 ctest --test-dir build-asan --output-on-failure
 ```
+
+## Installing the engine (find_package)
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+cmake --install build --prefix /opt/plyengine      # add --config Release on MSVC
+```
+
+That writes:
+
+```
+/opt/plyengine/include/plyEngine/*.hpp     engine headers (incl. generated Version.hpp)
+/opt/plyengine/include/{glm,nlohmann}/     public header dependencies
+/opt/plyengine/include/SDL3/               SDL3 headers
+/opt/plyengine/lib/libplyEngine.a  (+ glad/stb/miniaudio/SDL3 archives)
+/opt/plyengine/lib/cmake/plyEngine/        plyEngineConfig.cmake + targets
+/opt/plyengine/lib/cmake/SDL3/             SDL3Config.cmake
+```
+
+A consumer then does:
+
+```cmake
+find_package(plyEngine CONFIG REQUIRED)   # -DCMAKE_PREFIX_PATH=/opt/plyengine
+target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
+```
+
+What the consumer must have is only `Threads`, `SDL3`, `glm` and
+`nlohmann_json` — all installed into the same prefix by the command above.
+Crow/asio, mdns, stb and miniaudio are header-only, compiled into the engine's
+objects, and are deliberately not part of the consumer's configure step.
+
+Set `-DPLY_INSTALL=OFF` for an embed-only build with no install rules.
 
 ## The companion PWA
 

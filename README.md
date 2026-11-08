@@ -7,8 +7,9 @@ with a twist: players join from their phones as controllers through any web
 browser, no app install. Render the game to a shared screen, and every phone
 becomes a companion controller for party-style play (think Jackbox).
 
-> **Status:** **1.0-alpha** (`v1.0.0-alpha.2`) — the whole engine surface is
-> in place and covered by tests, but expect API changes before 1.0.
+> **Status:** **1.0-beta** (`v1.0.0-beta.1`) — the public API is frozen for
+> 1.0: additions are allowed, breaking changes need a deprecation cycle.
+> Runtime API changes are still possible if a bug demands it.
 > Prebuilt demo binaries: [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## What you'll be able to build
@@ -35,6 +36,8 @@ becomes a companion controller for party-style play (think Jackbox).
 - **Debug draw** — collider, tile-grid and body overlays for development.
 - **Phone controllers** — embedded HTTP+WebSocket server, mDNS discovery, room
   codes, and a reference PWA so players join from a browser with no install.
+- **Four-player reference demo** — coins, patrolling saws, a pit and a goal,
+  with synthesised sound effects and four phones playing at once.
 
 ## Tech stack
 
@@ -61,22 +64,28 @@ ctest --test-dir build --output-on-failure     # 14 headless suites
 
 Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md).
 
-Using the engine from your own game (one target, one link line — include
-paths, dependencies and the C++20 requirement propagate):
+Using the engine from your own game — either as a CMake subproject (one target,
+include paths/dependencies/C++20 propagate) or from an installed SDK:
 
 ```cmake
+# A) Subproject
 include(FetchContent)
 set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-alpha.2)
+    GIT_TAG        v1.0.0-beta.1)
 FetchContent_MakeAvailable(plyEngine)
-
 target_link_libraries(mygame PRIVATE plyEngine)
+
+# B) Installed SDK
+#   cmake --install build --prefix /opt/plyengine
+find_package(plyEngine CONFIG REQUIRED)
+target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
 ```
 
-See [docs/TUTORIAL.md](docs/TUTORIAL.md) for the full walkthrough.
+See [docs/TUTORIAL.md](docs/TUTORIAL.md) for the full walkthrough and
+[docs/BUILDING.md](docs/BUILDING.md) for the install layout.
 
 Run the examples:
 
@@ -96,10 +105,11 @@ cd companion && npm ci && npm run build && cd ..   # once: build the PWA
 ./build/ply_companion                              # prints room code + URL
 ```
 
-Open the URL on each phone (same Wi-Fi), enter the room code. Slot 1 drives
-**P1** (arrows + Space on the keyboard), slot 2 drives **P2** (A/D/W). Coins,
+Open the URL on each phone (same Wi-Fi), enter the room code. Slots 1-4 drive
+**P1**-**P4**; with a keyboard, P1 is arrows + Space and P2 is A/D/W. Coins,
 patrolling saws, a pit and a staircase lead to the flag — first player there
-wins. `P` pauses, `R` restarts.
+wins, and the game plays sound cues for jumps, coins, deaths and the win.
+`P` pauses, `R` restarts.
 
 ## Verification
 
@@ -111,8 +121,9 @@ Every milestone ships with checks that can actually fail:
   under `-DPLY_SANITIZE=ON` (ASan + UBSan).
 - **`--verify` on every demo** — headless assertions on real outcomes: the
   tutorial collects all five coins; `ply_companion --verify` plays a complete
-  match through the real companion-input queue and asserts coins, deaths,
-  independent second player and a winner.
+  four-player match through the real companion-input queue and asserts coins,
+  deaths, all four players moving independently, hazard patrol distance, the
+  win state, and that the four sound cues were emitted and played.
 - **CI** — Windows / Linux / macOS build matrix, a sanitizer job, Xvfb render
   checks, and the PWA build. Tagged releases additionally **unpack and run**
   the Linux archive on a clean Ubuntu 22.04 with no toolchain installed,

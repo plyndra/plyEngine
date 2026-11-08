@@ -5,6 +5,51 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.0-beta.1] — 2026-11-08
+
+First beta. The public API is now frozen for 1.0 (additions are minor;
+removals and renames require a deprecation cycle).
+
+### Added
+
+- **Installable SDK.** `cmake --install` writes the engine archive, its
+  internal static archives, the public headers and a
+  `plyEngineConfig.cmake`, so a consumer can use
+  `find_package(plyEngine CONFIG REQUIRED)` and link
+  `plyEngine::plyEngine` instead of vendoring the whole tree. Only
+  `Threads`, `SDL3`, `glm` and `nlohmann_json` are required at consumer
+  configure time — Crow/asio, mdns, stb and miniaudio are header-only and
+  compiled into the engine's objects. New `PLY_INSTALL` and
+  `PLY_BUILD_DEPS_INSTALL` options (both default `ON`).
+- **Four players in the reference demo.** Slots 1-4 drive P1-P4, each with
+  its own colour, score, respawn and HUD entry; coins are contested and the
+  first player to the flag wins. Keyboard fallback covers P1/P2, phones
+  cover all four.
+- **Sound in the reference demo.** The demo synthesises four short WAVs at
+  startup (no binary assets in the repo) and plays them from gameplay cues:
+  jump, coin, death and win. The game logic emits `demo::Sfx` events and
+  stays audio-free, so both the headless suite and `--verify` can assert
+  cues were requested and played.
+- **CI consumer build.** A scratch project that only does `find_package` +
+  link is built on Linux, Windows and macOS, so an export regression fails
+  CI instead of the first outside user.
+
+### Changed
+
+- `ply_companion --verify` now asserts four independent players plus the
+  four sound cues, and the scripted Autopilot probes all three non-scripted
+  slots.
+- `tests/platformer.cpp` asserts cue emission, contested-coin totals and
+  per-player displacement; the demo carries four player colours.
+- Reference demo, README, GETTING_STARTED, BUILDING, TUTORIAL, DESIGN and
+  ROADMAP updated for beta, the install path and four players.
+
+### Fixed
+
+- SDL3 would not have been installed by `cmake --install` (its
+  `SDL_INSTALL` defaults to off for subprojects), which would have broken
+  `find_dependency(SDL3)` for every consumer.
+
 ## [1.0.0-alpha.2] — 2026-11-08
 
 Supersedes `1.0.0-alpha.1`. If you downloaded the previous Linux archive, it
@@ -112,5 +157,6 @@ First tagged release. Everything below shipped across milestones M0–M7.
 - The reference demo is content-light by design — it exists to prove the
   engine, not to be a finished game.
 
+[1.0.0-beta.1]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.1
 [1.0.0-alpha.2]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-alpha.2
 [1.0.0-alpha.1]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-alpha.1

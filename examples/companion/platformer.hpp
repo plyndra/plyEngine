@@ -23,7 +23,7 @@ namespace demo {
 inline constexpr int kMapW = 40;
 inline constexpr int kMapH = 18;
 inline constexpr float kTile = 32.0f;
-inline constexpr int kPlayerCount = 2;
+inline constexpr int kPlayerCount = 4;
 
 // --- Gameplay tuning --------------------------------------------------------
 inline constexpr float kMoveSpeed = 320.0f;   // world units / second
@@ -39,6 +39,10 @@ inline constexpr float kGoalLeft = 36.0f * kTile;  // 1152
 inline constexpr float kGoalRight = 40.0f * kTile; // 1280
 inline constexpr float kGoalBottom = 11.0f * kTile; // 352
 inline constexpr float kGoalTop = 13.0f * kTile;   // 416
+
+/// One-shot sound cues the game emits; the host (main.cpp) plays them. The
+/// game logic stays audio-free so it can be tested headlessly.
+enum class Sfx { Jump, Coin, Death, Win };
 
 /// Per-player command for one fixed step. The demo fills this from phone
 /// slots, the keyboard, or the verify Autopilot — the game never cares.
@@ -112,6 +116,11 @@ public:
     int initialCoinCount = 0;
     float time = 0.0f;       // seconds of gameplay simulated (pauses freeze it)
 
+    /// Sound cues emitted since the last drain. The host plays and clears
+    /// them; tests assert on them ("a coin sound was requested" is gameplay
+    /// evidence, unlike "the audio device opened").
+    std::vector<Sfx> sfx;
+
 private:
     void buildLevelGeometry();
     void spawnPlayers(ply::World& world);
@@ -126,8 +135,11 @@ private:
 namespace level {
 
 inline glm::vec2 spawnPoint(int index) {
-    // P1 starts right of P2, both on the ground beneath the coin ledge.
-    return glm::vec2{(index == 0 ? 8.0f : 6.0f) * kTile + kTile * 0.5f, 110.0f};
+    // Spread the four players along the ground under the coin ledge so all of
+    // them are visible at once and none blocks another's route.
+    constexpr float kSpawnX[kPlayerCount] = {8.0f, 6.0f, 10.0f, 4.0f};
+    const int i = (index >= 0 && index < kPlayerCount) ? index : 0;
+    return glm::vec2{kSpawnX[i] * kTile + kTile * 0.5f, 110.0f};
 }
 
 }  // namespace level
@@ -324,6 +336,7 @@ inline void Game::killPlayer(ply::World& world, int index) {
     Player& player = players[index];
     ++player.deaths;
     player.invuln = kInvulnSeconds;
+    sfx.push_back(Sfx::Death);
 
     ply::Transform transform;
     transform.position = player.spawn;
@@ -389,6 +402,7 @@ inline void Game::step(ply::World& world,
                 if (body->grounded) {
                     if (ply::Velocity* velocity = world.get<ply::Velocity>(player.entity)) {
                         velocity->value.y = kJumpSpeed;
+                        sfx.push_back(Sfx::Jump);
                     }
                 }
             }
@@ -440,6 +454,7 @@ inline void Game::step(ply::World& world,
                 it = coins.erase(it);
                 ++player.score;
                 ++coinsCollected;
+                sfx.push_back(Sfx::Coin);
             } else {
                 ++it;
             }
@@ -451,6 +466,7 @@ inline void Game::step(ply::World& world,
             position.y - 14.0f < kGoalTop) {
             state = GameState::Won;
             winner = i;
+            sfx.push_back(Sfx::Win);
         }
     }
 
@@ -522,11 +538,19 @@ inline std::array<PlayerInput, kPlayerCount> Autopilot::update(const Game& game,
 
     switch (phase) {
         case Phase::P2Probe:
-            // Prove slot 1 drives its own player: walk P2 left into the wall.
+            // Prove every non-scripted slot drives its own player: P2 walks
+            // left, P3 left a shorter way, P4 right briefly. All stay clear of
+            // the pit and the saws so the probe cannot be confused with a
+            // gameplay failure.
             in[1].x = -1.0f;
+            in[2].x = -1.0f;
+            in[3].x = 1.0f;
             break;
         case Phase::ToCoin:
             in[0].x = 1.0f;
+            // Keep the probes alive (and therefore visibly independent) while
+            // the scripted player runs the level: hold them still at their
+            // displaced positions.
             break;
         case Phase::FallInPit:
             // Deliberately no jump: walk off into the pit (death 1).

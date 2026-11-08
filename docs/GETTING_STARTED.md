@@ -54,8 +54,9 @@ match to a win) — that is what CI asserts.
 
 ## Play the reference demo with phones
 
-The reference demo is a two-player single-screen platformer: coins, patrolling
-saws, a pit, a staircase and a goal flag.
+The reference demo is a four-player single-screen platformer: coins with
+per-player scoring, patrolling saws, a pit, a staircase, a goal flag and
+synthesised sound cues (jump, coin, death, win).
 
 1. Build the companion PWA (needs Node.js):
 
@@ -76,29 +77,33 @@ saws, a pit, a staircase and a goal flag.
 
    ```
    ========================================
-     plyEngine 1.0.0-alpha.2 - platformer demo
+     plyEngine 1.0.0-beta.1 - platformer demo
      room code: HL5W
      open:      http://192.168.x.x:8080
    ========================================
    ```
 
 4. On each phone, open the URL (same Wi-Fi), enter the room code, and join.
-   Slot 1 drives **P1**, slot 2 drives **P2**:
+   Slots 1-4 drive **P1**-**P4** independently (each has its own colour, score
+   and respawn):
 
    - P1 keyboard fallback: arrows + Space
    - P2 keyboard fallback: A / D / W
+   - P3 / P4: phone only
    - P or START: pause · R or START (after a win): restart
 
-   First player to the flag wins.
+   Coins are contested — first player to the flag wins.
 
 `--no-mdns` disables mDNS advertising (use it on networks where multicast is
 blocked); mDNS lets phones discover the game without typing the URL.
 
 ## Use the engine in your own game
 
-A game outside this repo pulls plyEngine in as a CMake subproject — pinned
-with `FetchContent`, or vendored and `add_subdirectory` — and links one
-target. Include paths, dependencies and the C++20 requirement propagate:
+A game outside this repo links plyEngine one of two ways — include paths,
+dependencies and the C++20 requirement propagate in both.
+
+**A) As a CMake subproject** (pinned `FetchContent`, or vendored and
+`add_subdirectory`):
 
 ```cmake
 include(FetchContent)
@@ -106,12 +111,31 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)      # don't build engine tests
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)   # or its demos
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-alpha.2)
+    GIT_TAG        v1.0.0-beta.1)
 FetchContent_MakeAvailable(plyEngine)
 
 add_executable(mygame src/main.cpp)
 target_link_libraries(mygame PRIVATE plyEngine)
 ```
+
+**B) As an installed SDK** (`find_package`):
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+cmake --install build --prefix /opt/plyengine
+```
+
+```cmake
+find_package(plyEngine CONFIG REQUIRED)   # -DCMAKE_PREFIX_PATH=/opt/plyengine
+add_executable(mygame src/main.cpp)
+target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
+```
+
+The install ships the engine, its internal static archives, the three public
+headers-only dependencies it exposes types from (GLM, nlohmann/json) and SDL3.
+Crow/asio, mdns, stb and miniaudio are compiled into the engine, so a consumer
+never configures them.
 
 ```cpp
 #include "plyEngine/App.hpp"
@@ -126,9 +150,7 @@ int main() {
 ```
 
 Do not set `CMAKE_CXX_STANDARD` yourself: `plyEngine` declares C++20 as a
-public compile feature. Full walkthrough: [TUTORIAL.md](TUTORIAL.md). There is
-no `find_package()` install yet — an installable package is planned after
-1.0-alpha (`docs/DESIGN.md`).
+public compile feature. Full walkthrough: [TUTORIAL.md](TUTORIAL.md).
 
 ## Next steps
 
