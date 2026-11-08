@@ -35,16 +35,34 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glad)
 glad_add_library(glad_gl_core_33 REPRODUCIBLE API gl:core=3.3)
 
+# --- glm (math) --------------------------------------------------------------
+set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLM_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
+set(GLM_ENABLE_EXPERIMENTAL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG        1.0.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(glm)
+
 # --- Core engine library -----------------------------------------------------
 add_library(plyEngine STATIC
     engine/src/engine.cpp
     engine/src/Window.cpp
+    engine/src/Input.cpp
+    engine/src/Shader.cpp
+    engine/src/Texture.cpp
+    engine/src/SpriteAtlas.cpp
+    engine/src/SpriteBatch.cpp
+    engine/src/OrthoCamera.cpp
 )
 target_include_directories(plyEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
 )
 target_link_libraries(plyEngine
-    PUBLIC glad_gl_core_33
+    PUBLIC glad_gl_core_33 glm::glm
     PRIVATE SDL3::SDL3
 )
 

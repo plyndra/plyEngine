@@ -1,78 +1,77 @@
+#include "plyEngine/Input.hpp"
+#include "plyEngine/OrthoCamera.hpp"
+#include "plyEngine/SpriteAtlas.hpp"
+#include "plyEngine/SpriteBatch.hpp"
 #include "plyEngine/Window.hpp"
 
 #include <glad/gl.h>
+#include <glm/glm.hpp>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 namespace {
 
-const char* kVertexShader = R"(#version 330 core
-layout(location = 0) in vec2 aPos;
-layout(location = 1) in vec2 aTexCoord;
-out vec2 vTexCoord;
-void main() {
-    vTexCoord = aTexCoord;
-    gl_Position = vec4(aPos, 0.0, 1.0);
-})";
-
-const char* kFragmentShader = R"(#version 330 core
-in vec2 vTexCoord;
-out vec4 FragColor;
-uniform sampler2D uTexture;
-void main() {
-    FragColor = texture(uTexture, vTexCoord);
-})";
-
-GLuint compileShader(GLenum type, const char* src) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &src, nullptr);
-    glCompileShader(shader);
-
-    GLint ok = 0;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
-    if (!ok) {
-        char log[1024];
-        glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
-        std::fprintf(stderr, "shader compile error: %s\n", log);
+// Writes an uncompressed 24-bit BMP (bottom-up, matching glReadPixels order).
+void writeBMP(const char* path, int w, int h, const unsigned char* rgb) {
+    std::FILE* f = std::fopen(path, "wb");
+    if (!f) {
+        std::fprintf(stderr, "could not open %s for writing\n", path);
+        return;
     }
-    return shader;
-}
 
-GLuint linkProgram(const char* vsSrc, const char* fsSrc) {
-    GLuint vs = compileShader(GL_VERTEX_SHADER, vsSrc);
-    GLuint fs = compileShader(GL_FRAGMENT_SHADER, fsSrc);
+    const int rowSize = (w * 3 + 3) & ~3;
+    const uint32_t dataSize = static_cast<uint32_t>(rowSize) * static_cast<uint32_t>(h);
+    const uint32_t fileSize = 54 + dataSize;
 
-    GLuint prog = glCreateProgram();
-    glAttachShader(prog, vs);
-    glAttachShader(prog, fs);
-    glLinkProgram(prog);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
+    auto put16 = [&](uint16_t v) { std::fwrite(&v, 2, 1, f); };
+    auto put32 = [&](uint32_t v) { std::fwrite(&v, 4, 1, f); };
 
-    GLint ok = 0;
-    glGetProgramiv(prog, GL_LINK_STATUS, &ok);
-    if (!ok) {
-        char log[1024];
-        glGetProgramInfoLog(prog, sizeof(log), nullptr, log);
-        std::fprintf(stderr, "program link error: %s\n", log);
+    std::fwrite("BM", 2, 1, f);
+    put32(fileSize);
+    put16(0); put16(0);
+    put32(54);      // pixel data offset
+    put32(40);      // BITMAPINFOHEADER size
+    put32(static_cast<uint32_t>(w));
+    put32(static_cast<uint32_t>(h));
+    put16(1);       // planes
+    put16(24);      // bits per pixel
+    put32(0);       // BI_RGB
+    put32(dataSize);
+    put32(0); put32(0);
+    put32(0); put32(0);
+
+    std::vector<unsigned char> row(static_cast<size_t>(rowSize), 0);
+    for (int y = 0; y < h; ++y) {
+        const unsigned char* src = rgb + static_cast<size_t>(y) * w * 3;
+        for (int x = 0; x < w; ++x) {
+            row[static_cast<size_t>(x) * 3 + 0] = src[static_cast<size_t>(x) * 3 + 2];  // B
+            row[static_cast<size_t>(x) * 3 + 1] = src[static_cast<size_t>(x) * 3 + 1];  // G
+            row[static_cast<size_t>(x) * 3 + 2] = src[static_cast<size_t>(x) * 3 + 0];  // R
+        }
+        std::fwrite(row.data(), 1, row.size(), f);
     }
-    return prog;
+    std::fclose(f);
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-    int maxFrames = 0;  // 0 = run until the window closes
+    int maxFrames = 0;  // 0 = run until closed
+    const char* screenshotPath = nullptr;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--frames") == 0 && i + 1 < argc) {
             maxFrames = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--screenshot") == 0 && i + 1 < argc) {
+            screenshotPath = argv[++i];
         }
     }
 
     ply::WindowConfig cfg;
-    cfg.title = "plyEngine - hello";
+    cfg.title = "plyEngine - renderer";
     cfg.width = 1280;
     cfg.height = 720;
 
@@ -87,75 +86,87 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::printf("OpenGL %s\n",
-                reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-
-    // Quad geometry: position + texcoord interleaved.
-    const float vertices[] = {
-        // x      y       u     v
-        -0.5f, -0.5f,   0.0f, 0.0f,
-         0.5f, -0.5f,   1.0f, 0.0f,
-         0.5f,  0.5f,   1.0f, 1.0f,
-        -0.5f,  0.5f,   0.0f, 1.0f,
-    };
-    const unsigned int indices[] = {0, 1, 2, 0, 2, 3};
-
-    GLuint vao = 0, vbo = 0, ebo = 0;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glGenBuffers(1, &ebo);
-
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
-                          reinterpret_cast<void*>(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // Checkerboard texture (procedural; no image loader needed until M4).
-    const int texSize = 8;
-    unsigned char pixels[texSize * texSize * 4];
-    for (int y = 0; y < texSize; ++y) {
-        for (int x = 0; x < texSize; ++x) {
-            const bool white = ((x + y) % 2) == 0;
-            const int i = (y * texSize + x) * 4;
-            pixels[i + 0] = white ? 255 : 32;
-            pixels[i + 1] = white ? 255 : 32;
-            pixels[i + 2] = white ? 255 : 32;
-            pixels[i + 3] = 255;
-        }
-    }
-
-    GLuint texture = 0;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texSize, texSize, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, pixels);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    GLuint program = linkProgram(kVertexShader, kFragmentShader);
-    glUseProgram(program);
-    glUniform1i(glGetUniformLocation(program, "uTexture"), 0);
-
     glClearColor(0.10f, 0.10f, 0.15f, 1.0f);
 
-    int frames = 0;
-    while (!window.shouldClose()) {
-        window.pollEvents();
+    // Build a 2x2 atlas (128x128) of four two-tone cells with black borders.
+    const int cellSize = 64;
+    const int atlasSize = 128;
+    std::vector<unsigned char> pixels(static_cast<size_t>(atlasSize) * atlasSize * 4);
+
+    auto fillCell = [&](int cx, int cy, int r, int g, int b) {
+        for (int py = 0; py < cellSize; ++py) {
+            for (int px = 0; px < cellSize; ++px) {
+                const int x = cx * cellSize + px;
+                const int y = cy * cellSize + py;
+                const int i = (y * atlasSize + x) * 4;
+                const bool border = px < 2 || py < 2 || px >= cellSize - 2 || py >= cellSize - 2;
+                const bool dark = py >= cellSize / 2;  // bottom half darker (orientation check)
+                if (border) {
+                    pixels[i + 0] = pixels[i + 1] = pixels[i + 2] = 0;
+                } else {
+                    pixels[i + 0] = static_cast<unsigned char>(dark ? r / 2 : r);
+                    pixels[i + 1] = static_cast<unsigned char>(dark ? g / 2 : g);
+                    pixels[i + 2] = static_cast<unsigned char>(dark ? b / 2 : b);
+                }
+                pixels[i + 3] = 255;
+            }
+        }
+    };
+
+    fillCell(0, 0, 220, 60, 60);    // red    (top-left)
+    fillCell(1, 0, 60, 220, 60);    // green  (top-right)
+    fillCell(0, 1, 60, 90, 220);    // blue   (bottom-left)
+    fillCell(1, 1, 220, 200, 60);   // yellow (bottom-right)
+
+    ply::SpriteAtlas atlas(atlasSize, atlasSize, pixels.data());
+    atlas.addRegion("red", 0, 0, cellSize, cellSize);
+    atlas.addRegion("green", cellSize, 0, cellSize, cellSize);
+    atlas.addRegion("blue", 0, cellSize, cellSize, cellSize);
+    atlas.addRegion("yellow", cellSize, cellSize, cellSize, cellSize);
+
+    const char* names[4] = {"red", "green", "blue", "yellow"};
+
+    ply::OrthoCamera camera;
+    ply::SpriteBatch batch;
+    ply::Input input;
+
+    const int grid = 8;
+    const float spriteSize = 48.0f;
+    const float spacing = 64.0f;
+    const float start = -(grid * spacing) / 2.0f + spacing / 2.0f;
+    const float moveSpeed = 6.0f;
+
+    auto renderFrame = [&]() {
+        glViewport(0, 0, window.width(), window.height());
         glClear(GL_COLOR_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+        batch.begin(atlas.texture(), camera.viewProj());
+        for (int r = 0; r < grid; ++r) {
+            for (int c = 0; c < grid; ++c) {
+                const ply::TextureRegion& region = atlas.region(names[(r + c) % 4]);
+                const glm::vec2 pos(start + c * spacing, start + r * spacing);
+                batch.draw(pos, {spriteSize, spriteSize}, region);
+            }
+        }
+        batch.end();
+    };
+
+    int frames = 0;
+    while (!input.quitRequested()) {
+        input.update();
+        camera.setViewport(window.width(), window.height());
+
+        glm::vec2 pos = camera.position();
+        if (input.isKeyDown(ply::Key::Left)) pos.x -= moveSpeed;
+        if (input.isKeyDown(ply::Key::Right)) pos.x += moveSpeed;
+        if (input.isKeyDown(ply::Key::Up)) pos.y += moveSpeed;
+        if (input.isKeyDown(ply::Key::Down)) pos.y -= moveSpeed;
+        camera.setPosition(pos);
+
+        if (input.isKeyPressed(ply::Key::Equals)) camera.setZoom(camera.zoom() * 1.1f);
+        if (input.isKeyPressed(ply::Key::Minus)) camera.setZoom(camera.zoom() / 1.1f);
+
+        renderFrame();
         window.swapBuffers();
 
         if (maxFrames > 0 && ++frames >= maxFrames) {
@@ -163,12 +174,16 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::printf("ply_hello rendered %d frames\n", frames);
+    if (screenshotPath) {
+        renderFrame();
+        const int w = window.width();
+        const int h = window.height();
+        std::vector<unsigned char> rgb(static_cast<size_t>(w) * h * 3);
+        glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, rgb.data());
+        writeBMP(screenshotPath, w, h, rgb.data());
+        std::printf("wrote screenshot to %s\n", screenshotPath);
+    }
 
-    glDeleteTextures(1, &texture);
-    glDeleteProgram(program);
-    glDeleteBuffers(1, &ebo);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+    std::printf("ply_hello rendered %d frames (%d quads, 1 batch)\n", frames, grid * grid);
     return 0;
 }

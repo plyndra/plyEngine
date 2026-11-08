@@ -9,9 +9,6 @@ namespace ply {
 struct Window::Impl {
     SDL_Window* window = nullptr;
     SDL_GLContext context = nullptr;
-    bool closeRequested = false;
-    int width = 0;
-    int height = 0;
 };
 
 Window::Window(const WindowConfig& cfg) : impl_(new Impl) {
@@ -45,9 +42,6 @@ Window::Window(const WindowConfig& cfg) : impl_(new Impl) {
 
     SDL_GL_MakeCurrent(impl_->window, impl_->context);
     SDL_GL_SetSwapInterval(1);  // vsync
-
-    impl_->width = cfg.width;
-    impl_->height = cfg.height;
 }
 
 Window::~Window() {
@@ -67,32 +61,27 @@ bool Window::valid() const {
     return impl_ && impl_->window != nullptr && impl_->context != nullptr;
 }
 
-bool Window::shouldClose() const {
-    return impl_ && impl_->closeRequested;
-}
-
-void Window::pollEvents() {
-    if (!impl_) {
-        return;
-    }
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) {
-            impl_->closeRequested = true;
-        } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) {
-            impl_->closeRequested = true;
-        }
-    }
-}
-
 void Window::swapBuffers() {
     if (impl_ && impl_->window) {
         SDL_GL_SwapWindow(impl_->window);
     }
 }
 
-int Window::width() const { return impl_ ? impl_->width : 0; }
-int Window::height() const { return impl_ ? impl_->height : 0; }
+int Window::width() const {
+    int w = 0, h = 0;
+    if (impl_ && impl_->window) {
+        SDL_GetWindowSize(impl_->window, &w, &h);
+    }
+    return w;
+}
+
+int Window::height() const {
+    int w = 0, h = 0;
+    if (impl_ && impl_->window) {
+        SDL_GetWindowSize(impl_->window, &w, &h);
+    }
+    return h;
+}
 
 void* Window::glGetProcAddress(const char* name) {
     return reinterpret_cast<void*>(SDL_GL_GetProcAddress(name));
