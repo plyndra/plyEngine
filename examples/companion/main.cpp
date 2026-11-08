@@ -359,8 +359,16 @@ int main(int argc, char** argv) {
 
     app.onRender(renderScene);
 
-    // The scripted run needs a full playthrough; default higher under verify.
-    const int frameCount = frames > 0 ? frames : (verify ? 1800 : 120);
+    // The scripted run needs a full playthrough. --verify therefore runs at
+    // least kVerifyFrames regardless of --frames, so `--frames 60 --verify`
+    // (the pre-M7 CI invocation) cannot fail for lack of simulated time.
+    constexpr int kVerifyFrames = 1800;
+    int frameCount = frames > 0 ? frames : 120;
+    if (verify && frameCount < kVerifyFrames) {
+        std::printf("verify: running %d frames (needs a full playthrough)\n",
+                    kVerifyFrames);
+        frameCount = kVerifyFrames;
+    }
     app.runFrames(frameCount);
 
     int exitCode = 0;

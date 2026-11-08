@@ -132,3 +132,9 @@ the pit and the saw, player 2 moving independently, and a win.
 - **HUD text missing** — no DejaVu font installed (see Linux packages).
 - **`ply_companion` can't serve the phone page** — build `companion/dist`
   first, or pass `--web <path>`.
+- **ASan reports leaks when running a demo** — if every stack frame is inside
+  `libGLX_mesa.so`, it is Mesa's GLX state that is never torn down, not
+  plyEngine (the equivalent GL-free `ctest` suites are clean). Suppress it with
+  `LSAN_OPTIONS=suppressions=<file>` if you need a quiet run. Note that
+  `--verify` always simulates a full playthrough (1800 frames), whatever
+  `--frames` says.
