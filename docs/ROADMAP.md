@@ -17,6 +17,8 @@ Dependencies land at their milestone: SDL3 + glad (M1), GLM (M2), Crow (M6).
 
 Each milestone ships with checks that can actually fail, run in CI:
 
-- `ctest` — headless unit tests (atlas UV math, ECS, timestep, transforms).
+- `ctest` — headless unit tests (atlas UV math, ECS, ECS stress, timestep, transforms).
+- `ctest` under `-DPLY_SANITIZE=ON` — the same suite with ASan + UBSan, which is
+  how the `remove<T>` use-after-free was found and proven fixed.
 - `ply_hello --verify` — renders and asserts content size/centring.
 - `ply_ecs --verify` — runs the ECS demo headlessly and asserts pixels were drawn.

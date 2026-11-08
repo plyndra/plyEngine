@@ -207,25 +207,30 @@ public:
         }
         auto& record = records_[entity.index];
         const ComponentTypeId id = componentTypeId<T>();
-        detail::Archetype& src = archetypes_[record.archetype];
-        const size_t removedColumn = src.column(id);
+        const size_t removedColumn =
+            archetypes_[record.archetype].column(id);
         if (removedColumn == detail::Archetype::kNoColumn) {
             return;
         }
 
-        std::vector<ComponentTypeId> target = src.types;
+        std::vector<ComponentTypeId> target = archetypes_[record.archetype].types;
         target.erase(std::find(target.begin(), target.end(), id));
 
         const size_t oldArchetype = record.archetype;
         const size_t oldRow = record.row;
+
+        // NOTE: ensureArchetype() and appendRow() may push_back into
+        // archetypes_, reallocating it. Never hold a reference across them;
+        // always re-index by archetype id.
         const size_t newArchetype = ensureArchetype(target);
         const size_t newRow = appendRow(newArchetype, entity);
 
         moveSharedColumns(archetypes_[oldArchetype], oldRow,
                           archetypes_[newArchetype], newRow);
 
-        // Destroy the component being removed.
-        src.columns[removedColumn].meta.destroy(src.columns[removedColumn].at(oldRow));
+        // Destroy the component being removed (re-fetched: see NOTE above).
+        detail::Column& removed = archetypes_[oldArchetype].columns[removedColumn];
+        removed.meta.destroy(removed.at(oldRow));
 
         dropRow(oldArchetype, oldRow);
         record.archetype = newArchetype;

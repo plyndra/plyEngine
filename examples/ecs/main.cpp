@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
         ply::updateTransforms(world);
     });
 
-    app.onRender([&](ply::App& a, double /*alpha*/) {
+    auto renderScene = [&](ply::App& a, double /*alpha*/) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         ply::World& world = a.world();
@@ -217,13 +217,19 @@ int main(int argc, char** argv) {
             batch.draw(gt->matrix, glm::vec2(body.size, body.size), *body.region);
         }
         batch.end();
-    });
+    };
+
+    app.onRender(renderScene);
 
     int exitCode = 0;
     const int targetFrames = frames > 0 ? frames : 0;
     exitCode = app.runFrames(targetFrames > 0 ? targetFrames : 120);
 
     if (verify || screenshot) {
+        // Render one more frame WITHOUT swapping, then read the back buffer.
+        // Reading after swapBuffers() is undefined: the buffer we read may
+        // already have been recycled.
+        renderScene(app, 0.0);
         glFinish();
         const int w = app.window().width();
         const int h = app.window().height();

@@ -248,6 +248,45 @@ int main() {
         check(near(origin(world, c2).x, 2.0f), "sibling still resolves");
     }
 
+    // --- destroying a parent does not strand its children ------------------
+    {
+        ply::World world;
+        const ply::Entity parent = makeNode(world, 100.0f, 0.0f);
+        const ply::Entity child = makeNode(world, 10.0f, 0.0f);
+        ply::setParent(world, child, parent);
+        ply::updateTransforms(world);
+        check(near(origin(world, child).x, 110.0f), "child under parent first");
+
+        world.destroy(parent);
+        ply::updateTransforms(world);
+
+        // The orphan must be treated as a root: its own local transform, not a
+        // stale world matrix from before the parent died.
+        check(world.alive(child), "child survived parent destruction");
+        check(near(origin(world, child).x, 10.0f),
+              "orphaned child falls back to its local transform");
+    }
+
+    // --- dead children are pruned from Children lists ----------------------
+    {
+        ply::World world;
+        const ply::Entity parent = makeNode(world, 0.0f, 0.0f);
+        const ply::Entity c1 = makeNode(world, 1.0f, 0.0f);
+        const ply::Entity c2 = makeNode(world, 2.0f, 0.0f);
+        ply::setParent(world, c1, parent);
+        ply::setParent(world, c2, parent);
+        ply::updateTransforms(world);
+
+        world.destroy(c1);
+        ply::updateTransforms(world);
+
+        const ply::Children* kids = world.get<ply::Children>(parent);
+        check(kids != nullptr, "parent still has children");
+        check(kids != nullptr && kids->value.size() == 1,
+              "dead child pruned from Children list");
+        check(near(origin(world, c2).x, 2.0f), "surviving sibling still resolves");
+    }
+
     if (failures == 0) {
         std::printf("transform tests: PASS\n");
         return 0;

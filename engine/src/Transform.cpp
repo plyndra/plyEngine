@@ -2,6 +2,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
 #include <unordered_set>
 
 namespace ply {
@@ -121,8 +122,20 @@ void updateTransforms(World& world) {
     };
 
     std::vector<Frame> stack;
+
+    // Roots are entities with no Parent, or whose parent is no longer alive
+    // (e.g. the parent was destroyed). Treating orphans as roots keeps their
+    // GlobalTransform from going stale forever.
     world.each<Transform>([&](Entity entity, Transform&) {
-        if (!world.has<Parent>(entity)) {
+        const Parent* parent = world.get<Parent>(entity);
+        if (!parent) {
+            stack.push_back({entity, Entity{}, false});
+            return;
+        }
+        if (!world.alive(parent->value)) {
+            // Orphaned: its cached world matrix was built relative to a parent
+            // that no longer exists, so invalidate it once and re-root it.
+            markTransformDirty(world, entity);
             stack.push_back({entity, Entity{}, false});
         }
     });
@@ -149,7 +162,20 @@ void updateTransforms(World& world) {
         }
 
         if (Children* kids = world.get<Children>(frame.entity)) {
-            for (Entity child : kids->value) {
+            // Drop links to dead children, and to children whose Parent no
+            // longer points back here, so stale entries cannot accumulate.
+            auto& list = kids->value;
+            list.erase(std::remove_if(list.begin(), list.end(),
+                                      [&](Entity child) {
+                                          if (!world.alive(child)) {
+                                              return true;
+                                          }
+                                          const Parent* pc = world.get<Parent>(child);
+                                          return !pc || !(pc->value == frame.entity);
+                                      }),
+                       list.end());
+
+            for (Entity child : list) {
                 stack.push_back({child, frame.entity, updated});
             }
         }

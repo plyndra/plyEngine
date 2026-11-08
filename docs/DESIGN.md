@@ -60,6 +60,18 @@ the entity between archetypes.
 raw pointer requires `markTransformDirty()`; `setTransform()` does it for you and
 is the preferred API. Cycles in `Parent` links are rejected.
 
+**Destroying an entity does not require hierarchy bookkeeping from the caller.**
+`updateTransforms()` treats an entity whose `Parent` is dead as a root (marking
+it dirty so its stale world matrix is rebuilt from its local transform) and
+prunes dead or contradictory entries from `Children` lists. Destroying a parent
+therefore orphans its children rather than leaving them with a frozen matrix.
+
+**Archetype vector references are never held across allocation.** `ensureArchetype()`
+and `appendRow()` push into `archetypes_`, which can reallocate. Code holds the
+archetype *index* and re-indexes after any such call. A regression test
+(`tests/world_stress.cpp`) sweeps reallocation boundaries, and CI runs the suite
+under ASan/UBSan.
+
 **Single-threaded, parallel-ready.** Systems run sequentially in M3. Archetype
 layout and system signatures are chosen so a parallel scheduler can be added
 without an API break.

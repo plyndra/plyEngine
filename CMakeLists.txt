@@ -7,6 +7,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(PLY_BUILD_TESTS "Build plyEngine tests" ON)
 option(PLY_BUILD_EXAMPLES "Build plyEngine examples" ON)
+option(PLY_SANITIZE "Build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
+
+if(PLY_SANITIZE)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 include(FetchContent)
 
@@ -85,6 +91,10 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_world_test tests/world.cpp)
     target_link_libraries(ply_world_test PRIVATE plyEngine)
     add_test(NAME world COMMAND ply_world_test)
+
+    add_executable(ply_world_stress_test tests/world_stress.cpp)
+    target_link_libraries(ply_world_stress_test PRIVATE plyEngine)
+    add_test(NAME world_stress COMMAND ply_world_stress_test)
 
     add_executable(ply_timestep_test tests/timestep.cpp)
     target_link_libraries(ply_timestep_test PRIVATE plyEngine)

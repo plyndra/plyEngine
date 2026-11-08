@@ -5,6 +5,31 @@ on:
   pull_request:
 
 jobs:
+  sanitizers:
+    name: ASan + UBSan (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+            libxpresent-dev libxshmfence-dev libxtst-dev \
+            python3-jinja2
+
+      - name: Configure (sanitized)
+        run: cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DPLY_SANITIZE=ON
+
+      - name: Build
+        run: cmake --build build-asan -j"$(nproc)"
+
+      - name: Test under ASan/UBSan
+        run: ctest --test-dir build-asan --output-on-failure
+
   build:
     strategy:
       fail-fast: false
