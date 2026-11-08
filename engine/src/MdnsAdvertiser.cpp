@@ -1,16 +1,8 @@
 #include "plyEngine/MdnsAdvertiser.hpp"
 
-#include <mdns.h>
+#include "SocketCompat.hpp"
 
-#if defined(_WIN32)
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
+#include <mdns.h>
 
 #include <atomic>
 #include <cstdio>
@@ -161,11 +153,11 @@ bool localIPv4(struct sockaddr_in& out) {
         connect(sock, reinterpret_cast<struct sockaddr*>(&remote), sizeof(remote)) == 0;
     bool ok = false;
     if (connected) {
-        socklen_t len = sizeof(out);
+        net::SockLen len = sizeof(out);
         ok = getsockname(sock, reinterpret_cast<struct sockaddr*>(&out), &len) == 0 &&
              out.sin_family == AF_INET;
     }
-    close(sock);
+    net::closeSocket(sock);
     return ok;
 }
 
@@ -198,6 +190,8 @@ bool MdnsAdvertiser::start(const Config& config) {
     if (!impl_ || impl_->active) {
         return false;
     }
+
+    net::ensureInit();  // winsock must be up before the first socket call
 
     impl_->stop = false;
     impl_->error.clear();
@@ -233,10 +227,7 @@ bool MdnsAdvertiser::start(const Config& config) {
     impl_->sockets[count++] = sock;
 
     // Short receive timeout so stop() is responsive.
-    struct timeval timeout {};
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 250000;
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    net::setReceiveTimeout(sock, 0, 250000);
 
     impl_->active = true;
     impl_->thread = std::thread([this] {
@@ -267,7 +258,7 @@ void MdnsAdvertiser::stop() {
     }
     for (int& sock : impl_->sockets) {
         if (sock >= 0) {
-            close(sock);
+            mdns_socket_close(sock);  // portable: closesocket() on Windows
             sock = -1;
         }
     }

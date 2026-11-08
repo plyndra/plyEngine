@@ -1,5 +1,7 @@
 #include "plyEngine/CompanionServer.hpp"
 
+#include "SocketCompat.hpp"
+
 #include <crow.h>
 
 #include <atomic>
@@ -74,7 +76,8 @@ bool safeRelativePath(const std::string& path) {
 }
 
 std::string localIPv4String() {
-    const int sock = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
+    ply::net::ensureInit();
+    const auto sock = static_cast<int>(socket(AF_INET, SOCK_DGRAM, 0));
     if (sock < 0) {
         return "127.0.0.1";
     }
@@ -85,7 +88,7 @@ std::string localIPv4String() {
     std::string result = "127.0.0.1";
     if (connect(sock, reinterpret_cast<struct sockaddr*>(&remote), sizeof(remote)) == 0) {
         struct sockaddr_in local {};
-        socklen_t len = sizeof(local);
+        ply::net::SockLen len = sizeof(local);
         if (getsockname(sock, reinterpret_cast<struct sockaddr*>(&local), &len) == 0) {
             char buffer[INET_ADDRSTRLEN] = {0};
             if (inet_ntop(AF_INET, &local.sin_addr, buffer, sizeof(buffer))) {
@@ -93,12 +96,13 @@ std::string localIPv4String() {
             }
         }
     }
-    close(sock);
+    ply::net::closeSocket(sock);
     return result;
 }
 
 int findFreePort() {
-    const int sock = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
+    ply::net::ensureInit();
+    const auto sock = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
     if (sock < 0) {
         return 8080;
     }
@@ -108,12 +112,12 @@ int findFreePort() {
     address.sin_port = 0;
     int port = 8080;
     if (bind(sock, reinterpret_cast<struct sockaddr*>(&address), sizeof(address)) == 0) {
-        socklen_t len = sizeof(address);
+        ply::net::SockLen len = sizeof(address);
         if (getsockname(sock, reinterpret_cast<struct sockaddr*>(&address), &len) == 0) {
             port = ntohs(address.sin_port);
         }
     }
-    close(sock);
+    ply::net::closeSocket(sock);
     return port;
 }
 
