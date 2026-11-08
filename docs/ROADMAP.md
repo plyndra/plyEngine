@@ -9,13 +9,13 @@
 | **M4 — Assets** | ✅ Done | PNG decode, spritesheet loaders (Aseprite/generic/TexturePacker), TTF baking + text, refcounted asset cache, ECS `Sprite` |
 | **M5 — Simulation** | ✅ Done | Per-axis swept AABB physics, tilemap collision, spatial hash broadphase, debug draw, miniaudio |
 | **M6 — Companion** | ✅ Done | Crow HTTP+WebSocket server, versioned JSON protocol, mDNS discovery + room code, reference PWA, fixed-step input queue |
-| **M7 — 1.0-alpha** | ✅ Done | Full reference demo (2 phone players, coins/scoring, saws, pit, staircase, goal, pause/restart) with outcome-asserting `--verify`; `ply_tutorial` + step-by-step tutorial; GETTING_STARTED/BUILDING docs; release workflow with per-OS binaries; issue templates, CoC, CHANGELOG; 14 ctest suites green in Release and ASan; tagged `v1.0.0-alpha.1` |
+| **M7 — 1.0-alpha** | ✅ Done | Full reference demo (2 phone players, coins/scoring, saws, pit, staircase, goal, pause/restart) with outcome-asserting `--verify`; `ply_tutorial` + step-by-step tutorial; GETTING_STARTED/BUILDING docs; release workflow with per-OS binaries that are unpacked and executed before publishing; issue templates, CoC, CHANGELOG; 14 ctest suites green in Release and ASan; tagged `v1.0.0-alpha.2` |
 
 Dependencies land at their milestone: SDL3 + glad (M1), GLM + stb + nlohmann/json (M2/M4), miniaudio + Crow + asio + mdns (M5/M6).
 
 ## The 1.0-alpha gate (M7 exit criteria, as run)
 
-Tagging `v1.0.0-alpha.1` requires all of the following — each is a check
+Tagging `v1.0.0-alpha.N` requires all of the following — each is a check
 that can fail, not a claim:
 
 1. **14 `ctest` suites pass** in Release **and** under `-DPLY_SANITIZE=ON`
@@ -24,12 +24,22 @@ that can fail, not a claim:
    outcomes — including a full scripted platformer match (coins collected,
    deaths to pit and saw, player 2 moving independently, player 1 wins) and
    the tutorial collecting all five coins.
-3. **Docs complete**: README, GETTING_STARTED, BUILDING, TUTORIAL,
-   DESIGN, ROADMAP, CHANGELOG all current.
-4. **Release automation**: tag-triggered workflow builds/tests/packages on
-   three OSes and attaches binaries + PWA + source tarball to the Release.
-5. **OSS hygiene**: issue templates, CODE_OF_CONDUCT, DCO CONTRIBUTING,
-   versioning `v1.0.0-alpha.N` (semver prerelease), Keep-a-Changelog.
+3. **The packaged archive runs.** A smoke job unpacks the Linux archive on a
+   clean Ubuntu 22.04 with no compiler or CMake, installs only runtime
+   libraries, and re-runs both headless checks; it also asserts the glibc
+   floor from `objdump -T`. The source tarball must build the tutorial on its
+   own. Nothing is published until these pass — this gate exists because
+   `v1.0.0-alpha.1` originally shipped binaries needing glibc 2.43 that no
+   current distro could run.
+4. **Docs complete**: README, GETTING_STARTED, BUILDING, TUTORIAL,
+   DESIGN, ROADMAP, CHANGELOG all current, including how to consume the
+   engine from another project.
+5. **Version consistency**: `PLY_VERSION_STRING` in `CMakeLists.txt` equals
+   the git tag. `ply::kVersion` is a *generated* header (`Version.hpp.in`),
+   so it cannot drift; the demos print it on startup.
+6. **OSS hygiene**: issue templates, CODE_OF_CONDUCT, DCO CONTRIBUTING,
+   semver prerelease tags, Keep-a-Changelog, GitHub release marked as a
+   prerelease.
 
 ## After 1.0-alpha
 
@@ -59,4 +69,9 @@ Each milestone ships with checks that can actually fail, run in CI:
   routing → gameplay) and asserts score, deaths, independent P2 movement,
   hazard patrol distance and the win state, plus the room-code HUD.
 - **Release workflow** — re-runs build + ctest + Linux `--verify` on all
-  three OSes for every `v*` tag before publishing artifacts.
+  three OSes for every `v*` tag, then unpacks the Linux archive on a
+  toolchain-free Ubuntu 22.04, runs it there, asserts the glibc floor, and
+  builds the tutorial from the source tarball — all before publishing.
+- **Consumer build** — a scratch project that `add_subdirectory`s the engine,
+  links `plyEngine` and prints `ply::kVersion` is compiled during M7 review;
+  it caught the missing public `cxx_std_20` requirement.

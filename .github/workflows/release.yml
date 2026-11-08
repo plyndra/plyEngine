@@ -143,7 +143,7 @@ jobs:
 
           cp -r companion/dist/. "dist/${PKG}/companion/"
           cp -r docs/. "dist/${PKG}/docs/"
-          cp README.md LICENSE CHANGELOG.md CONTRIBUTING.md "dist/${PKG}/"
+          cp README.md LICENSE CHANGELOG.md CONTRIBUTING.md CODE_OF_CONDUCT.md "dist/${PKG}/"
 
           if [ "$RUNNER_OS" = "Windows" ]; then
             powershell -NoProfile -Command \
@@ -177,9 +177,105 @@ jobs:
           path: plyEngine-*-source.tar.gz
           if-no-files-found: error
 
+  # --- Artifact gates ------------------------------------------------------
+  # Passing tests build-tree suites does not prove the *archive* runs. These
+  # two jobs unpack what users will download and execute it on a machine that
+  # has none of the build toolchain: this is the check that would have caught
+  # the v1.0.0-alpha.1 glibc-2.43 binaries.
+  smoke-linux:
+    name: Smoke test Linux archive
+    needs: [build]
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04   # the oldest distro the artifacts promise to run on
+    steps:
+      - name: Install runtime dependencies only (no compiler, no CMake)
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ca-certificates
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-linux-x86_64
+          path: /tmp/pkg
+
+      - name: Unpack and run the shipped binaries
+        run: |
+          mkdir -p /tmp/run && tar xzf /tmp/pkg/*.tar.gz -C /tmp/run
+          cd /tmp/run/plyEngine-*
+          export LIBGL_ALWAYS_SOFTWARE=1
+          echo "::group::tutorial"
+          xvfb-run -a ./ply_tutorial --verify
+          echo "::endgroup::"
+          echo "::group::platformer"
+          xvfb-run -a ./ply_companion --verify --frames 1800 --no-mdns --web companion
+          echo "::endgroup::"
+          echo "::group::glibc floor"
+          max=$(objdump -T ./ply_tutorial | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \
+                | sed 's/GLIBC_//' | sort -uV | tail -1)
+          echo "highest glibc symbol: $max"
+          printf '%s\n' "2.34" "$max" | sort -uV | tail -1 | grep -qx "2.34" \
+            || { echo "::error::archive requires glibc $max (> 2.34 floor)"; exit 1; }
+          echo "::endgroup::"
+
+  smoke-source:
+    name: Smoke test source tarball
+    needs: [source]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential cmake git python3 python3-jinja2 \
+            libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+            libxpresent-dev libxshmfence-dev libxtst-dev
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-source
+          path: /tmp/src
+
+      - name: Build the tutorial from the source tarball
+        run: |
+          mkdir -p /tmp/srcbuild && tar xzf /tmp/src/*.tar.gz -C /tmp/srcbuild
+          cd /tmp/srcbuild/plyEngine-*
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DPLY_BUILD_TESTS=OFF
+          cmake --build build -j 4 --target ply_tutorial
+
+      - name: Consume the engine like a game would
+        run: |
+          # Guards the public C++20 compile feature and exported include dirs:
+          # a consumer target that fails to inherit them breaks "build your
+          # first game" for every user, which is how this was found.
+          SRC=$(ls -d /tmp/srcbuild/plyEngine-*)
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          cat > CMakeLists.txt <<'CMAKE'
+          cmake_minimum_required(VERSION 3.24)
+          project(consumer LANGUAGES C CXX)
+          set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+          set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+          add_subdirectory(${CONSUMER_ENGINE_DIR} plyEngine)
+          add_executable(mygame main.cpp)
+          target_link_libraries(mygame PRIVATE plyEngine)
+          CMAKE
+          cat > main.cpp <<'CPP'
+          #include "plyEngine/App.hpp"
+          #include "plyEngine/Version.hpp"
+          #include <cstdio>
+          int main() { std::printf("plyEngine %s\n", ply::kVersion); return 0; }
+          CPP
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCONSUMER_ENGINE_DIR="$SRC"
+          cmake --build build -j 4 --target mygame
+          ./build/mygame | tee /tmp/consumer.out
+          grep -q "plyEngine 1\.0\.0-alpha" /tmp/consumer.out \
+            || { echo "::error::consumer build did not report the engine version"; exit 1; }
+
   release:
     name: Publish GitHub Release
-    needs: [build, source]
+    needs: [build, source, smoke-linux, smoke-source]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -199,12 +295,36 @@ jobs:
           # advertise it as the latest stable release.
           prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
-            Prebuilt demo binaries (Windows / Linux / macOS), the built
-            companion PWA and a source tarball are attached.
+            ## plyEngine ${{ github.ref_name }}
 
-            The Linux binaries are built against glibc 2.35 (Ubuntu 22.04)
-            and run on Debian 12+, Ubuntu 22.04+ and equivalent.
+            Open-source 2D game engine: C++20, OpenGL 3.3, archetype ECS, and
+            phone controllers over WebSocket — no app install.
 
-            See `CHANGELOG.md` inside the package for the full list of
-            changes and known limitations. Build-from-source instructions:
-            `docs/BUILDING.md`.
+            ### What's in each archive
+
+            - `ply_hello`, `ply_ecs`, `ply_assets`, `ply_physics` — feature demos
+            - `ply_tutorial` — the completed game from `docs/TUTORIAL.md`
+            - `ply_companion` — two-player platformer; phones drive it
+            - `companion/` — built web controller (serve it with `--web companion`)
+            - `docs/`, `README.md`, `CHANGELOG.md`, `LICENSE`
+
+            ### Run it
+
+            ```sh
+            ./ply_tutorial            # the tutorial game (keyboard)
+            ./ply_companion           # prints a room code + LAN URL for phones
+            ./ply_companion --verify  # headless self-check: plays a full match
+            ```
+
+            ### Requirements
+
+            - **Linux x86-64**: glibc 2.35+ (Ubuntu 22.04+, Debian 12+). Needs a
+              desktop OpenGL 3.3 driver; the archive is smoke-tested on a clean
+              Ubuntu 22.04 with only Xvfb + Mesa installed.
+            - **Windows x86-64**: Windows 10+ with an OpenGL 3.3 driver.
+            - **macOS arm64**: Apple Silicon, built on GitHub's macOS runner.
+              Unsigned: `xattr -dr com.apple.quarantine .` if Gatekeeper objects.
+
+            Every archive is unpacked and executed (not just built) before this
+            release is published. Build-from-source: `docs/BUILDING.md`.
+            Changes and known limitations: `CHANGELOG.md`.

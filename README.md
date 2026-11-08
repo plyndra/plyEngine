@@ -7,7 +7,7 @@ with a twist: players join from their phones as controllers through any web
 browser, no app install. Render the game to a shared screen, and every phone
 becomes a companion controller for party-style play (think Jackbox).
 
-> **Status:** **1.0-alpha** (`v1.0.0-alpha.1`) — the whole engine surface is
+> **Status:** **1.0-alpha** (`v1.0.0-alpha.2`) — the whole engine surface is
 > in place and covered by tests, but expect API changes before 1.0.
 > Prebuilt demo binaries: [Releases](https://github.com/plyndra/plyEngine/releases).
 
@@ -61,6 +61,23 @@ ctest --test-dir build --output-on-failure     # 14 headless suites
 
 Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md).
 
+Using the engine from your own game (one target, one link line — include
+paths, dependencies and the C++20 requirement propagate):
+
+```cmake
+include(FetchContent)
+set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(plyEngine
+    GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
+    GIT_TAG        v1.0.0-alpha.2)
+FetchContent_MakeAvailable(plyEngine)
+
+target_link_libraries(mygame PRIVATE plyEngine)
+```
+
+See [docs/TUTORIAL.md](docs/TUTORIAL.md) for the full walkthrough.
+
 Run the examples:
 
 ```sh
@@ -97,7 +114,10 @@ Every milestone ships with checks that can actually fail:
   match through the real companion-input queue and asserts coins, deaths,
   independent second player and a winner.
 - **CI** — Windows / Linux / macOS build matrix, a sanitizer job, Xvfb render
-  checks, and the PWA build. Tagged releases attach prebuilt binaries via
+  checks, and the PWA build. Tagged releases additionally **unpack and run**
+  the Linux archive on a clean Ubuntu 22.04 with no toolchain installed,
+  assert the glibc floor, and build the tutorial from the published source
+  tarball before anything is published:
   [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## Documentation

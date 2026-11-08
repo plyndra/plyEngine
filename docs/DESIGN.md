@@ -242,13 +242,30 @@ BUILDING and TUTORIAL are the three guides.
 triggers `.github/workflows/release.yml`, which rebuilds, re-tests and
 re-verifies on Windows/Linux/macOS, packages the six demo executables +
 `companion/dist` + docs + CHANGELOG, and attaches per-OS archives plus a
-`git archive` source tarball to the Release. Version lives in three
-places that must agree: `CMakeLists.txt` `project(VERSION …)`,
-`ply::kVersion` (`Version.hpp`, printed by the demo), and the git tag —
-`v1.0.0-alpha.N` until the API stabilises. Changelog is Keep-a-Changelog.
-Source-build-only was rejected: SDL3's Linux dependencies are a real
-onboarding wall, and the CI matrix already builds all three OSes, so
-binaries are nearly free.
+`git archive` source tarball to the Release. Tags are
+`v1.0.0-alpha.N` until the API stabilises and are published as GitHub
+*prereleases*. Changelog is Keep-a-Changelog. Source-build-only was
+rejected: SDL3's Linux dependencies are a real onboarding wall, and the CI
+matrix already builds all three OSes, so binaries are nearly free.
+
+**The version is authored once.** `PLY_VERSION_STRING` in `CMakeLists.txt`
+is the single source; `ply::kVersion` is a *generated* header
+(`Version.hpp.in` → `build/generated/plyEngine/Version.hpp`), so the code
+cannot drift from the build. The git tag must equal that string and the
+release checklist checks it; the demos print it at startup. (Before this,
+the hand-written header, `project(VERSION)` and the tag were three values
+that could disagree — they did, at `1.0.0` vs `1.0.0-alpha.1`.)
+
+**The engine is a CMake subproject, not an installed SDK.** Consumers use
+`add_subdirectory` or `FetchContent` with `PLY_BUILD_TESTS`/`
+`PLY_BUILD_EXAMPLES` off, then link `plyEngine`. `plyEngine` declares
+C++20 with `target_compile_features(... PUBLIC cxx_std_20)` and exports its
+include dirs publicly, so nothing about the requirement is implicit — the
+first consumer build proved that a directory-scoped `CMAKE_CXX_STANDARD`
+leaks nothing to the linking target, and the fix is a public compile
+feature. An installable `find_package(plyEngine)` package is deliberately
+deferred: it would have to republish the pinned FetchContent dependencies
+(glad, GLM, json), which is post-alpha work.
 
 **Hygiene that ships with the tag.** Issue templates (bug/feature),
 `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), CHANGELOG.md, and the
@@ -260,14 +277,28 @@ tagged build taught the lesson the hard way: binaries built on
 `ubuntu-latest` demanded glibc 2.43 and would not start on Ubuntu 22.04,
 Debian 12, or even the maintainer's own host. "It built in CI" is not
 "it runs for users", and the CI matrix's passing tests never touched the
-artifact. The release job therefore (a) builds Linux inside a pinned
-`ubuntu:22.04` container to fix the toolchain floor, (b) greps
-`objdump -T` for the highest required `GLIBC_*` symbol and **fails the
-job** if it exceeds 2.34, and (c) does all of this before the Release is
-published, so a bad archive cannot reach the releases page. The floor
-(glibc 2.35) is documented in `docs/BUILDING.md`.
+artifact. The release therefore has three artifact gates, all of which must
+pass before anything is published:
+
+1. **Toolchain floor** — Linux legs build inside a pinned `ubuntu:22.04`
+   container.
+2. **Unpack and run** — `smoke-linux` extracts the *shipped archive* on a
+   clean Ubuntu 22.04 with no compiler and no CMake, installs only runtime
+   libraries (xvfb + Mesa), and runs both headless `--verify` checks, plus
+   an `objdump -T` assertion that no required `GLIBC_*` symbol exceeds 2.34.
+3. **Source tarball builds** — `smoke-source` configures and builds
+   `ply_tutorial` from the published `git archive`, proving the tarball is
+   complete.
+
+The floor (glibc 2.35) and the runtime library list are documented in
+`docs/BUILDING.md`. The generalisable rule: a test suite that runs against
+the build tree says nothing about the artifact; the artifact must be
+executed, on a machine unlike the build machine.
 
 ## Open branches (post-1.0-alpha)
+
+- Installable package: `install()` rules + `plyEngineConfig.cmake` so
+  `find_package(plyEngine)` works without FetchContent
 
 - Embedded scripting (Lua binding)
 - Browser/WASM build of the game (web distribution)

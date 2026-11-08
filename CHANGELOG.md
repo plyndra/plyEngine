@@ -5,6 +5,57 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.0-alpha.2] — 2026-11-08
+
+Supersedes `1.0.0-alpha.1`. If you downloaded the previous Linux archive, it
+required glibc 2.43 and would not start on current distros — use this one.
+
+### Fixed
+
+- **Consuming plyEngine from your own project failed to compile.** The C++20
+  requirement was directory-scoped, so it did not reach targets that link
+  `plyEngine`; a scratch `add_subdirectory` consumer failed on defaulted
+  `operator==` in `Entity.hpp`. `plyEngine` now declares
+  `target_compile_features(... PUBLIC cxx_std_20)`. Verified by building and
+  running a consumer project against the engine.
+- **Version could drift.** `ply::kVersion` was hand-written (`1.0.0-alpha.1`)
+  while `project(VERSION)` said `1.0.0`. It is now generated from
+  `PLY_VERSION_STRING` in `CMakeLists.txt` via `Version.hpp.in`, so the
+  header cannot disagree with the build; the tag must match that string.
+- **Linux archives did not run on current distros** (alpha.1): built on
+  `ubuntu-latest`, they needed glibc 2.43. Linux release legs now build in a
+  pinned `ubuntu:22.04` container (glibc 2.35 floor) and assert the floor
+  from `objdump -T` before packaging.
+- **Nothing verified the shipped artifact.** Added `smoke-linux`, which
+  unpacks the release archive on a clean Ubuntu 22.04 with no compiler or
+  CMake, installs only runtime libraries, and runs both headless checks;
+  and `smoke-source`, which builds the tutorial from the published source
+  tarball. The Release is not published unless both pass.
+- **PWA files leaked onto the releases page** as standalone assets; the
+  release job now downloads only the `package-*` artifacts.
+- **`-alpha.N` releases were not flagged as prereleases**, so GitHub
+  advertised an alpha as the latest stable release.
+
+### Added
+
+- **"Using plyEngine in your own project"** in `docs/TUTORIAL.md` and
+  `docs/GETTING_STARTED.md`: `FetchContent`/`add_subdirectory` snippets,
+  with what propagates and what to turn off.
+- **Runtime requirements for prebuilt binaries** in `docs/BUILDING.md`,
+  including the exact headless command (`xvfb`, Mesa, fonts).
+- `CODE_OF_CONDUCT.md` is now included inside the release archives.
+- Richer GitHub Release body: what each binary is, how to run it, per-OS
+  requirements.
+
+### Changed
+
+- `ply_companion --verify` raises `--frames` to the 1800 needed for the
+  scripted playthrough, so the pre-M7 CI invocation cannot fail for lack of
+  simulated time.
+- Tutorial corrections: real pickup code (no invented helper), correct line
+  count, and audio/asset coverage attributed to the tests that actually
+  cover them.
+
 ## [1.0.0-alpha.1] — 2026-11-08
 
 First tagged release. Everything below shipped across milestones M0–M7.
@@ -54,10 +105,12 @@ First tagged release. Everything below shipped across milestones M0–M7.
 
 ### Known limitations
 
+
 - Native-only through 1.0-alpha: no scripting, no web/WASM build, no
   mobile targets (see `docs/ROADMAP.md`).
 - Companion protocol is WebSocket/LAN only; no internet play.
 - The reference demo is content-light by design — it exists to prove the
   engine, not to be a finished game.
 
+[1.0.0-alpha.2]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-alpha.2
 [1.0.0-alpha.1]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-alpha.1

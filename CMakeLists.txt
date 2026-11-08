@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
+
+# Single source of truth for the version string. The git tag must match it
+# (docs/ROADMAP.md release checklist); Version.hpp is generated from this
+# value so the header can never drift from the build.
+set(PLY_VERSION_STRING "1.0.0-alpha.2" CACHE STRING "plyEngine version string")
+
 project(plyEngine VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -153,6 +159,26 @@ add_library(plyEngine STATIC
 )
 target_include_directories(plyEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
+)
+
+# The public headers require C++20 (defaulted comparison operators in
+# Entity/ControllerState are the ones a consumer notices first). Declaring it
+# PUBLIC makes the requirement propagate to anything that links plyEngine —
+# without this, a consumer project compiles the engine's headers with the
+# compiler default and fails. Verified with a scratch add_subdirectory
+# consumer, and guarded at release time by the smoke-source job.
+target_compile_features(plyEngine PUBLIC cxx_std_20)
+
+# Generated version header: PLY_VERSION_STRING above is the only place the
+# version is written by hand.
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated/plyEngine)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include/plyEngine/Version.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/plyEngine/Version.hpp
+    @ONLY
+)
+target_include_directories(plyEngine PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 target_link_libraries(plyEngine
     PUBLIC glad_gl_core_33 glm::glm nlohmann_json::nlohmann_json

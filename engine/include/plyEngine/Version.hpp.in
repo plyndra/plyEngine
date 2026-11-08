@@ -1,0 +1,10 @@
+#pragma once
+
+namespace ply {
+
+/// Version string stamped on releases. Generated at configure time from
+/// PLY_VERSION_STRING in CMakeLists.txt, which is the single place the
+/// version is authored; the git tag must match it (see docs/ROADMAP.md).
+inline constexpr const char* kVersion = "@PLY_VERSION_STRING@";
+
+}  // namespace ply

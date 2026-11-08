@@ -5,7 +5,7 @@ flat arena, five coins, a score, a win state, and a headless check CI can
 run. Every code block below is taken from the finished source:
 
 - **[`examples/tutorial/main.cpp`](../examples/tutorial/main.cpp)** — the
-  full game (~250 lines), built as `ply_tutorial`.
+  full game (~340 lines), built as `ply_tutorial`.
 
 If you want to type along, create a file and paste each step's code; the
 final section tells you how to wire it into CMake.
@@ -177,7 +177,8 @@ for (int y = 0; y < kMapH; ++y) {
 ## Step 6 — pickups and a win condition
 
 Coins are entities with a marker component. Each step, test the player's
-centre against every live coin and destroy the ones you touch:
+centre against every live coin and destroy the ones you touch (this is the
+real code from `examples/tutorial/main.cpp`):
 
 ```cpp
 struct Coin {};   // marker component: no data, just identity
@@ -192,7 +193,11 @@ world.add<Coin>(coin, Coin{});
 const auto* playerTransform = world.get<ply::Transform>(game.player);
 for (auto it = game.coins.begin(); it != game.coins.end(); ) {
     const auto* coinTransform = world.get<ply::Transform>(*it);
-    if (touches(playerTransform->position, coinTransform->position)) {
+    const bool touch =
+        playerTransform && coinTransform &&
+        std::fabs(playerTransform->position.x - coinTransform->position.x) < 26.0f &&
+        std::fabs(playerTransform->position.y - coinTransform->position.y) < 26.0f;
+    if (touch) {
         world.destroy(*it);          // archetype storage re-packs itself
         it = game.coins.erase(it);
         ++game.score;
@@ -268,13 +273,68 @@ target_link_libraries(ply_tutorial PRIVATE plyEngine)
 
 Run it: `./build/ply_tutorial` — arrows/WASD to move, Space to jump.
 
+## Using plyEngine in your own project
+
+The tutorial above added its target to plyEngine's own `CMakeLists.txt`. A
+game outside the repo instead pulls the engine in. `add_subdirectory` (a
+git submodule or vendored copy):
+
+```cmake
+cmake_minimum_required(VERSION 3.24)
+project(mygame LANGUAGES C CXX)
+
+# Don't build the engine's own tests and demos inside your project.
+set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(third_party/plyEngine plyEngine)
+
+add_executable(mygame src/main.cpp)
+target_link_libraries(mygame PRIVATE plyEngine)
+```
+
+Or with `FetchContent`, pinned to a release tag:
+
+```cmake
+include(FetchContent)
+set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(plyEngine
+    GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
+    GIT_TAG        v1.0.0-alpha.2)
+FetchContent_MakeAvailable(plyEngine)
+
+target_link_libraries(mygame PRIVATE plyEngine)
+```
+
+Linking `plyEngine` gives you the include paths, GLM/json propagation and the
+required C++20 standard automatically — do not set `CMAKE_CXX_STANDARD`
+yourself. The first configure downloads the pinned dependencies, so it needs
+network access.
+
+```cpp
+#include "plyEngine/App.hpp"
+#include "plyEngine/Version.hpp"
+
+int main() {
+    std::printf("built against plyEngine %s\n", ply::kVersion);
+    ply::App app;
+    return app.valid() ? 0 : 1;
+}
+```
+
+The version string comes from `PLY_VERSION_STRING` in the engine's
+`CMakeLists.txt` (the header is generated), so it is never stale.
+
 ## Where next
 
 - **Phone controllers** — the reference platformer
   (`examples/companion/`) adds a `CompanionServer`; phones join a room and
   drive players. See [GETTING_STARTED.md](GETTING_STARTED.md).
-- **Real assets** — PNG loading, Aseprite/TexturePackersheets and the
-  refcounted `AssetCache` (`ply_assets` demo).
-- **Audio** — `ply::AudioSystem` with decoded WAV/OGG effects (`ply_assets`).
+- **Real assets** — PNG loading, Aseprite/TexturePackersheets (`ply_assets`
+  demo) and the refcounted `AssetCache<T>` (covered by the `assets` ctest
+  suite).
+- **Audio** — `ply::AudioSystem` with decoded WAV/OGG effects and per-voice
+  volume/pitch/pan (covered by the `audio` ctest suite; no demo uses it yet).
 - **Why it works this way** — [DESIGN.md](DESIGN.md) records every settled
   decision (centre anchors, fixed timestep, sRGB passthrough, …).

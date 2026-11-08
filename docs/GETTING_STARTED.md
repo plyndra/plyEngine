@@ -76,7 +76,7 @@ saws, a pit, a staircase and a goal flag.
 
    ```
    ========================================
-     plyEngine 1.0.0-alpha.1 - platformer demo
+     plyEngine 1.0.0-alpha.2 - platformer demo
      room code: HL5W
      open:      http://192.168.x.x:8080
    ========================================
@@ -93,6 +93,42 @@ saws, a pit, a staircase and a goal flag.
 
 `--no-mdns` disables mDNS advertising (use it on networks where multicast is
 blocked); mDNS lets phones discover the game without typing the URL.
+
+## Use the engine in your own game
+
+A game outside this repo pulls plyEngine in as a CMake subproject — pinned
+with `FetchContent`, or vendored and `add_subdirectory` — and links one
+target. Include paths, dependencies and the C++20 requirement propagate:
+
+```cmake
+include(FetchContent)
+set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)      # don't build engine tests
+set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)   # or its demos
+FetchContent_Declare(plyEngine
+    GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
+    GIT_TAG        v1.0.0-alpha.2)
+FetchContent_MakeAvailable(plyEngine)
+
+add_executable(mygame src/main.cpp)
+target_link_libraries(mygame PRIVATE plyEngine)
+```
+
+```cpp
+#include "plyEngine/App.hpp"
+
+int main() {
+    ply::App::Config config;
+    config.window.title = "my game";
+    ply::App app(config);
+    if (!app.valid()) return 1;
+    app.run();
+}
+```
+
+Do not set `CMAKE_CXX_STANDARD` yourself: `plyEngine` declares C++20 as a
+public compile feature. Full walkthrough: [TUTORIAL.md](TUTORIAL.md). There is
+no `find_package()` install yet — an installable package is planned after
+1.0-alpha (`docs/DESIGN.md`).
 
 ## Next steps
 

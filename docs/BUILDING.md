@@ -64,13 +64,27 @@ docs, plus a source tarball.
 
 | Platform | Archive | Minimum requirement |
 |---|---|---|
-| Linux x86-64 | `*-linux-x86_64.tar.gz` | glibc 2.35+ (Ubuntu 22.04+, Debian 12+) — built in a pinned Ubuntu 22.04 container |
-| Windows x86-64 | `*-windows-x86_64.zip` | Windows 10+ |
-| macOS arm64 | `*-macos-arm64.tar.gz` | macOS 12+ |
+| Linux x86-64 | `*-linux-x86_64.tar.gz` | glibc 2.35+ (Ubuntu 22.04+, Debian 12+), OpenGL 3.3 driver — built in a pinned Ubuntu 22.04 container |
+| Windows x86-64 | `*-windows-x86_64.zip` | Windows 10+, OpenGL 3.3 driver |
+| macOS arm64 | `*-macos-arm64.tar.gz` | Apple Silicon, built on GitHub's macOS runner |
 
-The release job asserts the Linux glibc floor (`objdump -T` symbol check)
-before packaging: a binary that demands a newer glibc than the guarantee is
-a failed build, not a footnote. Unpack and run, e.g.
+The release job does not merely build these archives: it unpacks the Linux
+one on a clean Ubuntu 22.04 that has **no compiler and no CMake**, installs
+only the runtime libraries, and runs both headless checks there. It also
+asserts the glibc floor (`objdump -T` symbol check) and builds the tutorial
+from the published source tarball. A binary that demands a newer glibc, or an
+archive missing a runtime library, fails the release instead of shipping.
+
+Runtime dependencies on a Linux *desktop* are the usual OpenGL stack
+transitively (`libgl1`, `libglx-mesa0`, `libgl1-mesa-dri` on Debian/Ubuntu,
+plus X11 or Wayland libraries). For a headless run you need exactly:
+
+```sh
+sudo apt-get install -y xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./ply_tutorial --verify
+```
+
+Unpack and run, e.g.
 
 ```sh
 ./ply_tutorial          # the tutorial game
@@ -87,6 +101,12 @@ unpacked directory if Gatekeeper objects.
 | `PLY_BUILD_TESTS` | `ON` | Build the `ctest` suite |
 | `PLY_BUILD_EXAMPLES` | `ON` | Build the demo executables |
 | `PLY_SANITIZE` | `OFF` | Build with AddressSanitizer + UBSan |
+| `PLY_VERSION_STRING` | `1.0.0-alpha.2` | Version reported by `ply::kVersion` (generated header) |
+
+`ply::kVersion` lives in a **generated** header. `PLY_VERSION_STRING` in
+`CMakeLists.txt` is the only place the version is authored; the git tag must
+match it. Override at configure time with
+`-DPLY_VERSION_STRING=1.0.0-alpha.3` if you build a fork.
 Sanitizer build (this is how the CI finds use-after-free bugs):
 
 ```sh
