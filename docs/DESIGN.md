@@ -41,6 +41,30 @@ send inputs only.
 4. **Companion** — embedded Crow server, JSON protocol, room code + QR join.
 5. **Game layer** — native C++ API (games link against plyEngine).
 
+## Asset pipeline (settled in M4)
+
+**Decoders:** stb_image (PNG/JPEG/…) and stb_truetype (TTF), both pinned by
+commit in FetchContent. nlohmann/json parses metadata.
+
+**AssetCache<T> is a real refcounted cache.** Handles are `shared_ptr`-based and
+the cache only holds `weak_ptr` references, so an asset is released the moment
+its last handle dies; expired entries are purged lazily on the next load. The
+cache never keeps assets alive on its own.
+
+**Spritesheet formats:** our generic JSON, Aseprite JSON (hash and array forms),
+and the TexturePacker/libGDX text atlas. Aseprite's hash form returns frames in
+JSON object-key order rather than sheet order, so consumers should key frames by
+name; the array form preserves order.
+
+**Text** is baked per size into a single atlas (printable ASCII) and drawn
+through its own batch, because `SpriteBatch` groups by texture.
+
+**`Sprite` components share a texture via `shared_ptr`.** `drawSprites()` groups
+instances by texture so each distinct texture costs one draw call.
+
+**sRGB: still passthrough.** Pixels from a PNG reach the framebuffer unchanged.
+Revisit at M5 when lighting/additive blending makes linear correctness matter.
+
 ## ECS conventions (settled in M3)
 
 **Entity handles are packed index+generation.** A stale handle to a destroyed

@@ -25,6 +25,8 @@ becomes a companion controller for party-style play (think Jackbox).
   interpolation, owned by `ply::App`.
 - **Sprite batch renderer** — atlas-backed quads in a single draw call,
   centre-anchored, with per-texture filtering.
+- **Asset pipeline** — PNG decoding, Aseprite/TexturePacker/generic spritesheet
+  loaders, TTF text baked into an atlas, and a reference-counted asset cache.
 
 ## Tech stack
 
@@ -64,6 +66,7 @@ Run the examples:
 ```sh
 ./build/ply_hello          # batching + atlas + camera
 ./build/ply_ecs            # App + ECS + transform hierarchy
+./build/ply_assets         # PNG + spritesheet JSON + TTF text
 ```
 
 Linux needs SDL3's build dependencies (X11/Wayland dev libraries) plus

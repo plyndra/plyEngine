@@ -53,6 +53,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 
+# --- nlohmann/json (scene + spritesheet metadata) ----------------------------
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+set(JSON_Install OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.12.0
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+# --- stb (image + truetype decoding; no build system upstream) ---------------
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        4e9b368bfc071e97206ea5c6adba68dd0cbf8897
+)
+FetchContent_MakeAvailable(stb)
+
+add_library(stb_impl STATIC engine/src/stb_impl.cpp)
+target_include_directories(stb_impl PUBLIC ${stb_SOURCE_DIR})
+
 # --- Core engine library -----------------------------------------------------
 add_library(plyEngine STATIC
     engine/src/engine.cpp
@@ -67,13 +89,18 @@ add_library(plyEngine STATIC
     engine/src/Transform.cpp
     engine/src/FixedTimestep.cpp
     engine/src/App.cpp
+    engine/src/Image.cpp
+    engine/src/Spritesheet.cpp
+    engine/src/Font.cpp
+    engine/src/TextRenderer.cpp
+    engine/src/Sprite.cpp
 )
 target_include_directories(plyEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
 )
 target_link_libraries(plyEngine
-    PUBLIC glad_gl_core_33 glm::glm
-    PRIVATE SDL3::SDL3
+    PUBLIC glad_gl_core_33 glm::glm nlohmann_json::nlohmann_json
+    PRIVATE SDL3::SDL3 stb_impl
 )
 
 # --- Tests -------------------------------------------------------------------
@@ -103,6 +130,20 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_transform_test tests/transform.cpp)
     target_link_libraries(ply_transform_test PRIVATE plyEngine)
     add_test(NAME transform COMMAND ply_transform_test)
+
+    add_executable(ply_assets_test tests/assets.cpp)
+    target_link_libraries(ply_assets_test PRIVATE plyEngine)
+    add_test(NAME assets COMMAND ply_assets_test)
+
+    add_executable(ply_spritesheet_test tests/spritesheet.cpp)
+    target_link_libraries(ply_spritesheet_test PRIVATE plyEngine)
+    add_test(NAME spritesheet COMMAND ply_spritesheet_test)
+
+    add_executable(ply_image_test tests/image.cpp)
+    target_link_libraries(ply_image_test PRIVATE plyEngine)
+    target_compile_definitions(ply_image_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME image COMMAND ply_image_test)
 endif()
 
 # --- Examples ----------------------------------------------------------------
@@ -112,4 +153,7 @@ if(PLY_BUILD_EXAMPLES)
 
     add_executable(ply_ecs examples/ecs/main.cpp)
     target_link_libraries(ply_ecs PRIVATE plyEngine)
+
+    add_executable(ply_assets examples/assets/main.cpp)
+    target_link_libraries(ply_assets PRIVATE plyEngine)
 endif()
