@@ -68,14 +68,21 @@ jobs:
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            build-essential git python3 python3-pip python3-jinja2 \
+            build-essential git python3 python3-jinja2 ca-certificates curl tar \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
             libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
             libxpresent-dev libxshmfence-dev libxtst-dev \
             xvfb fonts-dejavu-core libgl1-mesa-dri libglx-mesa0
-          # Ubuntu 22.04 ships CMake 3.22; the project needs 3.24+.
-          python3 -m pip install --upgrade cmake
+          # Ubuntu 22.04 ships CMake 3.22; the project needs 3.24+. Take the
+          # official static build (pinned) rather than pip: PyPI hash churn
+          # inside this container already broke one release run.
+          CMAKE_VERSION=3.31.6
+          curl -fsSL -o /tmp/cmake.tar.gz \
+            "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz"
+          tar xzf /tmp/cmake.tar.gz -C /opt
+          echo "/opt/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "$GITHUB_PATH"
+          cmake --version | head -1
 
       - name: Install Python deps (glad codegen)
         if: runner.os != 'Linux'
@@ -192,7 +199,7 @@ jobs:
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ca-certificates
+            xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ca-certificates binutils
 
       - uses: actions/download-artifact@v4
         with:
