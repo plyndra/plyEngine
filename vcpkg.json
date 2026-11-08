@@ -1,0 +1,8 @@
+{
+  "name": "plyengine",
+  "version": "0.1.0",
+  "description": "Open-source 2D game engine (C++20)",
+  "dependencies": [
+    { "name": "glm" }
+  ]
+}

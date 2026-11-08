@@ -1,0 +1,27 @@
+# C++ build output
+build/
+cmake-build-*/
+out/
+vcpkg_installed/
+vcpkg/
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Companion PWA (M6)
+node_modules/
+dist/
+
+# Tooling
+compile_commands.json
+.cache/
