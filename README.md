@@ -31,6 +31,8 @@ becomes a companion controller for party-style play (think Jackbox).
   under the fixed timestep, with a spatial-hash broadphase.
 - **Audio** — decoded sound effects with per-voice volume, pitch and pan.
 - **Debug draw** — collider, tile-grid and body overlays for development.
+- **Phone controllers** — embedded HTTP+WebSocket server, mDNS discovery, room
+  codes, and a reference PWA so players join from a browser with no install.
 
 ## Tech stack
 
@@ -41,7 +43,7 @@ becomes a companion controller for party-style play (think Jackbox).
 | Renderer | OpenGL 3.3 core, desktop only |
 | ECS | Archetype (Bevy-style SoA) |
 | Math | GLM |
-| Companion | Crow (embedded HTTP + WebSocket), JSON protocol, TypeScript + Vite PWA |
+| Companion | Crow (HTTP + WebSocket), versioned JSON protocol, mDNS, TypeScript + Vite PWA |
 | Build | CMake + FetchContent (pinned) |
 | License | MIT |
 
@@ -72,6 +74,7 @@ Run the examples:
 ./build/ply_ecs            # App + ECS + transform hierarchy
 ./build/ply_assets         # PNG + spritesheet JSON + TTF text
 ./build/ply_physics        # tilemap collision + debug overlay (F1)
+./build/ply_companion      # platformer driven by phone controllers
 ```
 
 Linux needs SDL3's build dependencies (X11/Wayland dev libraries) plus

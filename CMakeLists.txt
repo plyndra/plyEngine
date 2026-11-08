@@ -84,6 +84,35 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniaudio)
 
+# --- asio (Crow's transport; vendored so no system package is required) ------
+FetchContent_Declare(
+    asio
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG        asio-1-39-0
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(asio)
+set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include" CACHE PATH "" FORCE)
+
+# --- Crow (embedded HTTP + WebSocket server) ---------------------------------
+set(CROW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(CROW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    crow
+    GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+    GIT_TAG        v1.3.5
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(crow)
+
+# --- mjansson/mdns (public-domain mDNS/DNS-SD advertising) -------------------
+FetchContent_Declare(
+    mdns
+    GIT_REPOSITORY https://github.com/mjansson/mdns.git
+    GIT_TAG        a569c4759bd47e0f2a7bfc4d4c19620445782806
+)
+FetchContent_MakeAvailable(mdns)
+
 add_library(miniaudio_impl STATIC engine/src/miniaudio_impl.cpp)
 target_include_directories(miniaudio_impl PUBLIC ${miniaudio_SOURCE_DIR})
 if(UNIX AND NOT APPLE)
@@ -115,6 +144,12 @@ add_library(plyEngine STATIC
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
+    engine/src/CompanionProtocol.cpp
+    engine/src/RoomCode.cpp
+    engine/src/CompanionSession.cpp
+    engine/src/CompanionInput.cpp
+    engine/src/CompanionServer.cpp
+    engine/src/MdnsAdvertiser.cpp
 )
 target_include_directories(plyEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
@@ -123,6 +158,8 @@ target_link_libraries(plyEngine
     PUBLIC glad_gl_core_33 glm::glm nlohmann_json::nlohmann_json
     PRIVATE SDL3::SDL3 stb_impl miniaudio_impl
 )
+target_include_directories(plyEngine PRIVATE ${mdns_SOURCE_DIR})
+target_link_libraries(plyEngine PUBLIC Crow::Crow)
 
 # --- Tests -------------------------------------------------------------------
 if(PLY_BUILD_TESTS)
@@ -170,6 +207,19 @@ if(PLY_BUILD_TESTS)
     target_link_libraries(ply_physics_test PRIVATE plyEngine)
     add_test(NAME physics COMMAND ply_physics_test)
 
+    add_executable(ply_companion_server_test tests/companion_server.cpp)
+    target_link_libraries(ply_companion_server_test PRIVATE plyEngine)
+    target_compile_definitions(ply_companion_server_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME companion_server COMMAND ply_companion_server_test)
+    set_tests_properties(companion_server PROPERTIES TIMEOUT 60)
+
+    add_executable(ply_companion_test tests/companion.cpp)
+    target_link_libraries(ply_companion_test PRIVATE plyEngine)
+    find_package(Threads REQUIRED)
+    target_link_libraries(ply_companion_test PRIVATE Threads::Threads)
+    add_test(NAME companion COMMAND ply_companion_test)
+
     add_executable(ply_audio_test tests/audio.cpp)
     target_link_libraries(ply_audio_test PRIVATE plyEngine)
     target_compile_definitions(ply_audio_test PRIVATE
@@ -190,4 +240,7 @@ if(PLY_BUILD_EXAMPLES)
 
     add_executable(ply_physics examples/physics/main.cpp)
     target_link_libraries(ply_physics PRIVATE plyEngine)
+
+    add_executable(ply_companion examples/companion/main.cpp)
+    target_link_libraries(ply_companion PRIVATE plyEngine)
 endif()

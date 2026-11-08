@@ -41,6 +41,34 @@ send inputs only.
 4. **Companion** — embedded Crow server, JSON protocol, room code + QR join.
 5. **Game layer** — native C++ API (games link against plyEngine).
 
+## Companion networking (settled in M6)
+
+**Network threads never touch the simulation.** Crow callbacks only call
+session join/leave and push controller states into a mutex-guarded queue. The
+fixed-step update drains that queue, so the simulation stays single-threaded and
+deterministic and never takes a lock while simulating.
+
+**The protocol is a versioned JSON envelope.** Every frame is
+`{v, type, seq, payload}`. The server sends `hello` with its version and rejects
+mismatched clients with an explanatory `rejected` frame rather than
+misinterpreting them.
+
+**Stale input cannot rewind state.** Each input frame carries a sequence number;
+frames older than the last applied one for that slot are dropped.
+
+**Games read a virtual controller, not messages.** Phones, keyboard and gamepads
+all reduce to `ControllerState{x, y, buttons}`, exposed per slot with
+`pressed()`/`released()` edge detection between fixed steps.
+
+**Pairing is room code + mDNS.** The host shows a 4-character code (from an
+alphabet excluding I, O, 0 and 1) and advertises `_plyengine._tcp.local.` via
+mjansson/mdns with the room code in a TXT record. Advertising is best-effort:
+multicast may be blocked, so failure is logged and the typed code always works.
+
+**Sessions have N slots and a reconnect grace window.** A phone that drops keeps
+its slot for `reconnectGrace` seconds and re-binds by name; after the window the
+slot frees. Time is injected so the state machine is testable without clocks.
+
 ## Simulation (settled in M5)
 
 **Colliders are AABB only.** `Body` carries half-extents; the box is centred on
