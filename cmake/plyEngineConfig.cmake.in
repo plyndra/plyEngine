@@ -1,0 +1,41 @@
+@PACKAGE_INIT@
+
+# plyEngine package config.
+#
+# Consumers only need: find_package(plyEngine CONFIG REQUIRED) and
+# target_link_libraries(mytarget PRIVATE plyEngine::plyEngine).
+#
+# What is exported:
+#   plyEngine::plyEngine  — the engine (static)
+#   plyEngine::glad_gl_core_33, ::stb_impl, ::miniaudio_impl
+#                           — internal static archives it links; they are
+#                             exported because a static library needs them on
+#                             the consumer's link line.
+#
+# What a consumer must already have (found here, installed by the same prefix):
+#   SDL3            — window/input/gl context (links its own platform libs)
+#   glm             — public header dependency
+#   nlohmann_json   — public header dependency
+#
+# Crow/asio, mdns, stb and miniaudio are header-only and are compiled into the
+# engine's own objects, so they are deliberately NOT required at consumer
+# configure time.
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Threads)
+find_dependency(SDL3 CONFIG)
+find_dependency(glm CONFIG)
+find_dependency(nlohmann_json CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/plyEngineTargets.cmake")
+
+# SDL3 is a static library that plyEngine links privately; the reference is
+# attached here rather than in the installed export, because SDL3 owns its own
+# export set (and its internal header target cannot join ours).
+if(TARGET plyEngine::plyEngine AND TARGET SDL3::SDL3)
+    set_property(TARGET plyEngine::plyEngine APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES SDL3::SDL3)
+endif()
+
+check_required_components(plyEngine)

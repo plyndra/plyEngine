@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 # Single source of truth for the version string. The git tag must match it
 # (docs/ROADMAP.md release checklist); Version.hpp is generated from this
 # value so the header can never drift from the build.
-set(PLY_VERSION_STRING "1.0.0-alpha.2" CACHE STRING "plyEngine version string")
+set(PLY_VERSION_STRING "1.0.0-beta.1" CACHE STRING "plyEngine version string")
 
 project(plyEngine VERSION 1.0.0 LANGUAGES C CXX)
 
@@ -13,6 +13,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(PLY_BUILD_TESTS "Build plyEngine tests" ON)
 option(PLY_BUILD_EXAMPLES "Build plyEngine examples" ON)
+option(PLY_INSTALL "Generate install rules for find_package(plyEngine)" ON)
+option(PLY_BUILD_DEPS_INSTALL "Let fetchcontent dependencies install themselves (needed by PLY_INSTALL)" ON)
 option(PLY_SANITIZE "Build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
 
 if(PLY_SANITIZE)
@@ -23,6 +25,10 @@ endif()
 include(FetchContent)
 
 # --- SDL3 --------------------------------------------------------------------
+# SDL3 is a static dependency of an installed engine, so it must install its
+# own archive + headers + SDL3Config.cmake (SDL_INSTALL defaults to OFF when
+# SDL3 is consumed as a subproject, which breaks find_dependency(SDL3)).
+set(SDL_INSTALL ${PLY_INSTALL} CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
@@ -49,7 +55,9 @@ glad_add_library(glad_gl_core_33 REPRODUCIBLE API gl:core=3.3)
 
 # --- glm (math) --------------------------------------------------------------
 set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLM_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
+# glm and nlohmann/json are header-only and appear in plyEngine's public
+# headers, so an installed SDK must ship their headers and CMake configs too.
+set(GLM_BUILD_INSTALL ${PLY_BUILD_DEPS_INSTALL} CACHE BOOL "" FORCE)
 set(GLM_ENABLE_EXPERIMENTAL OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     glm
@@ -61,7 +69,7 @@ FetchContent_MakeAvailable(glm)
 
 # --- nlohmann/json (scene + spritesheet metadata) ----------------------------
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-set(JSON_Install OFF CACHE BOOL "" FORCE)
+set(JSON_Install ${PLY_BUILD_DEPS_INSTALL} CACHE BOOL "" FORCE)
 FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -79,7 +87,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(stb)
 
 add_library(stb_impl STATIC engine/src/stb_impl.cpp)
-target_include_directories(stb_impl PUBLIC ${stb_SOURCE_DIR})
+# PRIVATE: consumers never include stb headers (nothing public does), so the
+# installed export stays free of third-party include paths.
+target_include_directories(stb_impl PRIVATE ${stb_SOURCE_DIR})
 
 # --- miniaudio (audio device, mixing, decoding; single header) ---------------
 FetchContent_Declare(
@@ -120,12 +130,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(mdns)
 
 add_library(miniaudio_impl STATIC engine/src/miniaudio_impl.cpp)
-target_include_directories(miniaudio_impl PUBLIC ${miniaudio_SOURCE_DIR})
+target_include_directories(miniaudio_impl PRIVATE ${miniaudio_SOURCE_DIR})
 if(UNIX AND NOT APPLE)
     target_link_libraries(miniaudio_impl PUBLIC dl pthread m)
 endif()
 
 # --- Core engine library -----------------------------------------------------
+find_package(Threads REQUIRED)  # Crow/asio and miniaudio both need it
+
 add_library(plyEngine STATIC
     engine/src/engine.cpp
     engine/src/Window.cpp
@@ -158,7 +170,9 @@ add_library(plyEngine STATIC
     engine/src/MdnsAdvertiser.cpp
 )
 target_include_directories(plyEngine PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/engine/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+    $<INSTALL_INTERFACE:include>
 )
 
 # The public headers require C++20 (defaulted comparison operators in
@@ -170,22 +184,95 @@ target_include_directories(plyEngine PUBLIC
 target_compile_features(plyEngine PUBLIC cxx_std_20)
 
 # Generated version header: PLY_VERSION_STRING above is the only place the
-# version is written by hand.
+# version is written by hand. It lands in the same generated include root the
+# target exports above, and is installed alongside the hand-written headers.
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated/plyEngine)
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include/plyEngine/Version.hpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/generated/plyEngine/Version.hpp
     @ONLY
 )
-target_include_directories(plyEngine PUBLIC
-    ${CMAKE_CURRENT_BINARY_DIR}/generated
+
+# Third-party include paths stay PRIVATE: no public plyEngine header includes
+# glad, stb, miniaudio, Crow, asio or mdns, so an installed SDK ships only our
+# headers plus GLM and nlohmann/json (the two the API exposes types from).
+target_include_directories(plyEngine PRIVATE
+    ${mdns_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/gladsources/glad_gl_core_33/include
+    ${stb_SOURCE_DIR}
+    ${miniaudio_SOURCE_DIR}
+    ${crow_SOURCE_DIR}/include
+    ${ASIO_INCLUDE_DIR}
 )
+
 target_link_libraries(plyEngine
-    PUBLIC glad_gl_core_33 glm::glm nlohmann_json::nlohmann_json
-    PRIVATE SDL3::SDL3 stb_impl miniaudio_impl
+    PUBLIC glad_gl_core_33 glm::glm nlohmann_json::nlohmann_json Threads::Threads
+    PRIVATE
+        # SDL3 is static, so it must reach the consumer's link line, but it
+        # owns its own export set (it is a separate project). Adding this
+        # reference to the exported interface would make CMake demand SDL3's
+        # internal targets (SDL3_Headers) join our export set, which cascades
+        # forever. Instead the reference is build-only here, and
+        # plyEngineConfig.cmake appends SDL3::SDL3 at find_package() time.
+        $<BUILD_INTERFACE:SDL3::SDL3>
+        stb_impl miniaudio_impl
 )
-target_include_directories(plyEngine PRIVATE ${mdns_SOURCE_DIR})
-target_link_libraries(plyEngine PUBLIC Crow::Crow)
+
+# Crow/asio are header-only and only used to compile CompanionServer.cpp, so
+# they are a build-time-only dependency: BUILD_INTERFACE keeps them out of the
+# installed link interface (a consumer must not need Crow to link the engine).
+target_link_libraries(plyEngine PRIVATE $<BUILD_INTERFACE:Crow::Crow>)
+
+# glad's generated headers live in the build tree. The interface is
+# BUILD_INTERFACE-only: the engine's own code, the examples and the tests
+# include <glad/gl.h>, but a consumer never does, so nothing glad-related is
+# installed.
+set_target_properties(glad_gl_core_33 PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/gladsources/glad_gl_core_33/include>")
+
+# --- Install (find_package(plyEngine)) ---------------------------------------
+if(PLY_INSTALL)
+    include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
+
+    install(TARGETS plyEngine glad_gl_core_33 stb_impl miniaudio_impl
+        EXPORT plyEngineTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/engine/include/plyEngine
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        FILES_MATCHING PATTERN "*.hpp"
+    )
+    # The generated version header is part of the public API.
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/plyEngine/Version.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/plyEngine
+    )
+
+    install(EXPORT plyEngineTargets
+        NAMESPACE plyEngine::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/plyEngine
+    )
+
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/plyEngineConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/plyEngineConfig.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/plyEngine
+    )
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/plyEngineConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/plyEngineConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/plyEngineConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/plyEngine
+    )
+endif()
 
 # --- Tests -------------------------------------------------------------------
 if(PLY_BUILD_TESTS)
@@ -241,9 +328,7 @@ if(PLY_BUILD_TESTS)
     set_tests_properties(companion_server PROPERTIES TIMEOUT 60)
 
     add_executable(ply_companion_test tests/companion.cpp)
-    target_link_libraries(ply_companion_test PRIVATE plyEngine)
-    find_package(Threads REQUIRED)
-    target_link_libraries(ply_companion_test PRIVATE Threads::Threads)
+    target_link_libraries(ply_companion_test PRIVATE plyEngine Threads::Threads)
     add_test(NAME companion COMMAND ply_companion_test)
 
     add_executable(ply_audio_test tests/audio.cpp)
