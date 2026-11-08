@@ -2,8 +2,8 @@ name: Release
 
 # Builds, tests and packages plyEngine on every OS when a version tag is
 # pushed, then publishes the artifacts to the GitHub Release. The release is
-# only created if all three platform builds, their ctest suites, and the
-# Linux headless --verify checks pass (the M7 "full evidence gate").
+# only created if the PWA build, all three platform builds, their ctest
+# suites, and the Linux headless --verify checks pass (the M7 evidence gate).
 
 on:
   push:
@@ -14,32 +14,68 @@ permissions:
   contents: write
 
 jobs:
+  # One PWA build shared by every platform, so packaging never depends on a
+  # per-runner Node toolchain and all three archives ship identical assets.
+  pwa:
+    name: Companion PWA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build PWA
+        run: |
+          cd companion
+          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: companion-pwa
+          path: companion/dist
+          if-no-files-found: error
+
   build:
     name: Build (${{ matrix.platform }})
+    needs: [pwa]
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             platform: linux-x86_64
+            container: ubuntu:22.04
           - os: windows-latest
             platform: windows-x86_64
+            container:
           - os: macos-latest
             platform: macos-arm64
+            container:
     runs-on: ${{ matrix.os }}
+    # Linux binaries are built inside a pinned Ubuntu 22.04 container so they
+    # link against glibc 2.35 (symbols <= 2.34) and run on Debian 12+ /
+    # Ubuntu 22.04+. Building on the bare ubuntu-latest runner produced
+    # binaries that demanded glibc 2.43 and failed on every current LTS distro.
+    container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux dependencies
+      - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq \
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            build-essential git python3 python3-pip python3-jinja2 \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
             libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
             libxpresent-dev libxshmfence-dev libxtst-dev \
-            python3-jinja2 xvfb fonts-dejavu-core
+            xvfb fonts-dejavu-core libgl1-mesa-dri libglx-mesa0
+          # Ubuntu 22.04 ships CMake 3.22; the project needs 3.24+.
+          python3 -m pip install --upgrade cmake
 
       - name: Install Python deps (glad codegen)
         if: runner.os != 'Linux'
@@ -52,17 +88,16 @@ jobs:
           "$PY" -m pip install --target "$GITHUB_WORKSPACE/.ci-pylib" jinja2
           echo "PYTHONPATH=$GITHUB_WORKSPACE/.ci-pylib" >> "$GITHUB_ENV"
 
-      - name: Build companion PWA
-        run: |
-          cd companion
-          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-          npm run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: companion-pwa
+          path: companion/dist
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release -j 2
+        run: cmake --build build --config Release -j 4
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
@@ -77,6 +112,17 @@ jobs:
           xvfb-run -a ./build/ply_physics --frames 120 --debug --verify
           xvfb-run -a ./build/ply_tutorial --frames 240 --verify
           xvfb-run -a ./build/ply_companion --frames 1800 --verify --no-mdns --web companion/dist
+
+      - name: Check binary glibc floor (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # A binary that needs a newer glibc than the oldest supported distro
+          # is a packaging bug, not a warning: assert the floor explicitly.
+          max=$(objdump -T build/ply_tutorial | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \
+                | sed 's/GLIBC_//' | sort -uV | tail -1)
+          echo "highest glibc symbol: $max"
+          printf '%s\n' "2.34" "$max" | sort -uV | tail -1 | grep -qx "2.34" \
+            || { echo "::error::binary requires glibc $max (> 2.34 floor)"; exit 1; }
 
       - name: Package
         shell: bash
@@ -150,6 +196,9 @@ jobs:
             Prebuilt demo binaries (Windows / Linux / macOS), the built
             companion PWA and a source tarball are attached.
 
+            The Linux binaries are built against glibc 2.35 (Ubuntu 22.04)
+            and run on Debian 12+, Ubuntu 22.04+ and equivalent.
+
             See `CHANGELOG.md` inside the package for the full list of
-            changes and known limitations. Build from source instructions:
+            changes and known limitations. Build-from-source instructions:
             `docs/BUILDING.md`.

@@ -56,6 +56,30 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
+## Prebuilt binaries
+
+Each [GitHub Release](https://github.com/plyndra/plyEngine/releases) carries
+per-OS archives with the demo executables, the built companion PWA and the
+docs, plus a source tarball.
+
+| Platform | Archive | Minimum requirement |
+|---|---|---|
+| Linux x86-64 | `*-linux-x86_64.tar.gz` | glibc 2.35+ (Ubuntu 22.04+, Debian 12+) — built in a pinned Ubuntu 22.04 container |
+| Windows x86-64 | `*-windows-x86_64.zip` | Windows 10+ |
+| macOS arm64 | `*-macos-arm64.tar.gz` | macOS 12+ |
+
+The release job asserts the Linux glibc floor (`objdump -T` symbol check)
+before packaging: a binary that demands a newer glibc than the guarantee is
+a failed build, not a footnote. Unpack and run, e.g.
+
+```sh
+./ply_tutorial          # the tutorial game
+./ply_companion         # reference platformer (PWA is in ./companion)
+```
+
+macOS binaries are unsigned; run `xattr -dr com.apple.quarantine .` in the
+unpacked directory if Gatekeeper objects.
+
 ## CMake options
 
 | Option | Default | Effect |
@@ -63,7 +87,6 @@ ctest --test-dir build --output-on-failure
 | `PLY_BUILD_TESTS` | `ON` | Build the `ctest` suite |
 | `PLY_BUILD_EXAMPLES` | `ON` | Build the demo executables |
 | `PLY_SANITIZE` | `OFF` | Build with AddressSanitizer + UBSan |
-
 Sanitizer build (this is how the CI finds use-after-free bugs):
 
 ```sh

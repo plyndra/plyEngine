@@ -255,6 +255,18 @@ binaries are nearly free.
 existing DCO flow. These are cheap, standard and reversible — they were
 not up for debate, just done.
 
+**A packaged binary is a claim, so the release asserts it.** The first
+tagged build taught the lesson the hard way: binaries built on
+`ubuntu-latest` demanded glibc 2.43 and would not start on Ubuntu 22.04,
+Debian 12, or even the maintainer's own host. "It built in CI" is not
+"it runs for users", and the CI matrix's passing tests never touched the
+artifact. The release job therefore (a) builds Linux inside a pinned
+`ubuntu:22.04` container to fix the toolchain floor, (b) greps
+`objdump -T` for the highest required `GLIBC_*` symbol and **fails the
+job** if it exceeds 2.34, and (c) does all of this before the Release is
+published, so a bad archive cannot reach the releases page. The floor
+(glibc 2.35) is documented in `docs/BUILDING.md`.
+
 ## Open branches (post-1.0-alpha)
 
 - Embedded scripting (Lua binding)

@@ -35,9 +35,22 @@ First tagged release. Everything below shipped across milestones M0–M7.
   demo has a `--verify` that asserts real outcomes.
 - **Release engineering (M7)** — tag-triggered GitHub Actions workflow
   attaching prebuilt demo binaries for Windows/Linux/macOS, the built PWA
-  and a source tarball to each GitHub Release.
+  and a source tarball to each GitHub Release. Linux binaries are built in a
+  pinned Ubuntu 22.04 container (glibc 2.35 floor) and the job asserts that
+  floor with an `objdump -T` symbol check before packaging.
 - **Community (M7)** — issue templates, `CODE_OF_CONDUCT.md`, this
   changelog, and CI matrix (Windows/Linux/macOS + sanitizer job).
+
+### Fixed
+
+- **Windows build (M6 code, caught at M7)** — `CompanionServer` and
+  `MdnsAdvertiser` used POSIX `close()`/`setsockopt()` signatures and the
+  companion integration test used POSIX headers, `mkdir()` and `/tmp`, so the
+  Windows job could not compile them. Now behind `engine/src/SocketCompat.hpp`
+  plus `std::filesystem` temp dirs, with `WSAStartup` guaranteed.
+- **macOS/Windows CI (since M4)** — the runner images stopped shipping
+  `jinja2`, which glad's loader generation needs; CI now provides it via
+  `PYTHONPATH` for every interpreter CMake might resolve.
 
 ### Known limitations
 
