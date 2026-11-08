@@ -41,6 +41,36 @@ send inputs only.
 4. **Companion** — embedded Crow server, JSON protocol, room code + QR join.
 5. **Game layer** — native C++ API (games link against plyEngine).
 
+## Simulation (settled in M5)
+
+**Colliders are AABB only.** `Body` carries half-extents; the box is centred on
+the entity's `Transform`. The collision math is deliberately shape-agnostic
+(`ColliderQuery` returns boxes), so adding circles later is additive.
+
+**Resolution is per-axis swept AABB, move-and-slide.** X is resolved, then Y, so
+bodies slide along walls and **cannot tunnel** at any speed — a 100000-unit
+delta still stops exactly on a thin wall's face (asserted in the tests).
+
+**Already-overlapping bodies are not blocked.** A sweep that starts inside
+geometry reports no hit so a body can work itself free instead of sticking.
+
+**Broadphase is a spatial hash grid** with a brute-force path for tiny scenes.
+The tilemap answers queries directly by converting the AABB to a cell range.
+
+**Tilemap cells are solid/empty; out-of-bounds counts as solid** by default so
+bodies cannot leave the level (configurable).
+
+**Physics is deterministic.** Semi-implicit Euler at a fixed dt with no
+floating-point-order dependence; a test asserts two identical runs produce
+bit-identical final positions.
+
+**Audio is miniaudio**, which owns its own device alongside SDL3's window/input.
+With no device the system reports not-ready and every call is a harmless no-op,
+so headless CI needs no special casing.
+
+**Debug draw is part of the engine**, not the demo: collider outlines, the tile
+grid and body centres, behind an `F1`-style toggle.
+
 ## Asset pipeline (settled in M4)
 
 **Decoders:** stb_image (PNG/JPEG/…) and stb_truetype (TTF), both pinned by

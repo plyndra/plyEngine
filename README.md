@@ -27,6 +27,10 @@ becomes a companion controller for party-style play (think Jackbox).
   centre-anchored, with per-texture filtering.
 - **Asset pipeline** — PNG decoding, Aseprite/TexturePacker/generic spritesheet
   loaders, TTF text baked into an atlas, and a reference-counted asset cache.
+- **Physics** — per-axis swept AABB collision against tilemaps, deterministic
+  under the fixed timestep, with a spatial-hash broadphase.
+- **Audio** — decoded sound effects with per-voice volume, pitch and pan.
+- **Debug draw** — collider, tile-grid and body overlays for development.
 
 ## Tech stack
 
@@ -67,6 +71,7 @@ Run the examples:
 ./build/ply_hello          # batching + atlas + camera
 ./build/ply_ecs            # App + ECS + transform hierarchy
 ./build/ply_assets         # PNG + spritesheet JSON + TTF text
+./build/ply_physics        # tilemap collision + debug overlay (F1)
 ```
 
 Linux needs SDL3's build dependencies (X11/Wayland dev libraries) plus

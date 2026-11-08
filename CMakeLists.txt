@@ -75,6 +75,21 @@ FetchContent_MakeAvailable(stb)
 add_library(stb_impl STATIC engine/src/stb_impl.cpp)
 target_include_directories(stb_impl PUBLIC ${stb_SOURCE_DIR})
 
+# --- miniaudio (audio device, mixing, decoding; single header) ---------------
+FetchContent_Declare(
+    miniaudio
+    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+    GIT_TAG        0.11.26
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(miniaudio)
+
+add_library(miniaudio_impl STATIC engine/src/miniaudio_impl.cpp)
+target_include_directories(miniaudio_impl PUBLIC ${miniaudio_SOURCE_DIR})
+if(UNIX AND NOT APPLE)
+    target_link_libraries(miniaudio_impl PUBLIC dl pthread m)
+endif()
+
 # --- Core engine library -----------------------------------------------------
 add_library(plyEngine STATIC
     engine/src/engine.cpp
@@ -94,13 +109,19 @@ add_library(plyEngine STATIC
     engine/src/Font.cpp
     engine/src/TextRenderer.cpp
     engine/src/Sprite.cpp
+    engine/src/Physics.cpp
+    engine/src/PhysicsBody.cpp
+    engine/src/Tilemap.cpp
+    engine/src/SpatialHashGrid.cpp
+    engine/src/DebugDrawer.cpp
+    engine/src/AudioSystem.cpp
 )
 target_include_directories(plyEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/engine/include
 )
 target_link_libraries(plyEngine
     PUBLIC glad_gl_core_33 glm::glm nlohmann_json::nlohmann_json
-    PRIVATE SDL3::SDL3 stb_impl
+    PRIVATE SDL3::SDL3 stb_impl miniaudio_impl
 )
 
 # --- Tests -------------------------------------------------------------------
@@ -144,6 +165,16 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_image_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME image COMMAND ply_image_test)
+
+    add_executable(ply_physics_test tests/physics.cpp)
+    target_link_libraries(ply_physics_test PRIVATE plyEngine)
+    add_test(NAME physics COMMAND ply_physics_test)
+
+    add_executable(ply_audio_test tests/audio.cpp)
+    target_link_libraries(ply_audio_test PRIVATE plyEngine)
+    target_compile_definitions(ply_audio_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME audio COMMAND ply_audio_test)
 endif()
 
 # --- Examples ----------------------------------------------------------------
@@ -156,4 +187,7 @@ if(PLY_BUILD_EXAMPLES)
 
     add_executable(ply_assets examples/assets/main.cpp)
     target_link_libraries(ply_assets PRIVATE plyEngine)
+
+    add_executable(ply_physics examples/physics/main.cpp)
+    target_link_libraries(ply_physics PRIVATE plyEngine)
 endif()
