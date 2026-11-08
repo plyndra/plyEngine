@@ -8,23 +8,58 @@
 
 #include <nlohmann/json.hpp>
 
+// The test speaks the wire protocol over a raw TCP socket, so it needs the
+// platform's socket headers. Windows spells these differently (winsock) and
+// requires WSAStartup before the first socket call.
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <arpa/inet.h>
-#include <sys/stat.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#endif
 
 #include <chrono>
-#include <fstream>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <thread>
 #include <vector>
 
 namespace {
 
+#if defined(_WIN32)
+using SockLen = int;
+using SockResult = int;   // recv()/send() return int on winsock
+#else
+using SockLen = socklen_t;
+using SockResult = ssize_t;
+#endif
+
 int failures = 0;
+
+/// Platform-portable socket close.
+void closeSocket(int sock) {
+#if defined(_WIN32)
+    ::closesocket(sock);
+#else
+    ::close(sock);
+#endif
+}
+
+/// Winsock must be initialised before any socket call; no-op elsewhere.
+struct WinsockGuard {
+    WinsockGuard() {
+#if defined(_WIN32)
+        WSADATA data{};
+        WSAStartup(MAKEWORD(2, 2), &data);
+#endif
+    }
+};
 
 void check(bool cond, const char* what) {
     if (!cond) {
@@ -34,7 +69,7 @@ void check(bool cond, const char* what) {
 }
 
 int connectTo(int port) {
-    const int sock = socket(AF_INET, SOCK_STREAM, 0);
+    const int sock = static_cast<int>(socket(AF_INET, SOCK_STREAM, 0));
     if (sock < 0) {
         return -1;
     }
@@ -43,12 +78,18 @@ int connectTo(int port) {
     address.sin_port = htons(static_cast<uint16_t>(port));
     inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
     if (connect(sock, reinterpret_cast<struct sockaddr*>(&address), sizeof(address)) != 0) {
-        close(sock);
+        closeSocket(sock);
         return -1;
     }
+    // Short receive timeout so a broken frame can't hang the suite.
     struct timeval timeout {};
     timeout.tv_sec = 3;
+#if defined(_WIN32)
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+               reinterpret_cast<const char*>(&timeout), sizeof(timeout));
+#else
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
     return sock;
 }
 
@@ -63,11 +104,11 @@ std::string httpGet(int port, const std::string& path) {
 
     std::string response;
     char buffer[4096];
-    ssize_t n = 0;
+    SockResult n = 0;
     while ((n = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
         response.append(buffer, static_cast<size_t>(n));
     }
-    close(sock);
+    closeSocket(sock);
     return response;
 }
 
@@ -75,7 +116,7 @@ bool recvExactly(int sock, void* out, size_t length) {
     auto* cursor = static_cast<unsigned char*>(out);
     size_t got = 0;
     while (got < length) {
-        const ssize_t n = recv(sock, cursor + got, length - got, 0);
+        const SockResult n = recv(sock, cursor + got, length - got, 0);
         if (n <= 0) {
             return false;
         }
@@ -88,7 +129,7 @@ bool sendAll(int sock, const void* data, size_t length) {
     const auto* cursor = static_cast<const unsigned char*>(data);
     size_t sent = 0;
     while (sent < length) {
-        const ssize_t n = send(sock, cursor + sent, length - sent, 0);
+        const SockResult n = send(sock, cursor + sent, length - sent, 0);
         if (n <= 0) {
             return false;
         }
@@ -163,22 +204,25 @@ bool readText(int sock, std::string& out) {
 // The test serves its own tiny web root so it never depends on a node build
 // having produced companion/dist.
 std::string makeWebRoot() {
-    const std::string dir = "/tmp/ply_companion_webroot";
-    mkdir(dir.c_str(), 0755);
+    std::error_code ec;
+    const std::filesystem::path dir =
+        std::filesystem::temp_directory_path(ec) / "ply_companion_webroot";
+    std::filesystem::create_directories(dir, ec);
     {
-        std::ofstream index(dir + "/index.html");
+        std::ofstream index(dir / "index.html");
         index << "<!doctype html><title>plyEngine companion test</title>";
     }
     {
-        std::ofstream app(dir + "/app.js");
+        std::ofstream app(dir / "app.js");
         app << "console.log('companion');";
     }
-    return dir;
+    return dir.string();
 }
 
 }  // namespace
 
 int main() {
+    const WinsockGuard winsock;
     ply::CompanionServer server;
     ply::CompanionServer::Config config;
     config.port = 0;  // ephemeral
@@ -321,7 +365,7 @@ int main() {
             check(state.buttons == 1u, "button bit reached the simulation");
             check(server.input().pendingCount() == 0, "queue drained by update()");
 
-            close(sock);
+            closeSocket(sock);
         }
     }
 
@@ -359,7 +403,7 @@ int main() {
             if (!parsed.is_discarded()) {
                 check(parsed["type"] == "rejected", "wrong room code rejected");
             }
-            close(sock);
+            closeSocket(sock);
         }
     }
 
@@ -393,7 +437,7 @@ int main() {
                 check(reason.find("mismatch") != std::string::npos,
                       "rejection explains the version mismatch");
             }
-            close(sock);
+            closeSocket(sock);
         }
     }
 
