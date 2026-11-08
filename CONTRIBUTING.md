@@ -1,6 +1,12 @@
 # Contributing to plyEngine
 
 Thanks for contributing. plyEngine is MIT-licensed and uses **no CLA**.
+All participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Bugs and feature requests: use the
+[issue templates](https://github.com/plyndra/plyEngine/issues/new/choose).
+User-visible changes belong in [CHANGELOG.md](CHANGELOG.md) (Keep a
+Changelog format) under the `Unreleased` heading.
 
 ## Developer Certificate of Origin (DCO)
 
@@ -27,7 +33,8 @@ version 1.1.
    ctest --test-dir build --output-on-failure
    ```
 
-4. Open a PR. CI runs the build matrix (Windows / Linux / macOS).
+4. Open a PR. CI runs the build matrix (Windows / Linux / macOS), the
+   sanitizer job, and the headless `--verify` checks.
 
 ## License
 

@@ -87,7 +87,12 @@ jobs:
         run: |
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_physics --frames 120 --debug --verify
 
-      - name: Run companion demo (Linux, headless, verified)
+      - name: Run companion platformer demo (Linux, headless, verified)
         if: runner.os == 'Linux'
         run: |
-          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_companion --frames 60 --no-mdns --web companion/dist --verify
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_companion --frames 1800 --no-mdns --web companion/dist --verify
+
+      - name: Run tutorial demo (Linux, headless, verified)
+        if: runner.os == 'Linux'
+        run: |
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_tutorial --frames 240 --verify

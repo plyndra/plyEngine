@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(plyEngine VERSION 0.1.0 LANGUAGES C CXX)
+project(plyEngine VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -225,6 +225,14 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_audio_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME audio COMMAND ply_audio_test)
+
+    # Reference-demo game logic: header-only, GL-free playthrough of the
+    # M7 platformer driven by the scripted Autopilot.
+    add_executable(ply_platformer_test tests/platformer.cpp)
+    target_link_libraries(ply_platformer_test PRIVATE plyEngine)
+    target_include_directories(ply_platformer_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/examples/companion)
+    add_test(NAME platformer COMMAND ply_platformer_test)
 endif()
 
 # --- Examples ----------------------------------------------------------------
@@ -243,4 +251,7 @@ if(PLY_BUILD_EXAMPLES)
 
     add_executable(ply_companion examples/companion/main.cpp)
     target_link_libraries(ply_companion PRIVATE plyEngine)
+
+    add_executable(ply_tutorial examples/tutorial/main.cpp)
+    target_link_libraries(ply_tutorial PRIVATE plyEngine)
 endif()

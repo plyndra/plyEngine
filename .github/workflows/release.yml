@@ -1,0 +1,144 @@
+name: Release
+
+# Builds, tests and packages plyEngine on every OS when a version tag is
+# pushed, then publishes the artifacts to the GitHub Release. The release is
+# only created if all three platform builds, their ctest suites, and the
+# Linux headless --verify checks pass (the M7 "full evidence gate").
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: windows-latest
+            platform: windows-x86_64
+          - os: macos-latest
+            platform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+            libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+            libxpresent-dev libxshmfence-dev libxtst-dev \
+            python3-jinja2 xvfb fonts-dejavu-core
+
+      - name: Build companion PWA
+        run: |
+          cd companion
+          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          npm run build
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j 2
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Verify demos (Linux, headless)
+        if: runner.os == 'Linux'
+        run: |
+          export LIBGL_ALWAYS_SOFTWARE=1
+          xvfb-run -a ./build/ply_hello --frames 3 --verify
+          xvfb-run -a ./build/ply_ecs --frames 60 --verify
+          xvfb-run -a ./build/ply_assets --frames 5 --verify --assets tests/data
+          xvfb-run -a ./build/ply_physics --frames 120 --debug --verify
+          xvfb-run -a ./build/ply_tutorial --frames 240 --verify
+          xvfb-run -a ./build/ply_companion --frames 1800 --verify --no-mdns --web companion/dist
+
+      - name: Package
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG="plyEngine-${TAG}-${{ matrix.platform }}"
+          mkdir -p "dist/${PKG}/companion" "dist/${PKG}/docs"
+
+          BIN=build
+          if [ -d build/Release ]; then BIN=build/Release; fi
+          for exe in ply_hello ply_ecs ply_assets ply_physics ply_companion ply_tutorial; do
+            if [ -f "$BIN/$exe.exe" ]; then
+              cp "$BIN/$exe.exe" "dist/${PKG}/"
+            else
+              cp "$BIN/$exe" "dist/${PKG}/"
+            fi
+          done
+
+          cp -r companion/dist/. "dist/${PKG}/companion/"
+          cp -r docs/. "dist/${PKG}/docs/"
+          cp README.md LICENSE CHANGELOG.md CONTRIBUTING.md "dist/${PKG}/"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -Command \
+              "Compress-Archive -Path 'dist/${PKG}' -DestinationPath 'dist/${PKG}.zip' -Force"
+          else
+            tar -czf "dist/${PKG}.tar.gz" -C dist "${PKG}"
+          fi
+          ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.platform }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  source:
+    name: Source tarball
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive source at the tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          git archive --format=tar.gz --prefix="plyEngine-${TAG}/" \
+            -o "plyEngine-${TAG}-source.tar.gz" HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-source
+          path: plyEngine-*-source.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [build, source]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: List artifacts
+        run: ls -la artifacts/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            Prebuilt demo binaries (Windows / Linux / macOS), the built
+            companion PWA and a source tarball are attached.
+
+            See `CHANGELOG.md` inside the package for the full list of
+            changes and known limitations. Build from source instructions:
+            `docs/BUILDING.md`.

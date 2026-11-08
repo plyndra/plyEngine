@@ -7,7 +7,9 @@ with a twist: players join from their phones as controllers through any web
 browser, no app install. Render the game to a shared screen, and every phone
 becomes a companion controller for party-style play (think Jackbox).
 
-> **Status:** M0 — early scaffold. Actively developed; not yet usable for games.
+> **Status:** **1.0-alpha** (`v1.0.0-alpha.1`) — the whole engine surface is
+> in place and covered by tests, but expect API changes before 1.0.
+> Prebuilt demo binaries: [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## What you'll be able to build
 
@@ -45,27 +47,19 @@ becomes a companion controller for party-style play (think Jackbox).
 | Math | GLM |
 | Companion | Crow (HTTP + WebSocket), versioned JSON protocol, mDNS, TypeScript + Vite PWA |
 | Build | CMake + FetchContent (pinned) |
-| License | MIT |
+| Licence | MIT (DCO sign-off, no CLA) |
 
-## Architecture
-
-- `engine/` — C++ core (renderer, ECS, assets, physics, audio, companion server)
-- `companion/` — reference PWA (TypeScript + Vite) that games use as the phone controller
-- `examples/` — demo games (single-screen platformer)
-- `docs/` — design decisions and roadmap
-
-## Roadmap
-
-M0 scaffold → M1 window → M2 renderer → M3 ECS → M4 assets → M5 simulation →
-M6 companion → M7 1.0-alpha. See [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## Building
+## Quick start
 
 ```sh
-cmake -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
+git clone https://github.com/plyndra/plyEngine.git
+cd plyEngine
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure     # 14 headless suites
 ```
+
+Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md).
 
 Run the examples:
 
@@ -74,14 +68,59 @@ Run the examples:
 ./build/ply_ecs            # App + ECS + transform hierarchy
 ./build/ply_assets         # PNG + spritesheet JSON + TTF text
 ./build/ply_physics        # tilemap collision + debug overlay (F1)
-./build/ply_companion      # platformer driven by phone controllers
+./build/ply_tutorial       # the first-game walkthrough: docs/TUTORIAL.md
+./build/ply_companion      # reference platformer, phone-controlled
 ```
 
-Linux needs SDL3's build dependencies (X11/Wayland dev libraries) plus
-Python 3 with `jinja2` for the GL loader — see
-[SDL3's Linux docs](https://wiki.libsdl.org/SDL3/README-linux#build-dependencies).
+Play the reference demo with phones:
+
+```sh
+cd companion && npm ci && npm run build && cd ..   # once: build the PWA
+./build/ply_companion                              # prints room code + URL
+```
+
+Open the URL on each phone (same Wi-Fi), enter the room code. Slot 1 drives
+**P1** (arrows + Space on the keyboard), slot 2 drives **P2** (A/D/W). Coins,
+patrolling saws, a pit and a staircase lead to the flag — first player there
+wins. `P` pauses, `R` restarts.
+
+## Verification
+
+Every milestone ships with checks that can actually fail:
+
+- **14 `ctest` suites** — ECS, transforms, timestep, atlas math, assets,
+  physics, audio, companion protocol/server, and a scripted full playthrough
+  of the reference platformer (`platformer`), all green in Release **and**
+  under `-DPLY_SANITIZE=ON` (ASan + UBSan).
+- **`--verify` on every demo** — headless assertions on real outcomes: the
+  tutorial collects all five coins; `ply_companion --verify` plays a complete
+  match through the real companion-input queue and asserts coins, deaths,
+  independent second player and a winner.
+- **CI** — Windows / Linux / macOS build matrix, a sanitizer job, Xvfb render
+  checks, and the PWA build. Tagged releases attach prebuilt binaries via
+  [Releases](https://github.com/plyndra/plyEngine/releases).
+
+## Documentation
+
+| Doc | What it covers |
+|---|---|
+| [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | Build, test, run, play with phones |
+| [docs/BUILDING.md](docs/BUILDING.md) | Per-OS dependencies, CMake options, sanitizers |
+| [docs/TUTORIAL.md](docs/TUTORIAL.md) | Build your first game, step by step |
+| [docs/DESIGN.md](docs/DESIGN.md) | Architecture and settled design decisions |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Milestones and what's next |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes (Keep a Changelog) |
+
+## Roadmap
+
+M0 scaffold → M1 window → M2 renderer → M3 ECS → M4 assets → M5 simulation →
+M6 companion → **M7 1.0-alpha (done)**. Post-1.0-alpha branches (scripting,
+web build, mobile, internet play) are listed in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing
 
 MIT-licensed, no CLA. Contributions use the
-[Developer Certificate of Origin](CONTRIBUTING.md) (sign-off on every commit).
+[Developer Certificate of Origin](CONTRIBUTING.md) (sign-off on every commit)
+and follow our [Code of Conduct](CODE_OF_CONDUCT.md). Bug reports and feature
+requests: [issue templates](https://github.com/plyndra/plyEngine/issues/new/choose).

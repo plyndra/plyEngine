@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in plyEngine doesn't work as documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Before filing, please search existing issues.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what happened instead.
+      placeholder: 'Ran ./build/ply_physics --verify and got: VERIFY FAIL: no crate came to rest...'
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal commands or code that triggers the bug.
+      placeholder: |
+        1. cmake -B build -DCMAKE_BUILD_TYPE=Release
+        2. cmake --build build -j
+        3. ./build/ply_hello --verify
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag or commit SHA (`git log -1 --format=%h`).
+      placeholder: v1.0.0-alpha.1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Compiler/version, CMake version, GPU/driver if render-related.
+      placeholder: GCC 13.2, CMake 3.28, Mesa llvmpipe
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Paste test output, ASan traces, or console messages.
+      render: shell

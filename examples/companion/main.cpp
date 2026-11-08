@@ -1,8 +1,15 @@
-// M6 demo: the platformer is driven by a phone controller.
+// M7 reference demo: a full single-screen platformer driven by phone
+// controllers (or two keyboard players). Two players, coins with scoring,
+// patrolling saws, a pit, a staircase and a goal flag — the vertical slice
+// that exercises the whole engine end to end.
 //
-// The window shows the room code and the LAN URL. Phones load the companion PWA
-// from this host and control the player. Network threads only push input; the
-// fixed-step update drains it, exactly as designed.
+// Controls: P1 = arrows + Space, P2 = A / D / W, P or START = pause,
+// R = restart. Phones join the room and drive slots 0/1.
+//
+// --verify plays the level with a scripted Autopilot *through the real
+// CompanionInput queue* and asserts gameplay outcomes: coins collected,
+// deaths to the pit and the saw, player 2 moving independently, and the
+// game reaching a win for player 1. Not just "pixels were drawn".
 
 #include "plyEngine/App.hpp"
 #include "plyEngine/CompanionServer.hpp"
@@ -14,11 +21,16 @@
 #include "plyEngine/TextRenderer.hpp"
 #include "plyEngine/Tilemap.hpp"
 #include "plyEngine/Transform.hpp"
+#include "plyEngine/Version.hpp"
+
+#include "platformer.hpp"
 
 #include <glad/gl.h>
 #include <glm/glm.hpp>
 
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -27,10 +39,6 @@
 #include <vector>
 
 namespace {
-
-constexpr int kMapW = 40;
-constexpr int kMapH = 18;
-constexpr float kTile = 32.0f;
 
 const char* kFontCandidates[] = {
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -44,9 +52,10 @@ double monotonicSeconds() {
     return std::chrono::duration<double>(Clock::now() - epoch).count();
 }
 
+// 6 cells: p1, p2, tile, coin, saw, flag.
 std::vector<unsigned char> buildAtlas(int& outSize) {
     const int cell = 32;
-    outSize = cell * 4;
+    outSize = cell * 6;
     std::vector<unsigned char> pixels(static_cast<size_t>(outSize) * outSize * 4, 0);
 
     auto fill = [&](int index, int r, int g, int b) {
@@ -64,18 +73,14 @@ std::vector<unsigned char> buildAtlas(int& outSize) {
         }
     };
 
-    fill(0, 90, 200, 255);   // player
-    fill(1, 210, 170, 90);   // crate
-    fill(2, 90, 110, 120);   // tile
+    fill(0, 90, 200, 255);    // p1
+    fill(1, 255, 160, 60);    // p2
+    fill(2, 90, 110, 120);    // tile
+    fill(3, 250, 210, 60);    // coin
+    fill(4, 220, 70, 70);     // saw
+    fill(5, 90, 220, 120);    // flag
     return pixels;
 }
-
-struct Scene {
-    ply::Tilemap* map = nullptr;
-    ply::Entity player{};
-    std::vector<ply::Entity> crates;
-    ply::CompanionServer* server = nullptr;
-};
 
 }  // namespace
 
@@ -104,7 +109,7 @@ int main(int argc, char** argv) {
     }
 
     ply::App::Config config;
-    config.window.title = "plyEngine - companion";
+    config.window.title = "plyEngine - platformer";
     config.window.width = 1280;
     config.window.height = 720;
 
@@ -129,6 +134,7 @@ int main(int argc, char** argv) {
     }
 
     std::printf("========================================\n");
+    std::printf("  plyEngine %s - platformer demo\n", ply::kVersion);
     std::printf("  room code: %s\n", server.roomCode().c_str());
     std::printf("  open:      %s\n", server.url().c_str());
     std::printf("  mDNS:      %s\n", server.mdnsActive() ? "advertising" : "off");
@@ -139,9 +145,12 @@ int main(int argc, char** argv) {
     auto atlas = std::make_unique<ply::SpriteAtlas>(atlasSize, atlasSize,
                                                     atlasPixels.data(),
                                                     ply::TextureFilter::Nearest);
-    atlas->addRegion("player", 0, 0, 32, 32);
-    atlas->addRegion("crate", 32, 0, 32, 32);
+    atlas->addRegion("p1", 0, 0, 32, 32);
+    atlas->addRegion("p2", 32, 0, 32, 32);
     atlas->addRegion("tile", 64, 0, 32, 32);
+    atlas->addRegion("coin", 96, 0, 32, 32);
+    atlas->addRegion("saw", 128, 0, 32, 32);
+    atlas->addRegion("flag", 160, 0, 32, 32);
     auto texture = atlas->texturePtr();
 
     ply::Font font;
@@ -158,65 +167,41 @@ int main(int argc, char** argv) {
     }
 
     ply::SpriteBatch batch;
-    ply::Tilemap map(kMapW, kMapH, kTile);
-    Scene scene;
-    scene.map = &map;
-    scene.server = &server;
+    demo::Game game;
+    demo::Autopilot autopilot;
+    std::array<uint32_t, 2> synthSeq{0, 0};
 
-    ply::PhysicsSettings settings;
-    settings.gravity = {0.0f, -1600.0f};
+    // Attaches render sprites to whatever entities the game currently has.
+    // Called after build() and after every reset().
+    auto decorate = [&](ply::World& world) {
+        auto addSprite = [&](ply::Entity entity, const char* region, glm::vec2 size) {
+            ply::Sprite sprite;
+            sprite.texture = texture;
+            sprite.region = atlas->region(region);
+            sprite.size = size;
+            world.add<ply::Sprite>(entity, sprite);
+        };
+        for (int i = 0; i < demo::kPlayerCount; ++i) {
+            addSprite(game.players[i].entity, i == 0 ? "p1" : "p2",
+                      glm::vec2{28.0f, 28.0f});
+        }
+        for (ply::Entity coin : game.coins) {
+            addSprite(coin, "coin", glm::vec2{24.0f, 24.0f});
+        }
+        for (ply::Entity saw : game.hazards) {
+            addSprite(saw, "saw", glm::vec2{26.0f, 26.0f});
+        }
+        addSprite(game.goal, "flag", glm::vec2{36.0f, 44.0f});
+    };
 
     app.onStart([&](ply::App& a) {
         ply::World& world = a.world();
+        game.build(world);
+        decorate(world);
 
-        for (int x = 0; x < kMapW; ++x) {
-            map.setSolid(x, 0, true);
-        }
-        for (int y = 0; y < kMapH; ++y) {
-            map.setSolid(0, y, true);
-            map.setSolid(kMapW - 1, y, true);
-        }
-        for (int x = 5; x < 15; ++x) {
-            map.setSolid(x, 6, true);
-        }
-        for (int x = 20; x < 30; ++x) {
-            map.setSolid(x, 10, true);
-        }
-
-        scene.player = world.spawn();
-        world.add<ply::Transform>(
-            scene.player,
-            ply::Transform{glm::vec2{160.0f, 160.0f}, 0.0f, glm::vec2{1.0f, 1.0f}});
-        world.add<ply::GlobalTransform>(scene.player, ply::GlobalTransform{});
-        world.add<ply::Velocity>(scene.player, ply::Velocity{});
-        world.add<ply::Body>(scene.player, ply::Body{glm::vec2{14.0f, 14.0f}});
-
-        ply::Sprite sprite;
-        sprite.texture = texture;
-        sprite.region = atlas->region("player");
-        sprite.size = glm::vec2{28.0f, 28.0f};
-        world.add<ply::Sprite>(scene.player, sprite);
-
-        for (int i = 0; i < 6; ++i) {
-            const ply::Entity crate = world.spawn();
-            world.add<ply::Transform>(
-                crate, ply::Transform{glm::vec2{240.0f + static_cast<float>(i) * 130.0f,
-                                                380.0f},
-                                      0.0f, glm::vec2{1.0f, 1.0f}});
-            world.add<ply::GlobalTransform>(crate, ply::GlobalTransform{});
-            world.add<ply::Velocity>(crate, ply::Velocity{});
-            world.add<ply::Body>(crate, ply::Body{glm::vec2{12.0f, 12.0f}});
-
-            ply::Sprite crateSprite;
-            crateSprite.texture = texture;
-            crateSprite.region = atlas->region("crate");
-            crateSprite.size = glm::vec2{24.0f, 24.0f};
-            world.add<ply::Sprite>(crate, crateSprite);
-            scene.crates.push_back(crate);
-        }
-
-        a.camera().setPosition(glm::vec2{kMapW * kTile * 0.5f, kMapH * kTile * 0.5f});
-        a.camera().setZoom(0.75f);
+        a.camera().setPosition(glm::vec2{demo::kMapW * demo::kTile * 0.5f,
+                                         demo::kMapH * demo::kTile * 0.5f});
+        a.camera().setZoom(1.0f);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -227,93 +212,156 @@ int main(int argc, char** argv) {
         ply::World& world = a.world();
         const float fdt = static_cast<float>(dt);
 
-        // Drain network input at the fixed-step boundary.
-        server.update(monotonicSeconds());
-
-        // Local keyboard still works (useful without a phone).
-        if (ply::Velocity* v = world.get<ply::Velocity>(scene.player)) {
-            float target = 0.0f;
-            bool jump = false;
-
-            // Phone (slot 0..3): any connected slot can drive.
-            for (int i = 0; i < serverConfig.slotCount; ++i) {
-                const ply::companion::ControllerState s = server.input().state(i);
-                if (s.x != 0.0f) {
-                    target = s.x * 320.0f;
+        // Verify mode: the Autopilot synthesises controller states and pushes
+        // them through the real CompanionInput queue, so the scripted run
+        // exercises the same slot-routing path a phone does.
+        if (verify) {
+            const std::array<demo::PlayerInput, demo::kPlayerCount> scripted =
+                autopilot.update(game, world);
+            for (int i = 0; i < demo::kPlayerCount; ++i) {
+                ply::companion::ControllerState state;
+                state.x = scripted[i].x;
+                if (scripted[i].jumpPressed) {
+                    state.buttons = ply::companion::kButtonA;
                 }
-                if (server.input().pressed(i, ply::companion::kButtonA)) {
-                    jump = true;
-                }
-            }
-            // Keyboard fallback.
-            if (a.input().isKeyDown(ply::Key::Left) || a.input().isKeyDown(ply::Key::A)) {
-                target = -320.0f;
-            }
-            if (a.input().isKeyDown(ply::Key::Right) || a.input().isKeyDown(ply::Key::D)) {
-                target = 320.0f;
-            }
-            if (a.input().isKeyPressed(ply::Key::Space)) {
-                jump = true;
-            }
-
-            v->value.x = target;
-
-            const ply::Body* body = world.get<ply::Body>(scene.player);
-            if (jump && body && body->grounded) {
-                v->value.y = 620.0f;
+                server.input().push(i, state, ++synthSeq[i]);
             }
         }
 
-        ply::stepPhysics(world, map, fdt, settings);
-        ply::updateTransforms(world);
+        // Drain network input at the fixed-step boundary.
+        server.update(monotonicSeconds());
+
+        // Assemble per-player input: phone slot i drives player i, with a
+        // keyboard fallback so the demo is playable without any phones.
+        std::array<demo::PlayerInput, demo::kPlayerCount> input{};
+        for (int i = 0; i < demo::kPlayerCount; ++i) {
+            const ply::companion::ControllerState state = server.input().state(i);
+            if (std::fabs(state.x) > 0.01f) {
+                input[i].x = state.x;
+            }
+            if (server.input().pressed(i, ply::companion::kButtonA)) {
+                input[i].jumpPressed = true;
+            }
+
+            if (i == 0) {
+                if (a.input().isKeyDown(ply::Key::Left)) input[i].x = -1.0f;
+                if (a.input().isKeyDown(ply::Key::Right)) input[i].x = 1.0f;
+                if (a.input().isKeyPressed(ply::Key::Space)) input[i].jumpPressed = true;
+            } else {
+                if (a.input().isKeyDown(ply::Key::A)) input[i].x = -1.0f;
+                if (a.input().isKeyDown(ply::Key::D)) input[i].x = 1.0f;
+                if (a.input().isKeyPressed(ply::Key::W)) input[i].jumpPressed = true;
+            }
+        }
+
+        // Pause / restart: START on any phone, or P / R on the keyboard.
+        bool startPressed = false;
+        for (int i = 0; i < serverConfig.slotCount; ++i) {
+            if (server.input().pressed(i, ply::companion::kButtonStart)) {
+                startPressed = true;
+            }
+        }
+        if (a.input().isKeyPressed(ply::Key::R)) {
+            game.reset(world);
+            decorate(world);
+        } else if (game.state == demo::GameState::Won) {
+            if (startPressed) {
+                game.reset(world);
+                decorate(world);
+            }
+        } else if (startPressed || a.input().isKeyPressed(ply::Key::P)) {
+            game.togglePause();
+        }
+
+        game.step(world, input, fdt);
     });
 
     auto renderScene = [&](ply::App& a, double) {
         glClear(GL_COLOR_BUFFER_BIT);
         ply::World& world = a.world();
 
+        // Tiles + gameplay sprites share one atlas texture, so they batch
+        // together: draw the static map, then let drawSprites append.
         batch.begin(*texture, a.camera().viewProj());
-        for (int y = 0; y < kMapH; ++y) {
-            for (int x = 0; x < kMapW; ++x) {
-                if (!map.isSolid(x, y)) {
+        for (int y = 0; y < demo::kMapH; ++y) {
+            for (int x = 0; x < demo::kMapW; ++x) {
+                if (!game.map.isSolid(x, y)) {
                     continue;
                 }
-                batch.draw(glm::vec2{(static_cast<float>(x) + 0.5f) * kTile,
-                                     (static_cast<float>(y) + 0.5f) * kTile},
-                           glm::vec2{kTile, kTile}, atlas->region("tile"));
+                batch.draw(glm::vec2{(static_cast<float>(x) + 0.5f) * demo::kTile,
+                                     (static_cast<float>(y) + 0.5f) * demo::kTile},
+                           glm::vec2{demo::kTile, demo::kTile}, atlas->region("tile"));
             }
         }
         batch.end();
+
+        // Invulnerable players blink.
+        for (int i = 0; i < demo::kPlayerCount; ++i) {
+            if (ply::Sprite* sprite =
+                    world.get<ply::Sprite>(game.players[i].entity)) {
+                const bool blink = game.players[i].invuln > 0.0f &&
+                                   std::fmod(game.time * 10.0f, 1.0f) < 0.5f;
+                sprite->color.a = blink ? 0.35f : 1.0f;
+            }
+        }
 
         ply::drawSprites(world, batch, a.camera().viewProj());
 
         if (text) {
             batch.begin(text->texture(), a.camera().viewProj());
 
-            // Anchor the HUD to the visible top-left corner. Hard-coded world
-            // coordinates would drift off-screen at other zooms/positions.
+            // Anchor the HUD to the visible top-left corner.
             const glm::vec2 cam = a.camera().position();
             const float zoom = a.camera().zoom();
             const float halfW = static_cast<float>(a.window().width()) / (2.0f * zoom);
             const float halfH = static_cast<float>(a.window().height()) / (2.0f * zoom);
-            const glm::vec2 topLeft{cam.x - halfW + 28.0f, cam.y + halfH - 40.0f};
+            const glm::vec2 topLeft{cam.x - halfW + 24.0f, cam.y + halfH - 36.0f};
 
             text->draw(batch, "ROOM  " + server.roomCode(), topLeft,
-                       glm::vec4{1.0f, 1.0f, 0.6f, 1.0f}, 1.4f);
-            text->draw(batch, server.url(), topLeft - glm::vec2{0.0f, 46.0f},
+                       glm::vec4{1.0f, 1.0f, 0.6f, 1.0f}, 1.3f);
+            text->draw(batch, server.url(), topLeft - glm::vec2{0.0f, 40.0f},
                        glm::vec4{0.75f, 0.85f, 1.0f, 1.0f}, 1.0f);
             text->draw(batch,
                        "players: " + std::to_string(server.connectedCount()) + "/" +
                            std::to_string(serverConfig.slotCount) +
                            (server.mdnsActive() ? "  (mDNS discoverable)" : ""),
-                       topLeft - glm::vec2{0.0f, 82.0f}, glm::vec4{0.6f, 1.0f, 0.75f, 1.0f},
-                       1.0f);
+                       topLeft - glm::vec2{0.0f, 76.0f},
+                       glm::vec4{0.6f, 1.0f, 0.75f, 1.0f}, 1.0f);
+
+            // Scores, one coloured run per player.
+            const std::string s1 = "P1  " + std::to_string(game.players[0].score);
+            const std::string s2 = "P2  " + std::to_string(game.players[1].score);
+            const glm::vec2 scorePos = topLeft - glm::vec2{0.0f, 124.0f};
+            text->draw(batch, s1, scorePos, glm::vec4{0.45f, 0.78f, 1.0f, 1.0f}, 1.4f);
+            text->draw(batch, s2, scorePos + glm::vec2{text->measure(s1, 1.4f) + 40.0f, 0.0f},
+                       glm::vec4{1.0f, 0.75f, 0.4f, 1.0f}, 1.4f);
+
+            // Game state line.
+            std::string stateLine;
+            glm::vec4 stateColor{0.85f, 0.9f, 1.0f, 1.0f};
+            if (game.state == demo::GameState::Paused) {
+                stateLine = "PAUSED - P or START to resume";
+                stateColor = {1.0f, 0.85f, 0.5f, 1.0f};
+            } else if (game.state == demo::GameState::Won) {
+                stateLine = "P" + std::to_string(game.winner + 1) +
+                            " WINS!  R or START to restart";
+                stateColor = {0.55f, 1.0f, 0.65f, 1.0f};
+            } else {
+                stateLine = "reach the flag!   P1: arrows+space   P2: A/D/W"
+ "   P: pause   R: restart";
+            }
+            text->draw(batch, stateLine, topLeft - glm::vec2{0.0f, 164.0f},
+                       stateColor, 1.0f);
+
             batch.end();
         }
     };
 
     app.onRender(renderScene);
-    app.runFrames(frames > 0 ? frames : 120);
+
+    // The scripted run needs a full playthrough; default higher under verify.
+    const int frameCount = frames > 0 ? frames : (verify ? 1800 : 120);
+    app.runFrames(frameCount);
 
     int exitCode = 0;
     if (verify || screenshot) {
@@ -333,20 +381,49 @@ int main(int argc, char** argv) {
             }
         }
 
-        std::printf("companion demo: %d frames, room %s, %ld lit pixels\n",
-                    app.framesRendered(), server.roomCode().c_str(), lit);
+        // Gameplay outcome measurements.
+        const demo::Player& p1 = game.players[0];
+        const demo::Player& p2 = game.players[1];
+        const ply::Transform* p2Transform = app.world().get<ply::Transform>(p2.entity);
+        const float p2x = p2Transform ? p2Transform->position.x : p2.spawn.x;
+        float sawTravel = 0.0f;
+        for (ply::Entity saw : game.hazards) {
+            if (const demo::Hazard* hazard = app.world().get<demo::Hazard>(saw)) {
+                sawTravel += hazard->travelled;
+            }
+        }
+
+        std::printf(
+            "companion demo: %d frames, room %s, %ld lit pixels\n"
+            "  outcome: state=%s winner=%d p1.score=%d p1.deaths=%d p2.x=%.0f "
+            "(spawn %.0f) saw.travel=%.0f coins=%d/%d autopilot=%s\n",
+            app.framesRendered(), server.roomCode().c_str(), lit,
+            game.state == demo::GameState::Won ? "Won"
+                : game.state == demo::GameState::Paused ? "Paused" : "Playing",
+            game.winner, p1.score, p1.deaths, p2x, p2.spawn.x, sawTravel,
+            game.coinsCollected, game.initialCoinCount,
+            autopilot.stuck ? "STUCK" : "done");
 
         if (verify) {
-            if (lit < 10000) {
-                std::fprintf(stderr, "VERIFY FAIL: too few pixels drawn (%ld)\n", lit);
-                exitCode = 1;
-            } else if (server.roomCode().size() != 4) {
-                std::fprintf(stderr, "VERIFY FAIL: no room code\n");
-                exitCode = 1;
-            } else if (!server.running()) {
-                std::fprintf(stderr, "VERIFY FAIL: server is not running\n");
-                exitCode = 1;
-            } else {
+            auto check = [&](bool ok, const char* what) {
+                if (!ok) {
+                    std::fprintf(stderr, "VERIFY FAIL: %s\n", what);
+                    exitCode = 1;
+                }
+            };
+            check(lit >= 10000, "scene rendered");
+            check(server.roomCode().size() == 4, "room code present");
+            check(server.running(), "server running");
+            check(autopilot.phase == demo::Autopilot::Phase::Done && !autopilot.stuck,
+                  "scripted run completed (not stuck)");
+            check(game.state == demo::GameState::Won, "game reached a win state");
+            check(game.winner == 0, "player 1 reached the goal first");
+            check(p1.score >= 2, "player 1 collected coins");
+            check(p1.deaths >= 2, "player 1 died to the pit and the saw");
+            check(p2x < p2.spawn.x - 60.0f, "player 2 moved independently");
+            check(sawTravel > 100.0f, "hazards patrolled");
+            check(game.coinsCollected >= 2, "coins were removed from play");
+            if (exitCode == 0) {
                 std::printf("verify: PASS\n");
             }
         }

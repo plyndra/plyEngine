@@ -25,6 +25,10 @@ send inputs only.
 | 12 | Hosting/transport: embedded Crow HTTP+WebSocket server; JSON over WebSocket |
 | 13 | Mobile: browser/PWA on the phone, not a native app |
 | 14 | Demo: single-screen platformer (PC renders, phone controls) |
+| 15 | 1.0-alpha demo scope: full vertical slice — 2 phone players, coins/scoring, patrolling hazards, pit, goal with win state, HUD, pause/restart |
+| 16 | Docs: curated markdown through alpha (no site generator, no Doxygen); tutorial = one small game that compiles in CI |
+| 17 | Distribution: GitHub Releases with per-OS binaries + PWA + source tarball; `v1.0.0-alpha.N` semver prerelease tags |
+| 18 | Verification: gameplay outcomes asserted by a deterministic Autopilot shared by `--verify` and a headless ctest suite |
 
 ## Adoption posture
 
@@ -187,6 +191,69 @@ real asset pipeline and colour-managed art exist. It is a one-line change in
 **Antialiasing: none (MSAA off).** Hard pixel edges are correct for the target
 style. If MSAA is added later it must be opt-in per game, since it breaks
 pixel-exact reproducibility.
+
+## Reference demo & release (settled in M7)
+
+**The demo is a full vertical slice, not a tech demo.** The reference
+platformer (`examples/companion/`) must prove the engine end to end: a
+hand-authored tilemap (pit, ledge, three-step staircase), coins with
+per-player scoring, two patrolling saws, a pit death, a goal flag with a
+win state, HUD (room code, URL, scores, state line) and pause/restart.
+First player to the flag wins; there is no timer — a party game that ends
+when someone arrives is enough to exercise every subsystem.
+
+**Two phone players, slots map 1:1 to players.** Companion slot 0 drives
+P1, slot 1 drives P2; slots 2-3 join as spectators. Keyboard fallback
+(arrows+Space / A-D-W) keeps the demo playable with zero phones. The
+server already accepted multiple joins from M6 — M7 makes the game
+actually use them, because "phones as controllers" is the product pitch
+and an undemonstrable pitch is a bug.
+
+**Game logic is GL-free and lives beside the demo.** `platformer.hpp`
+holds the whole game (level, step, win/death/pickup rules, Autopilot);
+`main.cpp` holds only windowing, sprites and HUD. This is what lets
+`tests/platformer.cpp` run a complete playthrough headless as a ctest
+suite, and lets `--verify` assert the *same* logic — one code path, two
+harnesses. A demo whose rules can only be tested through a GPU is a demo
+whose rules don't get tested.
+
+**`--verify` asserts outcomes through the real input path.** The
+Autopilot is a deterministic scripted player: it reads game state and
+emits the same `PlayerInput` a human's phone produces. In verify mode the
+demo converts those to `ControllerState` frames and pushes them through
+`CompanionInput.push()` — the exact queue → drain → slot-routing path a
+phone uses — then asserts: coins collected, deaths ≥ 2 (pit and saw),
+player 2 displaced from its spawn independently, hazards travelled > 100
+units, and `state == Won && winner == 0`. The script is a phase machine
+(Probe → Coin → Pit → Saw → Goal) with a stuck detector, so a regression
+that breaks navigation fails the gate instead of hanging it. The same
+playthrough runs in ctest (plus pause/reset/determinism checks), so the
+suite is green on runners with no display at all.
+
+**Docs are curated markdown; the tutorial compiles.** Through alpha the
+API churns, so generated references (Doxygen) and site toolchains would
+ship stale pages; GitHub renders `docs/*.md` fine. The tutorial is not a
+snippet dump: it walks through `examples/tutorial/main.cpp`, a real
+target built and `--verify`-checked in CI, so the documented code cannot
+drift from code that runs. README stays the front door; GETTING_STARTED,
+BUILDING and TUTORIAL are the three guides.
+
+**Distribution: GitHub Releases, semver prerelease tags.** A `v*` tag
+triggers `.github/workflows/release.yml`, which rebuilds, re-tests and
+re-verifies on Windows/Linux/macOS, packages the six demo executables +
+`companion/dist` + docs + CHANGELOG, and attaches per-OS archives plus a
+`git archive` source tarball to the Release. Version lives in three
+places that must agree: `CMakeLists.txt` `project(VERSION …)`,
+`ply::kVersion` (`Version.hpp`, printed by the demo), and the git tag —
+`v1.0.0-alpha.N` until the API stabilises. Changelog is Keep-a-Changelog.
+Source-build-only was rejected: SDL3's Linux dependencies are a real
+onboarding wall, and the CI matrix already builds all three OSes, so
+binaries are nearly free.
+
+**Hygiene that ships with the tag.** Issue templates (bug/feature),
+`CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), CHANGELOG.md, and the
+existing DCO flow. These are cheap, standard and reversible — they were
+not up for debate, just done.
 
 ## Open branches (post-1.0-alpha)
 

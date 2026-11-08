@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose an improvement or new capability for plyEngine
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. Note that scripting, web/WASM builds,
+        mobile targets and internet play are explicitly *post-1.0-alpha*
+        (see `docs/ROADMAP.md`) — those are planned, not missing.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to build that plyEngine can't express today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The API, behavior, or design you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other designs you rejected.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I have checked this doesn't duplicate an existing issue
+          required: true
