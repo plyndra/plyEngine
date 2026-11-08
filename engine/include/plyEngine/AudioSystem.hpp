@@ -56,6 +56,13 @@ public:
     /// Number of voices currently playing (diagnostics/tests).
     size_t activeVoiceCount() const;
 
+    /// Whether a specific voice loops (diagnostics/tests).
+    bool voiceIsLooping(uint32_t voice) const;
+
+    /// True when a real output device was opened. A null-device engine (tests)
+    /// is ready but has no device, so nothing is audible.
+    bool hasDevice() const;
+
     const std::string& error() const;
 
 private:

@@ -59,6 +59,18 @@ int main() {
                 const uint32_t voice = audio.play(sound, 0.5f, 1.0f, 0.0f, false);
                 check(voice != 0, "play returns a voice id");
 
+                // Loop must be a per-voice choice, never baked into the shared
+                // decoded sound: playing once with loop=true must not make a
+                // later loop=false voice loop.
+                const uint32_t looping = audio.play(sound, 1.0f, 1.0f, 0.0f, true);
+                check(looping != 0, "looping voice starts");
+                check(audio.voiceIsLooping(looping), "loop=true voice loops");
+
+                const uint32_t oneShot = audio.play(sound, 1.0f, 1.0f, 0.0f, false);
+                check(oneShot != 0, "one-shot voice starts after a looping voice");
+                check(!audio.voiceIsLooping(oneShot),
+                      "loop=false stays one-shot after a looping play (no leak)");
+
                 // The same decoded sound can be played more than once.
                 const uint32_t voice2 = audio.play(sound, 0.25f, 1.5f, 0.5f, false);
                 check(voice2 != 0, "second voice for the same sound");
@@ -67,6 +79,9 @@ int main() {
                 audio.stop(voice);
                 audio.stopAll();
                 check(audio.activeVoiceCount() == 0, "stopAll clears every voice");
+
+                check(!audio.voiceIsLooping(voice),
+                      "a stopped/unknown voice is not reported as looping");
 
                 audio.unloadSound(sound);
             }
@@ -84,6 +99,9 @@ int main() {
 
             audio.setMasterVolume(0.25f);
             check(audio.masterVolume() == 0.25f, "master volume round-trips");
+
+            // A null engine is ready but has no output device.
+            check(!audio.hasDevice(), "null engine reports no output device");
         }
 
         audio.shutdown();
@@ -100,6 +118,20 @@ int main() {
         audio.shutdown();
         audio.shutdown();
         check(!audio.ready(), "repeated shutdown stays safe");
+    }
+
+    // --- a volume set before init is applied on init ---------------------
+    {
+        ply::AudioSystem audio;
+        audio.setMasterVolume(0.4f);
+
+        ply::AudioSystem::Config config;
+        config.forceNullDevice = true;
+        if (audio.init(config)) {
+            check(audio.masterVolume() == 0.4f,
+                  "pre-init master volume survives init");
+        }
+        audio.shutdown();
     }
 
     if (failures == 0) {

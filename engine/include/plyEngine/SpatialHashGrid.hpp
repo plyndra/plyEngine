@@ -36,6 +36,8 @@ public:
 private:
     static int64_t cellCoord(float value, float cellSize);
     static uint64_t packKey(int64_t x, int64_t y);
+    void bucketBox(uint64_t id, const Aabb& box);
+    void unbucketBox(uint64_t id, const Aabb& box);
 
     float cellSize_ = 64.0f;
     std::unordered_map<uint64_t, std::vector<uint64_t>> buckets_;

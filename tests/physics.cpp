@@ -362,6 +362,39 @@ int main() {
         check(t && t->position.x > 100.0f, "body advanced towards the wall");
     }
 
+    // --- spatial hash: re-inserting an id moves it ------------------------
+    {
+        ply::SpatialHashGrid grid(32.0f);
+        grid.insert(1, ply::makeAabb({0.0f, 0.0f}, {10.0f, 10.0f}));
+        check(grid.itemCount() == 1, "one item after first insert");
+
+        // Move the same id far away without clearing.
+        grid.insert(1, ply::makeAabb({400.0f, 0.0f}, {10.0f, 10.0f}));
+        check(grid.itemCount() == 1, "re-insert does not duplicate the item");
+
+        std::vector<uint64_t> stale;
+        grid.query(ply::makeAabb({0.0f, 0.0f}, {20.0f, 20.0f}), stale);
+        check(stale.empty(), "old cell no longer reports the moved item");
+
+        std::vector<uint64_t> current;
+        grid.query(ply::makeAabb({400.0f, 0.0f}, {20.0f, 20.0f}), current);
+        bool found = false;
+        for (uint64_t id : current) {
+            if (id == 1) found = true;
+        }
+        check(found, "new cell reports the moved item");
+
+        // Repeated moves must not grow the bucket map without bound.
+        const size_t before = grid.bucketCount();
+        for (int i = 0; i < 1000; ++i) {
+            grid.insert(1, ply::makeAabb({static_cast<float>(i) * 100.0f, 0.0f},
+                                         {10.0f, 10.0f}));
+        }
+        check(grid.bucketCount() <= before + 2,
+              "repeated re-inserts keep the bucket count bounded");
+        check(grid.itemCount() == 1, "repeated re-inserts keep one item");
+    }
+
     // --- ECS physics: zero dt is a no-op ---------------------------------
     {
         ply::Tilemap map(8, 8, 16.0f);

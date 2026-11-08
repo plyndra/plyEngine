@@ -62,10 +62,8 @@ bool AudioSystem::init(const Config& config) {
     engineConfig.channels = static_cast<ma_uint32>(
         config.channels > 0 ? config.channels : 2);
 
-    ma_backend backends[1];
     if (config.forceNullDevice) {
-        backends[0] = ma_backend_null;
-        engineConfig.pContext = nullptr;
+        // No device is opened; the engine runs silently. Used by headless tests.
         engineConfig.noDevice = MA_TRUE;
     }
 
@@ -79,10 +77,11 @@ bool AudioSystem::init(const Config& config) {
     }
 
     impl_->engineReady = true;
-    impl_->deviceReady = true;
-    if (config.forceNullDevice) {
-        ma_engine_set_volume(&impl_->engine, impl_->masterVolume);
-    }
+    // A null engine has no output device; report that honestly.
+    impl_->deviceReady = !config.forceNullDevice;
+
+    // Apply any volume set before init, on every backend.
+    ma_engine_set_volume(&impl_->engine, impl_->masterVolume);
     return true;
 }
 
@@ -99,6 +98,8 @@ void AudioSystem::shutdown() {
 }
 
 bool AudioSystem::ready() const { return impl_ && impl_->engineReady; }
+
+bool AudioSystem::hasDevice() const { return impl_ && impl_->deviceReady; }
 
 uint32_t AudioSystem::loadSound(const std::string& path) {
     if (!ready()) {
@@ -145,12 +146,11 @@ uint32_t AudioSystem::play(uint32_t sound, float volume, float pitch, float pan,
     impl_->pruneFinishedVoices();
 
     // Duplicate so the same decoded sound can play overlapping instances.
+    // IMPORTANT: never mutate the shared source sound here (e.g. its looping
+    // flag) — that would leak play-options between voices.
     auto* voice = new ma_sound();
-    ma_sound* source = it->second;
-    if (!ma_sound_is_looping(source) && loop) {
-        ma_sound_set_looping(source, MA_TRUE);
-    }
-    if (ma_sound_init_copy(&impl_->engine, source, 0, nullptr, voice) != MA_SUCCESS) {
+    if (ma_sound_init_copy(&impl_->engine, it->second, 0, nullptr, voice) !=
+        MA_SUCCESS) {
         delete voice;
         return 0;
     }
@@ -215,5 +215,16 @@ size_t AudioSystem::activeVoiceCount() const {
 }
 
 const std::string& AudioSystem::error() const { return impl_->error; }
+
+bool AudioSystem::voiceIsLooping(uint32_t voice) const {
+    if (!impl_) {
+        return false;
+    }
+    auto it = impl_->voices.find(voice);
+    if (it == impl_->voices.end()) {
+        return false;
+    }
+    return ma_sound_is_looping(it->second) == MA_TRUE;
+}
 
 }  // namespace ply

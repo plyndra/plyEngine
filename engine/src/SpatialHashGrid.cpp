@@ -30,9 +30,7 @@ uint64_t SpatialHashGrid::packKey(int64_t x, int64_t y) {
     return (uy << 32) | ux;
 }
 
-void SpatialHashGrid::insert(uint64_t id, const Aabb& box) {
-    items_[id] = box;
-
+void SpatialHashGrid::bucketBox(uint64_t id, const Aabb& box) {
     const int64_t minX = cellCoord(box.min.x, cellSize_);
     const int64_t minY = cellCoord(box.min.y, cellSize_);
     const int64_t maxX = cellCoord(box.max.x, cellSize_);
@@ -43,6 +41,43 @@ void SpatialHashGrid::insert(uint64_t id, const Aabb& box) {
             buckets_[packKey(x, y)].push_back(id);
         }
     }
+}
+
+void SpatialHashGrid::unbucketBox(uint64_t id, const Aabb& box) {
+    const int64_t minX = cellCoord(box.min.x, cellSize_);
+    const int64_t minY = cellCoord(box.min.y, cellSize_);
+    const int64_t maxX = cellCoord(box.max.x, cellSize_);
+    const int64_t maxY = cellCoord(box.max.y, cellSize_);
+
+    for (int64_t y = minY; y <= maxY; ++y) {
+        for (int64_t x = minX; x <= maxX; ++x) {
+            const uint64_t key = packKey(x, y);
+            auto it = buckets_.find(key);
+            if (it == buckets_.end()) {
+                continue;
+            }
+            auto& ids = it->second;
+            ids.erase(std::remove(ids.begin(), ids.end(), id), ids.end());
+            if (ids.empty()) {
+                buckets_.erase(it);
+            }
+        }
+    }
+}
+
+void SpatialHashGrid::insert(uint64_t id, const Aabb& box) {
+    // Re-inserting an existing id must move it, not add a second copy: leaving
+    // the old cells populated would report stale candidates and grow the
+    // buckets without bound for a caller that never calls clear().
+    auto existing = items_.find(id);
+    if (existing != items_.end()) {
+        unbucketBox(id, existing->second);
+        existing->second = box;
+    } else {
+        items_.emplace(id, box);
+    }
+
+    bucketBox(id, box);
 }
 
 void SpatialHashGrid::query(const Aabb& area, std::vector<uint64_t>& out) const {

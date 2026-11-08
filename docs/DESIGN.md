@@ -56,6 +56,9 @@ geometry reports no hit so a body can work itself free instead of sticking.
 
 **Broadphase is a spatial hash grid** with a brute-force path for tiny scenes.
 The tilemap answers queries directly by converting the AABB to a cell range.
+`insert()` is idempotent per id: re-inserting an id **moves** it, removing it
+from its old cells. A caller that never calls `clear()` therefore cannot
+accumulate stale candidates or grow the bucket map without bound.
 
 **Tilemap cells are solid/empty; out-of-bounds counts as solid** by default so
 bodies cannot leave the level (configurable).
@@ -66,7 +69,9 @@ bit-identical final positions.
 
 **Audio is miniaudio**, which owns its own device alongside SDL3's window/input.
 With no device the system reports not-ready and every call is a harmless no-op,
-so headless CI needs no special casing.
+so headless CI needs no special casing. Play options (loop, volume, pitch, pan)
+are **per voice**: `play()` never mutates the shared decoded sound, so one
+looping call cannot make later one-shots loop.
 
 **Debug draw is part of the engine**, not the demo: collider outlines, the tile
 grid and body centres, behind an `F1`-style toggle.

@@ -20,7 +20,7 @@ void stepPhysics(World& world, const Tilemap& map, float dt,
     }
 
     const ColliderQuery query = map.colliderQuery();
-    std::vector<std::pair<Entity, glm::vec2>> updates;
+    std::vector<Entity> touched;
 
     world.each<Body, Transform>([&](Entity entity, Body& body, Transform& transform) {
         Velocity* velocity = world.get<Velocity>(entity);
@@ -62,15 +62,14 @@ void stepPhysics(World& world, const Tilemap& map, float dt,
             }
         }
 
-        // Defer transform writes so each() is not disturbed mid-iteration.
-        updates.emplace_back(entity, transform.position);
+        // Marking dirty is deferred until after iteration, because
+        // markTransformDirty allocates and walks the hierarchy; writing the
+        // position itself cannot invalidate the archetype.
+        touched.push_back(entity);
     });
 
-    for (const auto& [entity, position] : updates) {
-        if (Transform* transform = world.get<Transform>(entity)) {
-            transform->position = position;
-            markTransformDirty(world, entity);
-        }
+    for (Entity entity : touched) {
+        markTransformDirty(world, entity);
     }
 }
 
