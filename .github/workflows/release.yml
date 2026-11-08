@@ -41,6 +41,10 @@ jobs:
             libxpresent-dev libxshmfence-dev libxtst-dev \
             python3-jinja2 xvfb fonts-dejavu-core
 
+      - name: Install Python deps (glad codegen)
+        if: runner.os != 'Linux'
+        run: python -m pip install jinja2
+
       - name: Build companion PWA
         run: |
           cd companion
