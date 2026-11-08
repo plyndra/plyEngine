@@ -41,6 +41,28 @@ send inputs only.
 4. **Companion** — embedded Crow server, JSON protocol, room code + QR join.
 5. **Game layer** — native C++ API (games link against plyEngine).
 
+## Renderer conventions (settled in M2 review)
+
+**Sprite anchor: centre.** `SpriteBatch::draw()` takes the sprite's centre, not
+its bottom-left corner, matching the 2D-engine mainstream (Godot, Unity 2D,
+Cocos). Rotation pivots, culling bounds and M3 transform hierarchies all assume
+one convention, so it is fixed now rather than retrofitted.
+
+**Texture filtering: per-texture, default NEAREST.** Pixel art is the default
+audience; `TextureFilter::Linear` is available for pre-scaled art and UI.
+
+**Colour space: sRGB passthrough (no linearization), deliberate.** Textures
+upload as `GL_RGBA8` and `GL_FRAMEBUFFER_SRGB` stays off, so authored RGB values
+reach the framebuffer unchanged — which is what 2D pixel artists expect and
+what makes headless render checks byte-exact. Moving to a linear pipeline
+(sRGB internal formats + `GL_FRAMEBUFFER_SRGB`) is deferred to **M4**, when a
+real asset pipeline and colour-managed art exist. It is a one-line change in
+`Texture.cpp` plus a clear-colour conversion.
+
+**Antialiasing: none (MSAA off).** Hard pixel edges are correct for the target
+style. If MSAA is added later it must be opt-in per game, since it breaks
+pixel-exact reproducibility.
+
 ## Open branches (post-1.0-alpha)
 
 - Embedded scripting (Lua binding)

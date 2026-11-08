@@ -10,6 +10,11 @@ namespace ply {
 
 /// Batches textured quads from a single texture into as few draw calls as
 /// possible. Call begin()/end() once per frame around your draws.
+///
+/// Sprite anchor: `draw()` takes the sprite's CENTER in world units, matching
+/// the 2D-engine mainstream (Godot, Unity 2D, Cocos). This keeps rotation
+/// pivots, culling and transform hierarchies consistent once M3 adds
+/// Transform components.
 class SpriteBatch {
 public:
     explicit SpriteBatch(size_t maxQuads = 8192);
@@ -20,13 +25,16 @@ public:
 
     void begin(const Texture& texture, const glm::mat4& viewProj);
 
-    /// Draw a quad with its bottom-left corner at `position`, size `size`,
-    /// sampled from `region`, tinted by `color` (default white).
-    void draw(const glm::vec2& position, const glm::vec2& size,
+    /// Draw a quad CENTERED on `center`, with total size `size`, sampled from
+    /// `region`, tinted by `color` (default white).
+    void draw(const glm::vec2& center, const glm::vec2& size,
               const TextureRegion& region,
               const glm::vec4& color = {1.0f, 1.0f, 1.0f, 1.0f});
 
     void end();
+
+    /// Quads submitted since the last flush (diagnostics/tests).
+    size_t quadCount() const;
 
 private:
     void flush();
@@ -46,6 +54,7 @@ private:
     const Texture* texture_ = nullptr;
     glm::mat4 viewProj_{1.0f};
     bool drawing_ = false;
+    size_t totalQuads_ = 0;
 };
 
 }  // namespace ply

@@ -2,18 +2,23 @@
 
 namespace ply {
 
-SpriteAtlas::SpriteAtlas(int width, int height, const unsigned char* rgba)
-    : texture_(width, height, rgba) {}
-
-void SpriteAtlas::addRegion(const std::string& name, int x, int y, int w, int h) {
+TextureRegion makeRegion(int texWidth, int texHeight, int x, int y, int w, int h) {
     TextureRegion r;
-    r.u0 = static_cast<float>(x) / static_cast<float>(texture_.width());
-    r.v0 = static_cast<float>(y) / static_cast<float>(texture_.height());
-    r.u1 = static_cast<float>(x + w) / static_cast<float>(texture_.width());
-    r.v1 = static_cast<float>(y + h) / static_cast<float>(texture_.height());
+    r.u0 = static_cast<float>(x) / static_cast<float>(texWidth);
+    r.v0 = static_cast<float>(y) / static_cast<float>(texHeight);
+    r.u1 = static_cast<float>(x + w) / static_cast<float>(texWidth);
+    r.v1 = static_cast<float>(y + h) / static_cast<float>(texHeight);
     r.width = w;
     r.height = h;
-    regions_[name] = r;
+    return r;
+}
+
+SpriteAtlas::SpriteAtlas(int width, int height, const unsigned char* rgba,
+                         TextureFilter filter)
+    : texture_(width, height, rgba, filter) {}
+
+void SpriteAtlas::addRegion(const std::string& name, int x, int y, int w, int h) {
+    regions_[name] = makeRegion(texture_.width(), texture_.height(), x, y, w, h);
 }
 
 const TextureRegion& SpriteAtlas::region(const std::string& name) const {

@@ -2,6 +2,8 @@
 
 #include <glad/gl.h>
 
+#include <cstddef>
+
 namespace ply {
 
 namespace {
@@ -35,7 +37,7 @@ SpriteBatch::SpriteBatch(size_t maxQuads)
     std::vector<unsigned int> indices(maxQuads_ * 6);
     size_t offset = 0;
     for (size_t q = 0; q < maxQuads_; ++q) {
-        unsigned int i = static_cast<unsigned int>(q * 4);
+        const unsigned int i = static_cast<unsigned int>(q * 4);
         indices[offset++] = i + 0;
         indices[offset++] = i + 1;
         indices[offset++] = i + 2;
@@ -84,10 +86,11 @@ void SpriteBatch::begin(const Texture& texture, const glm::mat4& viewProj) {
     texture_ = &texture;
     viewProj_ = viewProj;
     vertices_.clear();
+    totalQuads_ = 0;
     drawing_ = true;
 }
 
-void SpriteBatch::draw(const glm::vec2& position, const glm::vec2& size,
+void SpriteBatch::draw(const glm::vec2& center, const glm::vec2& size,
                        const TextureRegion& region, const glm::vec4& color) {
     if (!drawing_) {
         return;
@@ -96,16 +99,21 @@ void SpriteBatch::draw(const glm::vec2& position, const glm::vec2& size,
         flush();
     }
 
-    const float x = position.x;
-    const float y = position.y;
-    const float w = size.x;
-    const float h = size.y;
+    const float hw = size.x * 0.5f;
+    const float hh = size.y * 0.5f;
+    const float x0 = center.x - hw;  // left
+    const float x1 = center.x + hw;  // right
+    const float y0 = center.y - hh;  // bottom
+    const float y1 = center.y + hh;  // top
 
     // Vertex order per quad: bottom-left, bottom-right, top-right, top-left.
-    vertices_.push_back({x, y, region.u0, region.v1, color.r, color.g, color.b, color.a});
-    vertices_.push_back({x + w, y, region.u1, region.v1, color.r, color.g, color.b, color.a});
-    vertices_.push_back({x + w, y + h, region.u1, region.v0, color.r, color.g, color.b, color.a});
-    vertices_.push_back({x, y + h, region.u0, region.v0, color.r, color.g, color.b, color.a});
+    // v0 is the TOP of the region, so the bottom edge samples v1.
+    vertices_.push_back({x0, y0, region.u0, region.v1, color.r, color.g, color.b, color.a});
+    vertices_.push_back({x1, y0, region.u1, region.v1, color.r, color.g, color.b, color.a});
+    vertices_.push_back({x1, y1, region.u1, region.v0, color.r, color.g, color.b, color.a});
+    vertices_.push_back({x0, y1, region.u0, region.v0, color.r, color.g, color.b, color.a});
+
+    ++totalQuads_;
 }
 
 void SpriteBatch::end() {
@@ -116,6 +124,8 @@ void SpriteBatch::end() {
     glBindVertexArray(0);
     drawing_ = false;
 }
+
+size_t SpriteBatch::quadCount() const { return totalQuads_; }
 
 void SpriteBatch::flush() {
     if (vertices_.empty()) {

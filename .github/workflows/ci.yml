@@ -34,7 +34,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
-      - name: Run hello example (Linux, headless)
+      - name: Run hello example (Linux, headless, verified)
         if: runner.os == 'Linux'
         run: |
-          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_hello --frames 5
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_hello --frames 3 --verify --screenshot /tmp/ply_ci.bmp

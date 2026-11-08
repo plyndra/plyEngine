@@ -72,6 +72,11 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_smoke tests/smoke.cpp)
     target_link_libraries(ply_smoke PRIVATE plyEngine)
     add_test(NAME smoke COMMAND ply_smoke)
+
+    # Pure-math tests: no GL context required, so they run on any CI runner.
+    add_executable(ply_atlas_test tests/atlas.cpp)
+    target_link_libraries(ply_atlas_test PRIVATE plyEngine)
+    add_test(NAME atlas COMMAND ply_atlas_test)
 endif()
 
 # --- Examples ----------------------------------------------------------------

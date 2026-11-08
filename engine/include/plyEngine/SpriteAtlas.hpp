@@ -16,11 +16,16 @@ struct TextureRegion {
     int width = 0, height = 0;
 };
 
+/// Computes the normalized UV region for a pixel rect inside a texture.
+/// Pure math with no GL dependency, so it is unit-testable headlessly.
+TextureRegion makeRegion(int texWidth, int texHeight, int x, int y, int w, int h);
+
 /// A single texture plus named sub-regions. All sprites drawn from one atlas
 /// can share a single draw call (see SpriteBatch).
 class SpriteAtlas {
 public:
-    SpriteAtlas(int width, int height, const unsigned char* rgba);
+    SpriteAtlas(int width, int height, const unsigned char* rgba,
+                TextureFilter filter = TextureFilter::Nearest);
 
     /// Add a named region in pixel coordinates, (x, y) = top-left origin.
     void addRegion(const std::string& name, int x, int y, int w, int h);
