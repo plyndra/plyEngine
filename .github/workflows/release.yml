@@ -240,8 +240,10 @@ jobs:
           # End-to-end over HTTP from the shipped archive: the default --verify
           # run never fetches a URL, so only this step proves a phone can load
           # the controller from companion/.
+          # No --web on purpose: this must exercise the default path from the
+          # archive layout, which is the thing that used to 404.
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./ply_companion --no-mdns \
-            --web companion --frames 1200 > /tmp/serve.log 2>&1 &
+            --frames 1200 > /tmp/serve.log 2>&1 &
           serve_pid=$!
           for _ in $(seq 1 40); do
             port=$(grep -oE 'open: +http://[0-9.]+:[0-9]+' /tmp/serve.log \
