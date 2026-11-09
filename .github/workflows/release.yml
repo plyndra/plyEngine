@@ -131,7 +131,11 @@ jobs:
 
           BIN=build
           if [ -d build/Release ]; then BIN=build/Release; fi
-          for exe in ply_hello ply_ecs ply_assets ply_physics ply_companion ply_tutorial; do
+          # Keep this list in step with the example targets in CMakeLists.txt:
+          # a missing binary is a packaging bug, and the smoke job below now
+          # asserts every one of them is present and runnable.
+          for exe in ply_hello ply_ecs ply_assets ply_physics ply_companion \
+                     ply_tutorial ply_scripting; do
             if [ -f "$BIN/$exe.exe" ]; then
               cp "$BIN/$exe.exe" "dist/${PKG}/"
             else
@@ -201,9 +205,25 @@ jobs:
         run: |
           mkdir -p /tmp/run && tar xzf /tmp/pkg/*.tar.gz -C /tmp/run
           cd /tmp/run/plyEngine-*
+
+          # Every demo the release advertises must be in the archive.
+          # v1.0.0-beta.2 shipped without ply_scripting because the packaging
+          # loop and this check disagreed about the list; assert the list here.
+          echo "::group::archive contents"
+          for exe in ply_hello ply_ecs ply_assets ply_physics ply_companion \
+                     ply_tutorial ply_scripting; do
+            [ -x "./$exe" ] || { echo "::error::archive is missing $exe"; exit 1; }
+            echo "present: $exe"
+          done
+          [ -d companion ] || { echo "::error::archive is missing companion/"; exit 1; }
+          echo "::endgroup::"
+
           export LIBGL_ALWAYS_SOFTWARE=1
           echo "::group::tutorial"
           xvfb-run -a ./ply_tutorial --verify
+          echo "::endgroup::"
+          echo "::group::scripting"
+          xvfb-run -a ./ply_scripting --verify
           echo "::endgroup::"
           echo "::group::platformer"
           xvfb-run -a ./ply_companion --verify --frames 1800 --no-mdns --web companion
@@ -305,7 +325,8 @@ jobs:
 
             - `ply_hello`, `ply_ecs`, `ply_assets`, `ply_physics` — feature demos
             - `ply_tutorial` — the completed game from `docs/TUTORIAL.md`
-            - `ply_companion` — two-player platformer; phones drive it
+            - `ply_companion` — four-player platformer; phones drive it
+            - `ply_scripting` — Lua-driven demo: behaviour in a script
             - `companion/` — built web controller (serve it with `--web companion`)
             - `docs/`, `README.md`, `CHANGELOG.md`, `LICENSE`
 
