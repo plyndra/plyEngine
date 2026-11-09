@@ -1,11 +1,15 @@
-# Call for testers — publication copy (v1.0.0-beta.4, 2026-11-09)
+# Call for testers — publication copy (v1.0.0, 2026-11-09)
 
 Tracked here so the published text is reviewable history. Reports get logged
 in [../CONSUMER_REPORTS.md](../CONSUMER_REPORTS.md).
 
 Every factual claim below was checked against the repo and the published
-`v1.0.0-beta.4` release on 2026-11-09. Nothing here is
+`v1.0.0` release on 2026-11-09. Nothing here is
 aspirational.
+
+**Status 2026-11-09: 1.0.0 is released.** This copy was written during the
+beta and updated after the promotion; the ask (build it, report friction) is
+unchanged, but §What I'd love to hear back no longer frames reports as a gate.
 
 **Venue order** (council recommendation, owner-approved): EngineDev / C++
 Discord `#showcase` first as a soft launch → r/gamedev → r/cpp Show & Tell →
@@ -19,7 +23,7 @@ way, but confirm the current sidebar rules before posting.
 
 ## Title (r/gamedev)
 
-Looking for a few testers: plyEngine 1.0.0-beta.4 — a C++20 2D engine where phones are the controllers
+Looking for a few testers: plyEngine 1.0.0 — a C++20 2D engine where phones are the controllers
 
 (102 characters; Reddit's limit is 300.)
 
@@ -36,9 +40,10 @@ Under the hood it is a small MIT-licensed 2D engine: C++20, SDL3 + OpenGL
 3.3, an archetype ECS, swept-AABB tilemap physics, PNG/TTF assets, miniaudio
 audio, and a sandboxed Lua 5.4 scripting layer.
 
-Why I'm posting: the public API has been frozen since `v1.0.0-beta.1`, but I
-won't tag 1.0.0 on the strength of my own tests. I need at least one person
-who is not me to build something with it and tell me what broke.
+Why I'm posting: 1.0.0 shipped with the public API frozen since `v1.0.0-beta.1`,
+and the honest gap is ergonomics — whether these consumption paths are pleasant
+with someone else's project layout. Outside reports no longer gate a release,
+so the ask is simpler: build it, and tell me what broke.
 
 ### The 10-second version (no build, no toolchain)
 
@@ -56,7 +61,7 @@ three people on the same Wi-Fi open that URL, type the room code, and play.
 `./ply_tutorial` is the completed five-coin game from the tutorial, for a
 single keyboard player.
 
-Release: <https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.4>
+Release: <https://github.com/plyndra/plyEngine/releases/tag/v1.0.0>
 (each archive is unpacked on a clean Ubuntu 22.04 container and its demos run
 headless there before publishing, so a broken binary fails CI rather than
 you).
@@ -70,7 +75,7 @@ Any one of these is enough — pick the least annoying:
    Measured at 1m46s configure+build on 12 cores (a cold download plus an
    older laptop can take several times that). Needs CMake ≥ 3.24, a C++20 compiler, and the SDL3/X11 dev packages; the
    exact apt list is in the tutorial's "Before you start" block.
-2. **FetchContent** into your own CMake project (`GIT_TAG v1.0.0-beta.4`) —
+2. **FetchContent** into your own CMake project (`GIT_TAG v1.0.0`) —
    the README has a 6-line example.
 3. **`find_package(plyEngine)`** after `cmake --install`.
 4. **vcpkg**: the repo hosts its own vcpkg registry, so no upstream port is
@@ -101,8 +106,8 @@ Any one of these is enough — pick the least annoying:
 - The **version and OS** you used, and your compiler if you built it.
 - Anything that broke or surprised you — including "this doc is wrong about
   X". Friction reports are worth more to me than praise.
-- If you build something, even a moving square: that is the evidence I need
-  for the 1.0.0 soak gate.
+- If you build something, even a moving square: I'd like to log it (with your
+  permission) as a real-world data point.
 
 I'll log qualifying reports (with your permission) in
 [docs/CONSUMER_REPORTS.md](https://github.com/plyndra/plyEngine/blob/main/docs/CONSUMER_REPORTS.md).
@@ -117,8 +122,8 @@ Not asking for money or stars — just real builds and real friction.
 
 ## r/cpp Show & Tell variant
 
-**Title:** Show & Tell: plyEngine — C++20/OpenGL 3.3 2D engine with a
-phone-as-controller companion server, API frozen at beta
+**Title:** Show & Tell: plyEngine 1.0.0 — C++20/OpenGL 3.3 2D engine with a
+phone-as-controller companion server
 
 **Body:** Same engine summary, cut for a C++ audience: build system story
 (pinned FetchContent deps with an offline `PLY_USE_SYSTEM_DEPS` mode, a
@@ -132,11 +137,13 @@ and to `docs/CONSUMER_REPORTS.md`.
 
 ## Discord `#showcase` message
 
-> plyEngine — small C++20/OpenGL 3.3 2D engine, MIT. Frozen public API at
-> v1.0.0-beta.4; I need outside builds before tagging 1.0.0. Four-player
-> phone-controller demo runs from the release binaries (no build), and the
-> tutorial builds in a couple of minutes: https://github.com/plyndra/plyEngine
-> Especially interested in `find_package`/FetchContent friction.
+> plyEngine 1.0.0 — small C++20/OpenGL 3.3 2D engine, MIT, public API frozen.
+> Four-player phone-controller demo runs straight from the release binaries
+> (no build, no flags), and the tutorial builds in ~2 minutes:
+> https://github.com/plyndra/plyEngine
+> Now looking for outside friction reports on the `find_package` / FetchContent
+> / vcpkg-registry paths — 1.0.0 shipped without them, and that is the part I
+> am least sure about.
 
 ---
 
@@ -144,7 +151,7 @@ and to `docs/CONSUMER_REPORTS.md`.
 
 | Claim in the post | Verified how | Result |
 |---|---|---|
-| Version is 1.0.0-beta.4 | `git tag`, release assets, `PLY_VERSION_STRING` | ✅ correct |
+| Version is 1.0.0 | `git tag v1.0.0`, release assets, generated `Version.hpp` | ✅ correct |
 | Release URL resolves | HTTP GET | ✅ 200 |
 | macOS archive | release asset list | ⚠️ **arm64 only** — stated in the post |
 | Archives run without a build | release gate: unpack + `--verify` on Ubuntu 22.04 | ✅ |
