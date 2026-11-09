@@ -11,6 +11,7 @@
 | **M6 — Companion** | ✅ Done | Crow HTTP+WebSocket server, versioned JSON protocol, mDNS discovery + room code, reference PWA, fixed-step input queue |
 | **M7 — 1.0-alpha** | ✅ Done | Full reference demo (2 phone players at M7, coins/scoring, saws, pit, staircase, goal, pause/restart) with outcome-asserting `--verify`; `ply_tutorial` + step-by-step tutorial; GETTING_STARTED/BUILDING docs; release workflow with per-OS binaries that are unpacked and executed before publishing; issue templates, CoC, CHANGELOG; 14 ctest suites green in Release and ASan; tagged `v1.0.0-alpha.2` |
 
+| **M9 — scripting & packaging** | ✅ Done | Lua 5.4 scripting layer (hand-bound, sandboxed, `update(dt)`) with demo + headless tests; vendored glad (no Python/generator step); `PLY_USE_SYSTEM_DEPS` offline build mode verified; vcpkg/conan recipes prepared and gated on repository visibility; `scripts/release-check.sh` enforces version/API-drift/link/ctest; tagged `v1.0.0-beta.2` |
 | **M8 — 1.0-beta** | ✅ Done | Public API frozen; `find_package(plyEngine)` installable SDK with a CI consumer build; reference demo expanded to four phone players with synthesised sound cues asserted by `--verify`; tagged `v1.0.0-beta.1` |
 
 Dependencies land at their milestone: SDL3 + glad (M1), GLM + stb + nlohmann/json (M2/M4), miniaudio + Crow + asio + mdns (M5/M6).
@@ -42,6 +43,37 @@ that can fail, not a claim:
 6. **OSS hygiene**: issue templates, CODE_OF_CONDUCT, DCO CONTRIBUTING,
    semver prerelease tags, Keep-a-Changelog, GitHub release marked as a
    prerelease.
+
+## Beta soak: the exit criteria for v1.0.0
+
+`v1.0.0-beta.1` is the freeze point. 1.0 is not a date; it is these three
+criteria, all of which are checkable rather than remembered:
+
+1. **The frozen API survives real work.** All work between beta.1 and 1.0
+   must be additive to `engine/include/`. Mechanically enforced by
+   `scripts/release-check.sh`, which diffs the public headers against the
+   freeze tag and fails on any removed line unless explicitly overridden
+   (`--allow-api-change`, which requires recording the decision in
+   `docs/DESIGN.md`).
+2. **At least one outside consumer builds it.** Someone who is not us
+   reports a successful build through either consumption path
+   (`find_package(plyEngine)` or `FetchContent`), with the version and OS.
+   "No external users" is not evidence of stability, and this project's
+   rule is that a claim needs evidence — the alpha.2 archive was the same
+   mistake in a different costume.
+3. **Every gate below still green**, on the tip of `main`, including the
+   install-and-consume job on all three OSes.
+
+Run the mechanical parts at any time:
+
+```sh
+scripts/release-check.sh --tag v1.0.0-beta.1   # version, API drift, links, ctest
+```
+
+If criterion 2 cannot be met within a reasonable window, the fallback is to
+re-cut beta.N with a CHANGELOG note rather than to promote 1.0 on the
+strength of our own tests alone. Promotion is a decision, and it gets
+written down in `docs/DESIGN.md` when it happens.
 
 ## The beta gate (M8, as run)
 
@@ -91,3 +123,9 @@ Each milestone ships with checks that can actually fail, run in CI:
 - **Consumer build** — a scratch project that `add_subdirectory`s the engine,
   links `plyEngine` and prints `ply::kVersion` is compiled during M7 review;
   it caught the missing public `cxx_std_20` requirement.
+- `ply_scripting --verify` — loads a Lua script, runs 240 fixed steps, and
+  asserts the script defined `update(dt)`, ran once per step, raised no error,
+  and moved all six drones from where C++ placed them.
+- **`scripts/release-check.sh`** — version consistency across CMake/CHANGELOG/
+  tag, public-API drift against the freeze tag (removals fail unless
+  `--allow-api-change`), doc links, and ctest. Runs in CI on Linux.

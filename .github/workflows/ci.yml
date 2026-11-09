@@ -19,7 +19,7 @@ jobs:
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
             libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
             libxpresent-dev libxshmfence-dev libxtst-dev \
-            python3-jinja2 fonts-dejavu-core
+            fonts-dejavu-core
 
       - name: Configure (sanitized)
         run: cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DPLY_SANITIZE=ON
@@ -48,19 +48,8 @@ jobs:
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
             libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
             libxpresent-dev libxshmfence-dev libxtst-dev \
-            python3-jinja2 xvfb fonts-dejavu-core
+            xvfb fonts-dejavu-core
 
-      - name: Install Python deps (glad codegen)
-        if: runner.os != 'Linux'
-        shell: bash
-        run: |
-          # glad runs whatever interpreter CMake's FindPython resolves
-          # (e.g. Homebrew 3.15 on macOS), which is not necessarily the
-          # `python` on PATH — so expose jinja2 to *all* interpreters via
-          # PYTHONPATH instead of installing into one of them.
-          PY="$(command -v python3 || command -v python)"
-          "$PY" -m pip install --target "$GITHUB_WORKSPACE/.ci-pylib" jinja2
-          echo "PYTHONPATH=$GITHUB_WORKSPACE/.ci-pylib" >> "$GITHUB_ENV"
 
       - name: Build companion PWA
         run: |
@@ -78,6 +67,15 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Release readiness (version, API drift, links)
+        if: runner.os == 'Linux'
+        run: |
+          # Mechanical half of the beta-soak criteria in docs/ROADMAP.md: the
+          # frozen public API may only change additively, the version must
+          # agree with the CHANGELOG, and doc links must resolve.
+          git fetch --tags --force --quiet
+          scripts/release-check.sh --build build
 
       - name: Install and consume the package (find_package)
         shell: bash
@@ -143,6 +141,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_companion --frames 1800 --no-mdns --web companion/dist --verify
+
+      - name: Run scripting demo (Linux, headless, verified)
+        if: runner.os == 'Linux'
+        run: |
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_scripting --frames 240 --verify
 
       - name: Run tutorial demo (Linux, headless, verified)
         if: runner.os == 'Linux'

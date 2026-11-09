@@ -5,6 +5,51 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.0-beta.2] — 2026-11-08
+
+Additive release during the beta soak: the public API only grew (see
+`scripts/release-check.sh`, which enforces that).
+
+### Added
+
+- **Lua 5.4 scripting** (`ply::ScriptEngine`). A script gets a sandboxed `ply`
+  API — `spawn(x, y)`, `destroy`, `alive`, `entity_count`, position and
+  velocity getters/setters, `log` — plus an optional `update(dt)` hook called
+  once per fixed step. `io`, `os` and `debug` are not loaded; `print` is
+  redirected to the host log. Entities cross the boundary as
+  generation-checked handles, so a stale reference is detectable from Lua.
+  Hand-bound (no sol2): ten functions and one metatable. New demo
+  `ply_scripting` and `scripting` ctest suite.
+- **Offline build mode** `PLY_USE_SYSTEM_DEPS=ON`: no FetchContent at all —
+  SDL3/glm/nlohmann_json/Crow/asio via `find_package`, and
+  stb/miniaudio/mdns/Lua from `PLY_*_SOURCE_DIR` directories. Verified end to
+  end (15/15 tests).
+- **Packaging scaffolding** in `packaging/`: a vcpkg port and a conan recipe
+  built on that mode, plus `packaging/README.md` stating exactly what has and
+  has not been executed. **Both are blocked:** the repository is private and
+  both registries fetch sources anonymously, so the portfile fails with that
+  explanation instead of a hash mismatch.
+- **`scripts/release-check.sh`**: version consistency (CMake ↔ CHANGELOG ↔
+  tag), public-API drift against the freeze tag (any removed line in
+  `engine/include` fails unless `--allow-api-change`), documentation link
+  check, and ctest. Wired into CI.
+- **Beta-soak exit criteria** in `docs/ROADMAP.md`, with the mechanical parts
+  enforceable rather than remembered.
+
+### Changed
+
+- **glad is vendored** (`third_party/glad/`, generated output committed with
+  provenance and licences). Builds no longer need Python or `jinja2`, and the
+  loader is no longer generated during the build — which removes the two CI
+  failures and the release-run PyPI breakage that generation caused.
+- `PLY_BUILD_SCRIPTING` option (default `ON`) gates the scripting layer.
+- Release checklist, DESIGN and BUILDING document the new dependency modes.
+
+### Fixed
+
+- Documentation no longer claims a `jinja2` requirement, and the build no
+  longer has one.
+
 ## [1.0.0-beta.1] — 2026-11-08
 
 First beta. The public API is now frozen for 1.0 (additions are minor;
@@ -157,6 +202,7 @@ First tagged release. Everything below shipped across milestones M0–M7.
 - The reference demo is content-light by design — it exists to prove the
   engine, not to be a finished game.
 
+[1.0.0-beta.2]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.2
 [1.0.0-beta.1]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.1
 [1.0.0-alpha.2]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-alpha.2
 [1.0.0-alpha.1]: https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-alpha.1

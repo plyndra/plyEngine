@@ -7,7 +7,7 @@ with a twist: players join from their phones as controllers through any web
 browser, no app install. Render the game to a shared screen, and every phone
 becomes a companion controller for party-style play (think Jackbox).
 
-> **Status:** **1.0-beta** (`v1.0.0-beta.1`) — the public API is frozen for
+> **Status:** **1.0-beta** (`v1.0.0-beta.2`) — the public API is frozen for
 > 1.0: additions are allowed, breaking changes need a deprecation cycle.
 > Runtime API changes are still possible if a bug demands it.
 > Prebuilt demo binaries: [Releases](https://github.com/plyndra/plyEngine/releases).
@@ -38,6 +38,9 @@ becomes a companion controller for party-style play (think Jackbox).
   codes, and a reference PWA so players join from a browser with no install.
 - **Four-player reference demo** — coins, patrolling saws, a pit and a goal,
   with synthesised sound effects and four phones playing at once.
+- **Lua scripting** — gameplay behaviour in Lua 5.4 against a small, sandboxed
+  API (entity spawn/destroy, position, velocity, an `update(dt)` hook). No
+  `io`, `os` or `debug`: a game script cannot touch the filesystem or the VM.
 
 ## Tech stack
 
@@ -59,7 +62,7 @@ git clone https://github.com/plyndra/plyEngine.git
 cd plyEngine
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
-ctest --test-dir build --output-on-failure     # 14 headless suites
+ctest --test-dir build --output-on-failure     # 15 headless suites
 ```
 
 Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md).
@@ -74,7 +77,7 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-beta.1)
+    GIT_TAG        v1.0.0-beta.2)
 FetchContent_MakeAvailable(plyEngine)
 target_link_libraries(mygame PRIVATE plyEngine)
 
@@ -95,6 +98,7 @@ Run the examples:
 ./build/ply_assets         # PNG + spritesheet JSON + TTF text
 ./build/ply_physics        # tilemap collision + debug overlay (F1)
 ./build/ply_tutorial       # the first-game walkthrough: docs/TUTORIAL.md
+./build/ply_scripting      # drone behaviour written in Lua, rendered in C++
 ./build/ply_companion      # reference platformer, phone-controlled
 ```
 
@@ -115,10 +119,10 @@ wins, and the game plays sound cues for jumps, coins, deaths and the win.
 
 Every milestone ships with checks that can actually fail:
 
-- **14 `ctest` suites** — ECS, transforms, timestep, atlas math, assets,
-  physics, audio, companion protocol/server, and a scripted full playthrough
-  of the reference platformer (`platformer`), all green in Release **and**
-  under `-DPLY_SANITIZE=ON` (ASan + UBSan).
+- **15 `ctest` suites** — ECS, transforms, timestep, atlas math, assets,
+  physics, audio, scripting, companion protocol/server, and a scripted full
+  playthrough of the reference platformer (`platformer`), all green in Release
+  **and** under `-DPLY_SANITIZE=ON` (ASan + UBSan).
 - **`--verify` on every demo** — headless assertions on real outcomes: the
   tutorial collects all five coins; `ply_companion --verify` plays a complete
   four-player match through the real companion-input queue and asserts coins,

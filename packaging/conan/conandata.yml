@@ -1,0 +1,25 @@
+# Pinned sources for conan.
+#
+# The engine tarball hash must be filled in when the repository becomes public
+# (see packaging/README.md): conan fetches it anonymously, exactly like vcpkg.
+#
+# The three header-only dependencies are public and already hashed.
+
+sources:
+  "1.0.0-beta.1":
+    url: "https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.1.tar.gz"
+    # Placeholder: the repository is private, so this tarball cannot be fetched
+    # anonymously yet. Replace with the real sha256 once public.
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+
+stb:
+  url: "https://github.com/nothings/stb/archive/4e9b368bfc071e97206ea5c6adba68dd0cbf8897.tar.gz"
+  sha256: "e60706ab084e0cae35ee7282deb4a7f283e4a28be1896d097437205da01a0683"
+
+miniaudio:
+  url: "https://github.com/mackron/miniaudio/archive/refs/tags/0.11.26.tar.gz"
+  sha256: "838ba55a21c9142adf7b76bdc4351e5cd8b7ae128f46b25ec25f94ae9969c600"
+
+mdns:
+  url: "https://github.com/mjansson/mdns/archive/a569c4759bd47e0f2a7bfc4d4c19620445782806.tar.gz"
+  sha256: "8a82a92bb025f3abcfb18e666c388aabc4730da3ba116b412d5c0ead466d33be"

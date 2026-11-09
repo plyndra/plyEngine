@@ -273,6 +273,48 @@ target_link_libraries(ply_tutorial PRIVATE plyEngine)
 
 Run it: `./build/ply_tutorial` — arrows/WASD to move, Space to jump.
 
+## Optional: move gameplay logic into Lua
+
+Once the C++ shell exists, behaviour can live in a script and be edited
+without recompiling. Create the engine next to your world and call it once per
+fixed step:
+
+```cpp
+#include "plyEngine/Scripting.hpp"
+
+ply::ScriptEngine script(app.world());
+if (!script.doFile("game.lua")) {
+    std::fprintf(stderr, "script: %s\n", script.error().c_str());
+}
+
+app.onUpdate([&](ply::App& a, double dt) {
+    if (!script.callUpdate(static_cast<float>(dt))) {
+        std::fprintf(stderr, "script: %s\n", script.error().c_str());
+    }
+    ply::updateTransforms(a.world());
+});
+```
+
+```lua
+-- game.lua: nothing here knows what a sprite is.
+function update(dt)
+    local x, y = ply.get_position(player)
+    if x < 900 then
+        ply.set_position(player, x + 120 * dt, y)
+    end
+end
+```
+
+Entities created in C++ are handed to the script with
+`script.setGlobalEntity("player", entity)`. Scripts get `ply.spawn`,
+`ply.destroy`, `ply.alive`, `ply.entity_count`, position and velocity
+getters/setters, and `ply.log`. `io`, `os` and `debug` are not loaded, so a
+script cannot leave the sandbox.
+
+`examples/scripting/` is the runnable version: six drones whose orbit logic is
+Lua, with sprites and physics in C++ (`./build/ply_scripting --verify` asserts
+every drone actually moved).
+
 ## Using plyEngine in your own project
 
 The tutorial above added its target to plyEngine's own `CMakeLists.txt`. A
@@ -302,7 +344,7 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-beta.1)
+    GIT_TAG        v1.0.0-beta.2)
 FetchContent_MakeAvailable(plyEngine)
 
 target_link_libraries(mygame PRIVATE plyEngine)

@@ -16,10 +16,11 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-Dependencies (SDL3, glad, GLM, stb, nlohmann/json, Crow, miniaudio, …) are
-pinned and fetched automatically by CMake — nothing to install beyond a
-C++20 compiler, CMake 3.24+, and Python 3 with `jinja2` (for the GL loader).
-See [BUILDING.md](BUILDING.md) for the per-OS packages SDL3 needs on Linux.
+Dependencies (SDL3, GLM, stb, nlohmann/json, Crow, miniaudio, Lua, …) are
+pinned and fetched automatically by CMake — nothing to install beyond a C++20
+compiler and CMake 3.24+. The OpenGL loader is vendored, so no Python or
+generator step is required. See [BUILDING.md](BUILDING.md) for the per-OS
+packages SDL3 needs on Linux.
 
 ## Run the tests
 
@@ -27,8 +28,9 @@ See [BUILDING.md](BUILDING.md) for the per-OS packages SDL3 needs on Linux.
 ctest --test-dir build --output-on-failure
 ```
 
-Fourteen headless suites cover the ECS, transforms, timestep, assets,
-physics, companion protocol and the reference demo's gameplay logic. They
+Fifteen headless suites cover the ECS, transforms, timestep, assets, physics,
+audio, scripting, the companion protocol and the reference demo's gameplay
+logic. They
 also run under AddressSanitizer + UBSan:
 
 ```sh
@@ -45,6 +47,7 @@ ctest --test-dir build-asan --output-on-failure
 ./build/ply_assets      # PNG + spritesheet JSON + TTF text loading
 ./build/ply_physics     # tilemap collision, swept AABB, debug overlay (F1)
 ./build/ply_tutorial    # the small game the tutorial builds: docs/TUTORIAL.md
+./build/ply_scripting   # drone behaviour in Lua, sprites and physics in C++
 ./build/ply_companion   # the reference platformer, phone-controlled
 ```
 
@@ -96,6 +99,37 @@ synthesised sound cues (jump, coin, death, win).
 
 `--no-mdns` disables mDNS advertising (use it on networks where multicast is
 blocked); mDNS lets phones discover the game without typing the URL.
+
+## Gameplay logic in Lua
+
+Scripting is part of the engine (`ply::ScriptEngine`). A script gets a global
+`ply` table and, if it defines `update(dt)`, the host can call it once per
+fixed step:
+
+```cpp
+ply::World& world = app.world();
+ply::ScriptEngine script(world);
+if (!script.doFile("game.lua")) {
+    std::fprintf(stderr, "%s\n", script.error().c_str());
+}
+// inside your fixed-step update:
+if (!script.callUpdate(static_cast<float>(dt))) {
+    std::fprintf(stderr, "%s\n", script.error().c_str());
+}
+```
+
+```lua
+-- game.lua: the C++ side owns sprites and physics; this owns behaviour.
+function update(dt)
+    local x, y = ply.get_position(drone)
+    ply.set_position(drone, x + 60 * dt, y)
+end
+```
+
+The API is `ply.spawn(x, y)`, `ply.destroy`, `ply.alive`, `ply.entity_count`,
+`ply.get_position`/`set_position`, `ply.get_velocity`/`set_velocity`,
+`ply.log`. `io`, `os` and `debug` are not loaded. See
+[examples/scripting](../examples/scripting/main.cpp) for a runnable demo.
 
 ## Use the engine in your own game
 

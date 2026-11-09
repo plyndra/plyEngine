@@ -68,7 +68,7 @@ jobs:
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            build-essential git python3 python3-jinja2 ca-certificates curl tar \
+            build-essential git python3 ca-certificates curl tar \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
             libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
@@ -84,16 +84,6 @@ jobs:
           echo "/opt/cmake-${CMAKE_VERSION}-linux-x86_64/bin" >> "$GITHUB_PATH"
           cmake --version | head -1
 
-      - name: Install Python deps (glad codegen)
-        if: runner.os != 'Linux'
-        shell: bash
-        run: |
-          # glad runs whatever interpreter CMake's FindPython resolves,
-          # which is not necessarily the `python` on PATH — expose jinja2
-          # to *all* interpreters via PYTHONPATH.
-          PY="$(command -v python3 || command -v python)"
-          "$PY" -m pip install --target "$GITHUB_WORKSPACE/.ci-pylib" jinja2
-          echo "PYTHONPATH=$GITHUB_WORKSPACE/.ci-pylib" >> "$GITHUB_ENV"
 
       - uses: actions/download-artifact@v4
         with:
@@ -118,6 +108,7 @@ jobs:
           xvfb-run -a ./build/ply_assets --frames 5 --verify --assets tests/data
           xvfb-run -a ./build/ply_physics --frames 120 --debug --verify
           xvfb-run -a ./build/ply_tutorial --frames 240 --verify
+          xvfb-run -a ./build/ply_scripting --frames 240 --verify
           xvfb-run -a ./build/ply_companion --frames 1800 --verify --no-mdns --web companion/dist
 
       - name: Check binary glibc floor (Linux)
@@ -234,7 +225,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            build-essential cmake git python3 python3-jinja2 \
+            build-essential cmake git python3 \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
             libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \

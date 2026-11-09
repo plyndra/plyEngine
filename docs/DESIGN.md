@@ -341,6 +341,60 @@ and the demo asserts "the cue was played". That split is the rule: logic
 produces intents, the host produces side effects, and tests can check both
 independently.
 
+## Scripting: scope, sandbox and dependency choices (settled in M9)
+
+**Lua, hand-bound, gameplay-only.** Scripts get entity lifecycle, position and
+velocity, plus an `update(dt)` hook. They do not get rendering, asset loading
+or the loop: a script moves things, it does not own the frame. That boundary
+keeps the fixed-step determinism story intact — the script is called from
+inside the step, with the step's dt, and cannot touch time.
+
+**No sol2.** The whole API is ten functions and one metatable, so a ~400-line
+C binding is smaller, compiles in seconds, and has no C++20 template surface to
+break on MSVC or older Clang. A heavier binding is a post-1.0 question, not a
+prerequisite for the feature.
+
+**Sandbox by omission.** `luaL_openlibs` would hand a game script `io`, `os`
+and `debug`. The binding opens `base`, `string`, `table`, `math`, `coroutine`
+and `utf8` only, and redirects `print` into the host's log. A script that can
+`os.execute` is a remote-code hole in a networked party game, and the companion
+server is exactly that.
+
+**Entities cross the boundary as generation-checked handles.** Lua holds a
+userdata wrapping `Entity`, not a bare integer index, so a destroyed-then-
+reused slot cannot silently alias: `ply.alive(stale)` is false, and `first ~=
+second` after recycling. `ply.spawn(x, y)` creates Transform +
+GlobalTransform + Velocity, because a "gameplay object" that cannot move is a
+trap for script authors.
+
+**Lua is pinned and vendored into the build.** Lua 5.4.7 source is fetched by
+`FetchContent` in the default build and taken from `PLY_LUA_SOURCE_DIR` in
+offline builds, exactly like the other dependencies. `Scripting.hpp` exposes no
+Lua types, so consumers never see `lua.h`; the static Lua archive is exported in
+the install export set for the same reason glad and stb are.
+
+## Vendored tooling and offline builds (settled in M9)
+
+**The OpenGL loader is committed, not generated.** glad output is deterministic
+for a given spec, and generating it needs Python + `jinja2` + a Khronos fetch at
+build time. That combination broke CI twice (runner images dropped `jinja2`) and
+blocked offline builds, so `third_party/glad/` holds the generated loader with
+its provenance, spec and licences written down. Regeneration is a documented,
+rare operation.
+
+**`PLY_USE_SYSTEM_DEPS` exists because package managers forbid network in
+build.** It switches the five CMake-packaged dependencies to `find_package` and
+takes stb/miniaudio/mdns/Lua from packager-staged source directories. It is
+verified end to end locally (configure, build, 15/15 tests) against a prefix
+containing SDL3, glm, nlohmann_json and Crow.
+
+**Registry distribution is blocked on repository visibility, not on code.** The
+repository is private; vcpkg and conan both fetch anonymously. `packaging/`
+holds both recipes plus a hard gate that fails with that explanation instead of
+a hash mismatch, and `packaging/README.md` states exactly what has and has not
+been executed. Shipping a recipe labelled "works" without running it would be
+the same unverified-claim mistake that produced the glibc-2.43 archive.
+
 ## Open branches (post-1.0)
 
 - Embedded scripting (Lua binding)

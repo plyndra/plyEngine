@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 # Single source of truth for the version string. The git tag must match it
 # (docs/ROADMAP.md release checklist); Version.hpp is generated from this
 # value so the header can never drift from the build.
-set(PLY_VERSION_STRING "1.0.0-beta.1" CACHE STRING "plyEngine version string")
+set(PLY_VERSION_STRING "1.0.0-beta.2" CACHE STRING "plyEngine version string")
 
 project(plyEngine VERSION 1.0.0 LANGUAGES C CXX)
 
@@ -15,6 +15,7 @@ option(PLY_BUILD_TESTS "Build plyEngine tests" ON)
 option(PLY_BUILD_EXAMPLES "Build plyEngine examples" ON)
 option(PLY_INSTALL "Generate install rules for find_package(plyEngine)" ON)
 option(PLY_BUILD_DEPS_INSTALL "Let fetchcontent dependencies install themselves (needed by PLY_INSTALL)" ON)
+option(PLY_BUILD_SCRIPTING "Build the Lua scripting layer" ON)
 option(PLY_SANITIZE "Build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
 
 if(PLY_SANITIZE)
@@ -23,6 +24,18 @@ if(PLY_SANITIZE)
 endif()
 
 include(FetchContent)
+
+# Dependency acquisition mode.
+#
+#   OFF (default) - fetch and build every dependency at configure time. Needs
+#                   network access on the first configure.
+#   ON            - use find_package for every dependency that ships a CMake
+#                   config (SDL3, glm, nlohmann_json, Crow+asio) and take the
+#                   header-only ones (stb, miniaudio, mdns) from the source
+#                   directories the packager stages. This is the mode package
+#                   managers use: vcpkg and conan forbid network access during
+#                   a build.
+option(PLY_USE_SYSTEM_DEPS "Use find_package/source dirs instead of FetchContent (offline builds)" OFF)
 
 # --- SDL3 --------------------------------------------------------------------
 # SDL3 is a static dependency of an installed engine, so it must install its
@@ -34,24 +47,28 @@ set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    sdl3
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        release-3.4.20
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(sdl3)
+if(PLY_USE_SYSTEM_DEPS)
+    find_package(SDL3 CONFIG REQUIRED)
+else()
+    FetchContent_Declare(
+        sdl3
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG        release-3.4.20
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(sdl3)
+endif()
 
-# --- glad (OpenGL loader) ----------------------------------------------------
-FetchContent_Declare(
-    glad
-    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-    GIT_TAG        v2.0.8
-    GIT_SHALLOW    TRUE
-    SOURCE_SUBDIR  cmake
-)
-FetchContent_MakeAvailable(glad)
-glad_add_library(glad_gl_core_33 REPRODUCIBLE API gl:core=3.3)
+# --- glad (OpenGL loader, vendored) ------------------------------------------
+# The loader is generated output committed under third_party/glad (see its
+# README): generation needs Python + jinja2 + a network fetch at build time,
+# which broke CI twice and blocks offline package builds (vcpkg/conan).
+add_library(glad_gl_core_33 STATIC third_party/glad/src/gl.c)
+set_target_properties(glad_gl_core_33 PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/glad/include>")
+target_include_directories(glad_gl_core_33 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glad/include)
 
 # --- glm (math) --------------------------------------------------------------
 set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -59,32 +76,50 @@ set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # headers, so an installed SDK must ship their headers and CMake configs too.
 set(GLM_BUILD_INSTALL ${PLY_BUILD_DEPS_INSTALL} CACHE BOOL "" FORCE)
 set(GLM_ENABLE_EXPERIMENTAL OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    glm
-    GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.3
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(glm)
+if(PLY_USE_SYSTEM_DEPS)
+    find_package(glm CONFIG REQUIRED)
+else()
+    FetchContent_Declare(
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG        1.0.3
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(glm)
+endif()
 
 # --- nlohmann/json (scene + spritesheet metadata) ----------------------------
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 set(JSON_Install ${PLY_BUILD_DEPS_INSTALL} CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG        v3.12.0
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(nlohmann_json)
+if(PLY_USE_SYSTEM_DEPS)
+    find_package(nlohmann_json CONFIG REQUIRED)
+else()
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG        v3.12.0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
 # --- stb (image + truetype decoding; no build system upstream) ---------------
-FetchContent_Declare(
-    stb
-    GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG        4e9b368bfc071e97206ea5c6adba68dd0cbf8897
-)
-FetchContent_MakeAvailable(stb)
+# In system-deps mode the packager stages the headers and passes
+# -DPLY_STB_SOURCE_DIR=<dir containing stb_image.h>.
+if(PLY_USE_SYSTEM_DEPS)
+    if(NOT PLY_STB_SOURCE_DIR)
+        message(FATAL_ERROR "PLY_USE_SYSTEM_DEPS=ON requires PLY_STB_SOURCE_DIR "
+                            "(directory containing stb_image.h)")
+    endif()
+    set(stb_SOURCE_DIR "${PLY_STB_SOURCE_DIR}")
+else()
+    FetchContent_Declare(
+        stb
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG        4e9b368bfc071e97206ea5c6adba68dd0cbf8897
+    )
+    FetchContent_MakeAvailable(stb)
+endif()
 
 add_library(stb_impl STATIC engine/src/stb_impl.cpp)
 # PRIVATE: consumers never include stb headers (nothing public does), so the
@@ -92,42 +127,109 @@ add_library(stb_impl STATIC engine/src/stb_impl.cpp)
 target_include_directories(stb_impl PRIVATE ${stb_SOURCE_DIR})
 
 # --- miniaudio (audio device, mixing, decoding; single header) ---------------
-FetchContent_Declare(
-    miniaudio
-    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
-    GIT_TAG        0.11.26
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(miniaudio)
+if(PLY_USE_SYSTEM_DEPS)
+    if(NOT PLY_MINIAUDIO_SOURCE_DIR)
+        message(FATAL_ERROR "PLY_USE_SYSTEM_DEPS=ON requires PLY_MINIAUDIO_SOURCE_DIR "
+                            "(directory containing miniaudio.h)")
+    endif()
+    set(miniaudio_SOURCE_DIR "${PLY_MINIAUDIO_SOURCE_DIR}")
+else()
+    FetchContent_Declare(
+        miniaudio
+        GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+        GIT_TAG        0.11.26
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(miniaudio)
+endif()
 
-# --- asio (Crow's transport; vendored so no system package is required) ------
-FetchContent_Declare(
-    asio
-    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-    GIT_TAG        asio-1-39-0
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(asio)
-set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include" CACHE PATH "" FORCE)
+# --- asio (Crow's transport) -------------------------------------------------
+# Crow's own CMake config pulls asio in when it is found, so system-deps mode
+# only needs Crow's config.
+if(PLY_USE_SYSTEM_DEPS)
+    # Crow's config locates asio through its own Findasio, which accepts
+    # ASIO_INCLUDE_DIR (or an asio::asio config package). A packager supplies
+    # one of the two; nothing is fetched here.
+    find_package(Crow CONFIG REQUIRED)
+else()
+    FetchContent_Declare(
+        asio
+        GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+        GIT_TAG        asio-1-39-0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(asio)
+    set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include" CACHE PATH "" FORCE)
+endif()
 
 # --- Crow (embedded HTTP + WebSocket server) ---------------------------------
 set(CROW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(CROW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    crow
-    GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
-    GIT_TAG        v1.3.5
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(crow)
+if(NOT PLY_USE_SYSTEM_DEPS)
+    FetchContent_Declare(
+        crow
+        GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+        GIT_TAG        v1.3.5
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(crow)
+endif()
 
 # --- mjansson/mdns (public-domain mDNS/DNS-SD advertising) -------------------
-FetchContent_Declare(
-    mdns
-    GIT_REPOSITORY https://github.com/mjansson/mdns.git
-    GIT_TAG        a569c4759bd47e0f2a7bfc4d4c19620445782806
-)
-FetchContent_MakeAvailable(mdns)
+if(PLY_USE_SYSTEM_DEPS)
+    if(NOT PLY_MDNS_SOURCE_DIR)
+        message(FATAL_ERROR "PLY_USE_SYSTEM_DEPS=ON requires PLY_MDNS_SOURCE_DIR "
+                            "(directory containing mdns.h)")
+    endif()
+    set(mdns_SOURCE_DIR "${PLY_MDNS_SOURCE_DIR}")
+else()
+    FetchContent_Declare(
+        mdns
+        GIT_REPOSITORY https://github.com/mjansson/mdns.git
+        GIT_TAG        a569c4759bd47e0f2a7bfc4d4c19620445782806
+    )
+    FetchContent_MakeAvailable(mdns)
+endif()
+
+# --- Lua (scripting) ---------------------------------------------------------
+# Pinned Lua 5.4 source built as a static library. Only diagnostics-friendly
+# libraries are opened by the binding (see engine/src/Scripting.cpp), but the
+# full reference implementation is linked so nothing is silently missing.
+if(PLY_BUILD_SCRIPTING)
+    if(PLY_USE_SYSTEM_DEPS)
+        # Offline builds must not fetch: the packager stages the Lua sources.
+        if(NOT PLY_LUA_SOURCE_DIR)
+            message(FATAL_ERROR "PLY_USE_SYSTEM_DEPS=ON with scripting requires "
+                                "PLY_LUA_SOURCE_DIR (directory containing lapi.c)")
+        endif()
+        set(lua_SOURCE_DIR "${PLY_LUA_SOURCE_DIR}")
+    else()
+        FetchContent_Declare(
+            lua
+            URL https://github.com/lua/lua/archive/refs/tags/v5.4.7.tar.gz
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        )
+        FetchContent_MakeAvailable(lua)
+    endif()
+
+    # Everything except the standalone interpreters (lua.c, luac.c via onelua.c)
+    # and luaconf-hosted test harness (ltests.c).
+    set(PLY_LUA_SOURCES
+        lapi.c lauxlib.c lbaselib.c lcode.c lcorolib.c lctype.c ldblib.c
+        ldebug.c ldo.c ldump.c lfunc.c lgc.c linit.c liolib.c llex.c
+        lmathlib.c lmem.c loadlib.c lobject.c lopcodes.c loslib.c lparser.c
+        lstate.c lstring.c lstrlib.c ltable.c ltablib.c ltm.c lundump.c
+        lutf8lib.c lvm.c lzio.c
+    )
+    list(TRANSFORM PLY_LUA_SOURCES PREPEND "${lua_SOURCE_DIR}/")
+    add_library(lua STATIC ${PLY_LUA_SOURCES})
+    # BUILD_INTERFACE only: Scripting.hpp does not expose Lua types, so a
+    # consumer never includes <lua.h> and nothing needs installing.
+    target_include_directories(lua PUBLIC $<BUILD_INTERFACE:${lua_SOURCE_DIR}>)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(lua PUBLIC m dl)
+    endif()
+endif()
 
 add_library(miniaudio_impl STATIC engine/src/miniaudio_impl.cpp)
 target_include_directories(miniaudio_impl PRIVATE ${miniaudio_SOURCE_DIR})
@@ -169,6 +271,9 @@ add_library(plyEngine STATIC
     engine/src/CompanionServer.cpp
     engine/src/MdnsAdvertiser.cpp
 )
+if(PLY_BUILD_SCRIPTING)
+    target_sources(plyEngine PRIVATE engine/src/Scripting.cpp)
+endif()
 target_include_directories(plyEngine PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/engine/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
@@ -198,7 +303,7 @@ configure_file(
 # headers plus GLM and nlohmann/json (the two the API exposes types from).
 target_include_directories(plyEngine PRIVATE
     ${mdns_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}/gladsources/glad_gl_core_33/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glad/include
     ${stb_SOURCE_DIR}
     ${miniaudio_SOURCE_DIR}
     ${crow_SOURCE_DIR}/include
@@ -223,19 +328,24 @@ target_link_libraries(plyEngine
 # installed link interface (a consumer must not need Crow to link the engine).
 target_link_libraries(plyEngine PRIVATE $<BUILD_INTERFACE:Crow::Crow>)
 
-# glad's generated headers live in the build tree. The interface is
-# BUILD_INTERFACE-only: the engine's own code, the examples and the tests
-# include <glad/gl.h>, but a consumer never does, so nothing glad-related is
-# installed.
-set_target_properties(glad_gl_core_33 PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/gladsources/glad_gl_core_33/include>")
+if(PLY_BUILD_SCRIPTING)
+    # Static Lua must be on a consumer's link line, so it joins the export set
+    # like the other internal archives (glad, stb_impl, miniaudio_impl).
+    target_link_libraries(plyEngine PRIVATE lua)
+endif()
+
 
 # --- Install (find_package(plyEngine)) ---------------------------------------
 if(PLY_INSTALL)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 
-    install(TARGETS plyEngine glad_gl_core_33 stb_impl miniaudio_impl
+    set(PLY_INSTALL_TARGETS plyEngine glad_gl_core_33 stb_impl miniaudio_impl)
+    if(PLY_BUILD_SCRIPTING)
+        list(APPEND PLY_INSTALL_TARGETS lua)
+    endif()
+
+    install(TARGETS ${PLY_INSTALL_TARGETS}
         EXPORT plyEngineTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -331,6 +441,12 @@ if(PLY_BUILD_TESTS)
     target_link_libraries(ply_companion_test PRIVATE plyEngine Threads::Threads)
     add_test(NAME companion COMMAND ply_companion_test)
 
+    if(PLY_BUILD_SCRIPTING)
+        add_executable(ply_scripting_test tests/scripting.cpp)
+        target_link_libraries(ply_scripting_test PRIVATE plyEngine)
+        add_test(NAME scripting COMMAND ply_scripting_test)
+    endif()
+
     add_executable(ply_audio_test tests/audio.cpp)
     target_link_libraries(ply_audio_test PRIVATE plyEngine)
     target_compile_definitions(ply_audio_test PRIVATE
@@ -365,4 +481,9 @@ if(PLY_BUILD_EXAMPLES)
 
     add_executable(ply_tutorial examples/tutorial/main.cpp)
     target_link_libraries(ply_tutorial PRIVATE plyEngine)
+
+    if(PLY_BUILD_SCRIPTING)
+        add_executable(ply_scripting examples/scripting/main.cpp)
+        target_link_libraries(ply_scripting PRIVATE plyEngine)
+    endif()
 endif()
