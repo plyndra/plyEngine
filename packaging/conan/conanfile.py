@@ -30,10 +30,16 @@ class PlyEngineConan(ConanFile):
         # Only the dependencies a consumer must also see. The header-only ones
         # (stb, miniaudio, mdns) are downloaded as sources below and compiled
         # into the engine, so they are not requirements.
-        self.requires("sdl/3.4.20")
+        # sdl: Conan Center's reference name (latest 3.4.16 as of 2026-11-09);
+        # ranged so new center releases are picked up automatically.
+        self.requires("sdl/[>=3.4.16 <4]")
         self.requires("glm/1.0.3")
         self.requires("nlohmann_json/3.12.0")
-        self.requires("crow/1.3.5")
+        # asio: Conan Center HAS a live recipe; Crow's staged CMake then finds
+        # it via find_package(asio). Conan Center's old 'crow' recipe is a
+        # dead Conan-1.x artifact (crow/0.1, requires boost 1.69) with no
+        # CrowCpp 1.x release, so Crow itself is staged in full instead.
+        self.requires("asio/[>=1.36 <2]")
 
     def layout(self):
         cmake_layout(self, src_folder="src")
@@ -55,18 +61,29 @@ class PlyEngineConan(ConanFile):
             self.source_folder, "third_party_src", "miniaudio")
         tc.cache_variables["PLY_MDNS_SOURCE_DIR"] = os.path.join(
             self.source_folder, "third_party_src", "mdns")
+        # Full Crow checkout (see _stage_headers); the engine add_subdictories it
+        # and Crow's own CMake resolves asio::asio from the conan-generated
+        # package above.
+        tc.cache_variables["PLY_CROW_SOURCE_DIR"] = os.path.join(
+            self.source_folder, "third_party_src", "crow")
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()
 
     def _stage_headers(self):
-        """Fetch the three header-only dependencies into the source tree."""
+        """Fetch the three header-only dependencies + a full Crow checkout.
+
+        crow is staged complete (not header-only) because the engine's
+        system-deps mode consumes it via add_subdirectory(PLY_CROW_SOURCE_DIR)
+        when no Crow CMake config package exists.
+        """
         stage = os.path.join(self.source_folder, "third_party_src")
         for name, url, sha in (
             ("stb", self.conan_data["stb"]["url"], self.conan_data["stb"]["sha256"]),
             ("miniaudio", self.conan_data["miniaudio"]["url"],
              self.conan_data["miniaudio"]["sha256"]),
             ("mdns", self.conan_data["mdns"]["url"], self.conan_data["mdns"]["sha256"]),
+            ("crow", self.conan_data["crow"]["url"], self.conan_data["crow"]["sha256"]),
         ):
             get(self, url=url, sha256=sha,
                 destination=stage, strip_root=True)

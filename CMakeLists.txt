@@ -147,10 +147,24 @@ endif()
 # Crow's own CMake config pulls asio in when it is found, so system-deps mode
 # only needs Crow's config.
 if(PLY_USE_SYSTEM_DEPS)
-    # Crow's config locates asio through its own Findasio, which accepts
-    # ASIO_INCLUDE_DIR (or an asio::asio config package). A packager supplies
-    # one of the two; nothing is fetched here.
-    find_package(Crow CONFIG REQUIRED)
+    if(PLY_CROW_SOURCE_DIR)
+        # Packager-staged full Crow checkout (e.g. Conan, where Conan Center has
+        # no usable Crow recipe). Its own CMake exports the same INTERFACE target
+        # a find_package(Crow) config would; it finds asio via find_package(asio)
+        # -> asio::asio, so the packager must also make asio discoverable.
+        find_package(asio CONFIG REQUIRED)
+        add_subdirectory("${PLY_CROW_SOURCE_DIR}" crow_build EXCLUDE_FROM_ALL)
+        set(crow_SOURCE_DIR "${PLY_CROW_SOURCE_DIR}")
+        if(NOT ASIO_INCLUDE_DIR)
+            get_target_property(ASIO_INCLUDE_DIR asio::asio
+                                INTERFACE_INCLUDE_DIRECTORIES)
+        endif()
+    else()
+        # Crow's config locates asio through its own Findasio, which accepts
+        # ASIO_INCLUDE_DIR (or an asio::asio config package). A packager supplies
+        # one of the two; nothing is fetched here.
+        find_package(Crow CONFIG REQUIRED)
+    endif()
 else()
     FetchContent_Declare(
         asio
