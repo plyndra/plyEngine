@@ -47,7 +47,7 @@ def main() -> int:
         version, port_version = bump, 0
     else:
         versions = json.loads(
-            (ROOT / "versions" / "plyengine.json").read_text())["versions"]
+            (ROOT / "versions" / "p-" / "plyengine.json").read_text())["versions"]
         version = manifest_version
         port_version = max(
             (e.get("port-version", 0) for e in versions
@@ -55,7 +55,7 @@ def main() -> int:
             default=-1) + 1
 
     versions_doc = json.loads(
-        (ROOT / "versions" / "plyengine.json").read_text())
+        (ROOT / "versions" / "p-" / "plyengine.json").read_text())
     # No-op when this exact content (same tree) is already recorded under the
     # same version; only genuinely changed port content gets a new entry.
     already = any(e.get("version-semver") == version
@@ -69,8 +69,8 @@ def main() -> int:
             key=lambda e: (e.get("version-semver", ""),
                            e.get("port-version", 0)))
     new_versions_text = json.dumps(versions_doc, indent=2) + "\n"
-    if new_versions_text != (ROOT / "versions" / "plyengine.json").read_text():
-        (ROOT / "versions" / "plyengine.json").write_text(new_versions_text)
+    if new_versions_text != (ROOT / "versions" / "p-" / "plyengine.json").read_text():
+        (ROOT / "versions" / "p-" / "plyengine.json").write_text(new_versions_text)
 
     if not already:
         baseline = json.loads(
