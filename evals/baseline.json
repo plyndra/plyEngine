@@ -1,0 +1,41 @@
+{
+  "_comment": "Pre-promotion baseline. Recorded BEFORE Phase 0 so any later delta is measurable. Do not edit after the fact; append new snapshots as baseline-<date>.json instead.",
+  "recorded_at": "2026-11-09T23:40:00Z",
+  "recorded_from_commit": "3771b96",
+  "recorder": "agent, read-only via gh api",
+  "repo": "plyndra/plyEngine",
+  "phase0_state": {
+    "description": null,
+    "topics": [],
+    "homepage": null,
+    "has_discussions": false,
+    "readme_images": 0
+  },
+  "counts": {
+    "stars": 0,
+    "forks": 0,
+    "watchers": 0,
+    "contributors": 1,
+    "open_issues": 0,
+    "releases": 7
+  },
+  "downloads": {
+    "all_releases_total": 27,
+    "v1.0.0": {
+      "linux-x86_64": 0,
+      "macos-arm64": 0,
+      "source": 0,
+      "windows-x86_64": 0
+    },
+    "_note": "all_releases_total=27 is beta-era traffic (1-2 per asset per prerelease), i.e. maintainer and CI fetches, not users. v1.0.0 is the number that matters and it is zero."
+  },
+  "snapshot_command": [
+    "gh api repos/plyndra/plyEngine --jq '{stars:.stargazers_count,forks:.forks_count,watchers:.subscribers_count,open_issues:.open_issues_count,has_discussions:.has_discussions,description:.description,topics:.topics,homepage:.homepage}'",
+    "gh api repos/plyndra/plyEngine/releases/tags/v1.0.0 --jq '[.assets[]|{name,download_count}]'"
+  ],
+  "code_baseline": {
+    "ctest": "15/15 passed",
+    "release_check": "PASS (version consistent, API additive-only since v1.0.0-beta.1, all relative doc links resolve)",
+    "lint_gate": "none configured (no .clang-format, no .clang-tidy)"
+  }
+}

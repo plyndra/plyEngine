@@ -1,0 +1,16 @@
+# Promotion eval log
+# format: <date> <eval-id> <PASS|FAIL> <evidence>
+
+2026-11-09 C0.1 PASS  description=189 chars, problem-first, names C++ developers, no stack list
+2026-11-09 C0.2 PASS  11 topics; all 8 required present
+2026-11-09 C0.3 PASS  homepage=.../releases/latest, HTTP 200
+2026-11-09 C0.4 PASS  has_discussions=true
+2026-11-09 C0.5 FAIL  no tracked .gif, 0 readme images (Phase 0 work not started)
+2026-11-09 C0.6 FAIL  no download/30-seconds block in README (Phase 0 work not started)
+2026-11-09 R1 PASS  scripts/release-check.sh -> PASS
+2026-11-09 R2 PASS  ctest 15/15
+2026-11-09 R3 PASS  all relative doc links resolve
+2026-11-09 R4 PASS  no awesome-cpp PR, no HN submission (one-shot doors untouched)
+2026-11-09 R5 PASS  metadata non-empty (first run after 0.1-0.4 landed)
+2026-11-09 R6 PASS  no forbidden launch phrases in published text
+2026-11-09 R7 FAIL  README first screen = prose + Releases link, no image (blocked on C0.5)

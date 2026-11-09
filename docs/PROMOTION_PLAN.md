@@ -5,8 +5,18 @@ Derived from the research report at
 element below traces to a finding there; anything that does not is marked
 **hypothesis**.
 
-Baseline at time of writing: `v1.0.0` published, 7 releases, 0 stars,
-1 contributor, repo created 2026-11-08, no Reddit (owner decision).
+**Baseline, recorded 2026-11-09 23:40 UTC before any promotion work** (full
+snapshot: `evals/baseline.json`): `v1.0.0` published, 7 releases, **0 stars,
+0 forks, 1 contributor, 0 open issues, all four `v1.0.0` assets at 0
+downloads**, description/topics/homepage null, Discussions off, 0 images in the
+README. Repo created 2026-11-08. No Reddit (owner decision).
+
+This baseline is recorded *before* Phase 0 deliberately: a "before" number that
+is captured after the first post cannot distinguish a channel from the passage
+of time.
+
+Gate definitions and run history live in `evals/promotion.md`;
+`scripts/release-check.sh` is regression gate R1.
 
 ## Principles
 
@@ -20,7 +30,7 @@ Baseline at time of writing: `v1.0.0` published, 7 releases, 0 stars,
 4. **Distribution is promotion.** Every package manager that carries the engine
    keeps advertising it while nobody is posting.
 
-## Phase 0 — Make the repo convert (target: 2026-11-09 → 11-10, ~2h)
+## Phase 0 — Make the repo convert (target: 2026-11-09 → 11-11, ~5h)
 
 The audit found the repo invisible inside GitHub: no description, no topics, no
 homepage, and no image anywhere despite "phone as controller" being the pitch.
@@ -31,27 +41,38 @@ homepage, and no image anywhere despite "phone as controller" being the pitch.
 | 0.2 | Topics set (≤20, lowercase/hyphens) | `gh api … --jq .topics` contains `game-engine`, `cpp20`, `opengl`, `ecs`, `sdl3`, `lua`, `gamedev`, `multiplayer` |
 | 0.3 | Homepage → release page | `--jq .homepage` = release URL |
 | 0.4 | Discussions enabled | `--jq .has_discussions` = true |
-| 0.5 | **20-second GIF of four phones driving the platformer**, above the fold in README | README renders an image in the first screen; file tracked in repo or hosted |
-| 0.6 | "Try it in 30 seconds" block: download → unpack → run, no flags | README section exists; commands match `ply_companion` behaviour verified in this repo |
+| 0.5 | **Hero GIF: the platformer under four-slot control**, above the fold in README. Built by capturing the deterministic `--verify` run (`ply_companion` drives all four slots through the same input queue a phone uses) with the real controller PWA from `companion/dist` shown beside it, and **labelled as scripted capture** — no fake phone mockups | GIF ≤8 MB, 960 px, 15–20 s, tracked in `docs/`; README references it above the fold; provenance written to `docs/announcements/`; full-res MP4 alongside |
+| 0.6 | "Try it in 30 seconds" block: download → unpack → run, no flags. Download-first (the 12 MB archive), not clone-and-build; three OS lines, archive-relative paths, matching what `smoke-linux` asserts | block copied verbatim into a clean `ubuntu:22.04` container reaches a running `ply_companion` with a room code |
 | 0.7 | Social preview image set (repo settings → not API-visible) | manual, owner |
 
 Gate to leave Phase 0: 0.1–0.6 done. Posting before 0.5 exists wastes the only
 asset that explains the product in one look.
 
+**Status 2026-11-09** — 0.1, 0.2, 0.3, 0.4 **done** (verified by graders C0.1–C0.4
+in `evals/promotion.md`): description 189 chars, problem-first; 11 topics;
+homepage → `releases/latest` (HTTP 200); Discussions enabled. 0.5 and 0.6 open,
+and they are the budget: 0.5 needs a frame dump in `ply_companion` plus an
+encoder this host does not have yet.
+
 ## Phase 1 — Earn the artifact, place it (2026-11-11 → 11-24)
 
 | # | Task | Notes / acceptance |
 |---|---|---|
-| 1.1 | Publish the "four things that broke" write-up | Already drafted in `docs/announcements/2026-11-09-discord-announcement.md`. Publish somewhere it can be linked (repo `docs/` page is acceptable; a blog or dev.to mirror is better for reach). Link repo ← from the post, never the reverse |
-| 1.2 | Discord `#showcase` in 2–3 C++/gamedev servers | One message per server, different days, answer every reply. No cross-posting same day |
+| 1.1 | Publish the "four things that broke" write-up | Already drafted in `docs/announcements/2026-11-09-discord-announcement.md`. Canonical home: a **GitHub Discussions post** (needs 0.4) with `docs/announcements/` as source of truth; a dev.to mirror only after one channel clears. Link repo ← from the post, never the reverse |
+| 1.2 | Discord `#showcase` in 2–3 C++/gamedev servers | One message per server, different days, answer every reply. No cross-posting same day. **Server names are an owner input, not a guess** — fill them in here before this row runs |
 | 1.3 | Pitch one newsletter or podcast with the **incident** story | **Hypothesis** — no evidence found on cold-pitch acceptance rates; expect silence, do not repeat |
-| 1.4 | Reply to people who already have the problem | GitHub issue search for "2D engine C++" requests; answer with the problem framing, not a link dump |
+| 1.4 | Reply to people who already have the problem | GitHub issue search for "2D engine C++" requests; answer with the problem framing, not a link dump. **Capped**: 30 min/day, ≤5 replies/week, existing threads only, logged as an outreach note (never as a build report) |
 
 Gate to leave Phase 1: at least one non-owner build report, or two channels
 tried with zero response (that is data too — record it in
 `docs/CONSUMER_REPORTS.md` as an outreach note, not as a build).
 
-## Phase 2 — Show HN, once (target: week of 2026-12-01)
+## Phase 2 — Show HN, once (earliest 2026-12-01; fires on readiness, not date)
+
+Trigger: all three of (a) 0.5 is live and rendered in the README, (b) Phase 1's
+exit gate is met, (c) the owner has 4–6 free hours that day. 2026-12-01 is a
+floor. A date-triggered drop on a repo that still does not convert is the one
+mistake this phase cannot undo.
 
 Written rules, quoted from the guidelines and each mapped to a pre-flight check:
 
@@ -80,17 +101,28 @@ Gated by the lists' own published thresholds — check each before opening a PR:
 | Channel | Gate (as published 2026-11) | Status today |
 |---|---|---|
 | `awesome-cpp` | blocks repos/accounts created after 2024 | **closed** — do not attempt |
-| `awesome-go` | ≥5 months history + SemVer release | eligible ~2027-04 |
-| `awesome-ios` | ≥100 stars + >1 contributor | not yet |
 | Homebrew tap → homebrew-core | maintainer review; tap has no gate | start with a tap |
 | Conan Center | PR to `conan-center-index`; recipe already verified locally | after 1.0.1 exists |
 | vcpkg upstream | PR to `microsoft/vcpkg`; in-repo registry already works | optional — registry already gives `vcpkg install plyengine` |
 | Conference talk | regional C++/gamedev meetup CFP | packaging-incident material is the talk |
 
+Two rows removed 2026-11-09: `awesome-go` and `awesome-ios` cannot accept this
+project at any age — there is no Go code in the repository, and native iOS apps
+are an explicit non-goal (`docs/DESIGN.md`). They were examples of *threshold
+styles* in the research report, not candidate channels. Do not re-add them.
+
+Homebrew tap and Conan Center are deferred until after the HN attempt: they are
+new artifacts with maintainer queues, not promotion, and December effort belongs
+to 0.5 and the write-up.
+
 ## Measurement
 
 Track these, in this order of usefulness:
 
+0. **Baseline, first** — `evals/baseline.json` (2026-11-09: 0 / 0 / 0 downloads,
+   0 stars, 1 contributor). Take a snapshot weekly, not only at phase ends: a
+   phase-length gap cannot separate a Discord post from three quiet weeks.
+   Cost: `hours spent per non-owner build report`.
 1. **Release asset download counts** — did anyone actually take the binaries.
 2. **Distinct non-owner build reports** — the only signal that the engine is
    usable; goes in `docs/CONSUMER_REPORTS.md`.
@@ -106,6 +138,10 @@ indistinguishable from none.
 
 - **No Reddit** (owner decision 2026-11-09; also its API registration now needs a
   bot account plus human review).
+- **Never relax a gate to make a run green.** If a criterion was wrong, amend it
+  in `evals/promotion.md` and here, in the same commit, and say why.
+- No launch vocabulary in any published text: `excited to announce`,
+  `game-changer`, `revolutionary`, `🚀`, `thrilled`.
 - No posting before the repo has a description, topics and a GIF (Phase 0 gate).
 - No same-day cross-posting; no vote solicitation; no asking friends to comment.
 - No re-submitting a maintenance release to Show HN.
