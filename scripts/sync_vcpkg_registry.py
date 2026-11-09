@@ -1,104 +1,121 @@
 #!/usr/bin/env python3
 """Sync the repo-root vcpkg registry with packaging/vcpkg/port.
 
-Called by scripts/sync-vcpkg-registry.sh (sqlite-free, stdlib only).
-Protocol: ports/<n>/{vcpkg.json,portfile.cmake} committed in git, then
-versions/<n>.json + versions/baseline.json reference the port dir's tree hash.
+The plyEngine repository doubles as its own vcpkg git registry
+(ports/plyengine + versions/, per the registry contract). This script:
+
+  1. mirrors the canonical port into ports/plyengine (and writes the
+     formatted manifest back to packaging/vcpkg/port so both stay identical),
+  2. reformats with `vcpkg format-manifest` -- the versions-db generator
+     otherwise aborts with "not properly formatted",
+  3. regenerates the versions database with
+     `vcpkg --x-builtin-ports-root=<repo>/ports
+     --x-builtin-registry-versions-dir=<repo>/versions x-add-version --all`,
+     which computes git-tree hashes itself; hand-computed hashes are how a
+     registry silently breaks,
+  4. commits anything that changed and prints the baseline commit to quote in
+     a consumer's vcpkg-configuration.json.
+
+Run via scripts/sync-vcpkg-registry.sh. Needs a vcpkg binary (VCPKG_EXE env
+var, or /tmp/vcpkg/vcpkg, or $HOME/vcpkg/vcpkg).
 """
 import json
+import os
+import shutil
 import subprocess
 import sys
-import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+PORT_DIR = ROOT / "ports" / "plyengine"
+SRC_DIR = ROOT / "packaging" / "vcpkg" / "port"
+VERSIONS_DIR = ROOT / "versions"
+PORT_SPECS = ["ports", "packaging/vcpkg/port"]
+VERSIONS_SPECS = ["versions"]
 GIT_IDENTITY = ["-c", "user.name=MerverliPy",
                 "-c", "user.email=merverlipy@users.noreply.github.com"]
 
 
-def git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *GIT_IDENTITY, *args], cwd=ROOT, check=True,
-        capture_output=True, text=True).stdout.strip()
+def git(*args, check=True):
+    return subprocess.run(["git", *GIT_IDENTITY, *args], cwd=ROOT, check=check,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def head() -> str:
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def find_vcpkg() -> str:
+    exe = os.environ.get("VCPKG_EXE")
+    if exe:
+        return exe
+    for cand in ("/tmp/vcpkg/vcpkg", os.path.expanduser("~/vcpkg/vcpkg")):
+        if Path(cand).exists():
+            return cand
+    raise SystemExit("sync-vcpkg-registry: no vcpkg binary found "
+                     "(set VCPKG_EXE)")
+
+
+def run(exe: str, *args: str) -> subprocess.CompletedProcess:
+    result = subprocess.run([exe, *args], cwd=ROOT, capture_output=True,
+                            text=True)
+    if result.returncode != 0:
+        raise SystemExit(f"{' '.join(args)} failed:\n"
+                         f"{result.stdout}{result.stderr}")
+    return result
 
 
 def main() -> int:
-    bump = None
-    if len(sys.argv) > 2 and sys.argv[1] == "--bump":
-        bump = sys.argv[2]
+    exe = find_vcpkg()
+    version = json.loads((SRC_DIR / "vcpkg.json").read_text())["version-semver"]
 
-    port_dir = ROOT / "ports" / "plyengine"
-    src_dir = ROOT / "packaging" / "vcpkg" / "port"
-    port_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src_dir / "vcpkg.json", port_dir / "vcpkg.json")
-    shutil.copy2(src_dir / "portfile.cmake", port_dir / "portfile.cmake")
+    # 1. Mirror the canonical port files.
+    PORT_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(SRC_DIR / "vcpkg.json", PORT_DIR / "vcpkg.json")
+    shutil.copy2(SRC_DIR / "portfile.cmake", PORT_DIR / "portfile.cmake")
 
-    status = git("status", "--porcelain", "--", "ports/plyengine")
-    if status:
-        git("add", "ports/plyengine")
-        git("commit", "-m", "vcpkg registry: sync port from packaging/vcpkg/port")
+    # 2. Canonical formatting, then write the formatted manifest back so the
+    #    packaging source and the registry copy are byte-identical.
+    run(exe, "format-manifest", str(PORT_DIR / "vcpkg.json"))
+    shutil.copy2(PORT_DIR / "vcpkg.json", SRC_DIR / "vcpkg.json")
 
-    tree = git("rev-parse", "HEAD:ports/plyengine")
+    # 3. Commit port changes so their tree hashes exist.
+    dirty = git("status", "--porcelain", "--", *PORT_SPECS)
+    if dirty:
+        git("add", "ports", "packaging/vcpkg/port")
+        git("commit", "-m", "vcpkg registry: sync port files")
+        print("port files synced and committed")
 
-    manifest_version = json.loads(
-        (port_dir / "vcpkg.json").read_text())["version-semver"]
+    # 4. Regenerate the versions database with x-add-version redirection.
+    if not (VERSIONS_DIR / "baseline.json").exists():
+        VERSIONS_DIR.mkdir(parents=True, exist_ok=True)
+        (VERSIONS_DIR / "baseline.json").write_text('{\n  "default": {}\n}\n')
+    before = git("status", "--porcelain", "--", "versions")
+    db_file = VERSIONS_DIR / "p-" / "plyengine.json"
+    # If the same version is re-recorded with a different tree (port content
+    # changed without a version bump), overwrite it. Only safe while the entry
+    # is unpublished; after publishing, the sync caller must instead bump the
+    # version in packaging/vcpkg/port/vcpkg.json first.
+    adds = ["x-add-version", "--all"]
+    if db_file.exists() and version in db_file.read_text():
+        adds.append("--overwrite-version")
+    run(exe, f"--x-builtin-ports-root={ROOT / 'ports'}",
+        f"--x-builtin-registry-versions-dir={VERSIONS_DIR}", *adds)
 
-    if bump:
-        version, port_version = bump, 0
-    else:
-        versions = json.loads(
-            (ROOT / "versions" / "p-" / "plyengine.json").read_text())["versions"]
-        version = manifest_version
-        port_version = max(
-            (e.get("port-version", 0) for e in versions
-             if e.get("version-semver") == version),
-            default=-1) + 1
-
-    versions_doc = json.loads(
-        (ROOT / "versions" / "p-" / "plyengine.json").read_text())
-    # No-op when this exact content (same tree) is already recorded under the
-    # same version; only genuinely changed port content gets a new entry.
-    already = any(e.get("version-semver") == version
-                  and e.get("git-tree") == tree
-                  for e in versions_doc["versions"])
-    if not already:
-        entry = {"git-tree": tree, "version-semver": version,
-                 "port-version": port_version}
-        versions_doc["versions"].append(entry)
-        versions_doc["versions"].sort(
-            key=lambda e: (e.get("version-semver", ""),
-                           e.get("port-version", 0)))
-    new_versions_text = json.dumps(versions_doc, indent=2) + "\n"
-    if new_versions_text != (ROOT / "versions" / "p-" / "plyengine.json").read_text():
-        (ROOT / "versions" / "p-" / "plyengine.json").write_text(new_versions_text)
-
-    if not already:
-        baseline = json.loads(
-            (ROOT / "versions" / "baseline.json").read_text())
-        baseline["default"]["plyengine"] = {"baseline": tree,
-                                            "port-version": port_version}
-        new_baseline_text = json.dumps(baseline, indent=2) + "\n"
-        if new_baseline_text != \
-                (ROOT / "versions" / "baseline.json").read_text():
-            (ROOT / "versions" / "baseline.json").write_text(
-                new_baseline_text)
-
-    print(f"registry synced: plyengine {version} "
-          f"(port-version {port_version})"
-          + (" [unchanged]" if already else " [changed]"))
-    if already:
-        print(f"git-tree: {tree} (unchanged, no version bump)")
-        print(f"vcpkg-configuration.json baseline: {git('rev-parse', 'HEAD')}")
-        return 0
-    print(f"git-tree: {tree}")
-    git("add", "versions")
-    diff = subprocess.run(["git", *GIT_IDENTITY, "diff", "--cached", "--quiet"],
-                          cwd=ROOT).returncode
-    if diff != 0:
-        git("commit", "-m",
-            f"vcpkg registry: record version {version} "
-            f"port-version {port_version}")
-    print(f"vcpkg-configuration.json baseline: {git('rev-parse', 'HEAD')}")
+    # 5. Commit the database update and report the baseline commit.
+    after = git("status", "--porcelain", "--", *VERSIONS_SPECS)
+    if after:
+        git("add", "versions")
+        git("commit", "-m", "vcpkg registry: update versions database")
+    base = head()
+    version = json.loads((PORT_DIR / "vcpkg.json").read_text())[
+        "version-semver"]
+    entry = json.loads((VERSIONS_DIR / "p-" / "plyengine.json").read_text())
+    state = "updated" if after else "unchanged"
+    print(f"versions db {state}: plyengine {version}, "
+          f"entries {len(entry['versions'])}")
+    print(f"vcpkg-configuration.json baseline: {base}")
     return 0
 
 

@@ -6,10 +6,10 @@
   "license": "MIT",
   "supports": "!(uwp | (arm & windows))",
   "dependencies": [
-    "sdl3",
+    "crow",
     "glm",
     "nlohmann-json",
-    "crow",
+    "sdl3",
     {
       "name": "vcpkg-cmake",
       "host": true
