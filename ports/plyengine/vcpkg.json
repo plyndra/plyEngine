@@ -1,6 +1,6 @@
 {
   "name": "plyengine",
-  "version-semver": "1.0.0-beta.4",
+  "version-semver": "1.0.0",
   "description": "Open-source 2D game engine (C++20, OpenGL 3.3) with phone-as-controller multiplayer",
   "homepage": "https://github.com/plyndra/plyEngine",
   "license": "MIT",
