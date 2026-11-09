@@ -216,6 +216,14 @@ jobs:
             echo "present: $exe"
           done
           [ -d companion ] || { echo "::error::archive is missing companion/"; exit 1; }
+          # The phone controller is the flagship path: assert the shipped PWA
+          # payload, not just the directory. A --web root that resolves to a
+          # missing file would 404 on every player's phone while every headless
+          # --verify still passed.
+          for f in companion/index.html companion/app.js companion/index.css; do
+            [ -s "$f" ] || { echo "::error::archive is missing $f"; exit 1; }
+            echo "present: $f"
+          done
           echo "::endgroup::"
 
           export LIBGL_ALWAYS_SOFTWARE=1
@@ -227,6 +235,32 @@ jobs:
           echo "::endgroup::"
           echo "::group::platformer"
           xvfb-run -a ./ply_companion --verify --frames 1800 --no-mdns --web companion
+          echo "::endgroup::"
+          echo "::group::phone controller is actually served"
+          # End-to-end over HTTP from the shipped archive: the default --verify
+          # run never fetches a URL, so only this step proves a phone can load
+          # the controller from companion/.
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./ply_companion --no-mdns \
+            --web companion --frames 1200 > /tmp/serve.log 2>&1 &
+          serve_pid=$!
+          for _ in $(seq 1 40); do
+            port=$(grep -oE 'open: +http://[0-9.]+:[0-9]+' /tmp/serve.log \
+                   | grep -oE '[0-9]+$' | head -1)
+            [ -n "$port" ] && break
+            sleep 0.5
+          done
+          [ -n "${port:-}" ] || { echo "::error::server never printed a URL"; \
+                                  cat /tmp/serve.log; exit 1; }
+          root_code=$(curl -s --noproxy '*' -o /tmp/index.html \
+                      -w '%{http_code}' "http://127.0.0.1:$port/")
+          js_code=$(curl -s --noproxy '*' -o /dev/null \
+                      -w '%{http_code}' "http://127.0.0.1:$port/app.js")
+          kill "$serve_pid" 2>/dev/null || true
+          echo "GET / -> $root_code ; GET /app.js -> $js_code"
+          [ "$root_code" = "200" ] || { echo "::error::phone controller root $root_code"; \
+                                        cat /tmp/serve.log; exit 1; }
+          [ "$js_code" = "200" ] || { echo "::error::phone controller app.js $js_code"; exit 1; }
+          grep -qi 'script' /tmp/index.html || { echo "::error::index.html looks empty"; exit 1; }
           echo "::endgroup::"
           echo "::group::glibc floor"
           max=$(objdump -T ./ply_tutorial | grep -oE 'GLIBC_[0-9]+\.[0-9]+' \

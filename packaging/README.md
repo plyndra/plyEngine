@@ -70,10 +70,16 @@ changed; re-recording a changed port under the same unpublished version uses
 `--overwrite-version` internally, so after a version is publicly consumed,
 **bump the version first** instead.
 
-End-to-end check performed 2026-11-09: fresh clone + the
-`vcpkg-configuration.json` above → `vcpkg install` resolves plyengine from
-the repo registry and a scratch consumer links `plyEngine::plyEngine` and
-prints `ply::kVersion` = 1.0.0-beta.2, entirely from the repo's own registry.
+End-to-end checks performed 2026-11-09, both against
+`https://github.com/plyndra/plyEngine` as a real git registry:
+
+- beta.2 entry: `vcpkg install` resolved plyengine and the consumer printed
+  `ply::kVersion` = 1.0.0-beta.2;
+- beta.3 entry (git-tree `2fc422e4…`) with baseline `a8e1a35…`:
+  `vcpkg install` resolved `plyengine:x64-linux@1.0.0-beta.3`, the installed
+  header reads `inline constexpr const char* kVersion = "1.0.0-beta.3";`, and
+  a scratch `find_package` consumer linked `plyEngine::plyEngine` from the
+  repo's own registry.
 
 ### vcpkg tool prerequisites on a fresh Linux host
 

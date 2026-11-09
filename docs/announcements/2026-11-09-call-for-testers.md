@@ -3,9 +3,9 @@
 Tracked here so the published text is reviewable history. Reports get logged
 in [../CONSUMER_REPORTS.md](../CONSUMER_REPORTS.md).
 
-Every factual claim below was checked against the repo at `8566cc9` and the
-published `v1.0.0-beta.3` release on 2026-11-09 (see the audit table at the
-end). Nothing here is aspirational.
+Every factual claim below was checked against the repo and the published
+`v1.0.0-beta.3` release (tag commit `0dc467c`) on 2026-11-09. Nothing here is
+aspirational.
 
 **Venue order** (council recommendation, owner-approved): EngineDev / C++
 Discord `#showcase` first as a soft launch → r/gamedev → r/cpp Show & Tell →
@@ -27,18 +27,18 @@ Looking for a few testers: plyEngine 1.0.0-beta.3 — a C++20 2D engine where ph
 
 ## Body (r/gamedev)
 
-I've been building plyEngine, a small MIT-licensed 2D game engine: C++20,
-SDL3 + OpenGL 3.3, an archetype ECS, swept-AABB tilemap physics, PNG/TTF
-assets, miniaudio audio, and a sandboxed Lua 5.4 scripting layer.
+Up to four people play a four-player platformer together on **their own
+phones**, no app install: the host runs the game, prints a LAN URL and a
+4-character room code, and everyone joins from the browser. Coins are
+contested and the first to the flag wins.
 
-The part people find fun: **your phone is the controller.** The host runs the
-game, prints a LAN URL and a 4-character room code, and up to four people open
-that URL in their phone browser — no app install — and play a four-player
-platformer together. Coins are contested and the first to the flag wins.
+Under the hood it is a small MIT-licensed 2D engine: C++20, SDL3 + OpenGL
+3.3, an archetype ECS, swept-AABB tilemap physics, PNG/TTF assets, miniaudio
+audio, and a sandboxed Lua 5.4 scripting layer.
 
-The reason I'm posting: the public API has been frozen since `v1.0.0-beta.1`,
-but I won't tag 1.0.0 on the strength of my own tests. I need at least one
-person who is not me to build something with it and tell me what broke.
+Why I'm posting: the public API has been frozen since `v1.0.0-beta.1`, but I
+won't tag 1.0.0 on the strength of my own tests. I need at least one person
+who is not me to build something with it and tell me what broke.
 
 ### The 10-second version (no build, no toolchain)
 
@@ -55,8 +55,9 @@ three people on the same Wi-Fi open that URL, type the room code, and play.
 single keyboard player.
 
 Release: <https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.3>
-(Each archive is unpacked and executed on a clean Ubuntu 22.04 container
-before publishing, so a broken archive fails CI rather than you.)
+(each archive is unpacked on a clean Ubuntu 22.04 container and its demos run
+headless there before publishing, so a broken binary fails CI rather than
+you).
 
 ### The version I actually need (a build)
 
