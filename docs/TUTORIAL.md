@@ -11,7 +11,10 @@ If you want to type along, create a file and paste each step's code; the
 final section tells you how to wire it into CMake.
 
 **Before you start** you need a C++20 compiler, CMake ≥ 3.24, and the SDL3/X11
-system development packages. The full per-OS list lives in
+system development packages. Budget a couple of minutes for the first build:
+configure + build of the finished game measured 1m46s on 12 cores, including
+building SDL3 from source (a slow machine or a cold dependency download takes
+several times longer). The full per-OS list lives in
 [BUILDING.md — Prerequisites](BUILDING.md); on Ubuntu/Debian it is:
 
 ```sh

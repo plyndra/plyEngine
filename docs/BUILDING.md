@@ -9,7 +9,9 @@
 | Node.js | 18+ — only for building the companion PWA (`companion/`) |
 
 All C++ dependencies are pinned and downloaded by CMake `FetchContent` at
-configure time, so the first build needs network access. Pins live in
+configure time, so the first build needs network access. Measured reference:
+configure + build of `ply_tutorial` (which builds SDL3 from source as well)
+took 1m46s on 12 cores; scale accordingly for fewer cores or a colder cache. Pins live in
 `CMakeLists.txt`; nothing floats to "latest".
 
 ## Per-OS packages
