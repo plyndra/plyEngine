@@ -6,17 +6,16 @@
 # The header-only dependencies and Crow are public and hashed.
 
 sources:
-  "1.0.0-beta.2":
-    url: "https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.2.tar.gz"
-    # sha256 verified 2026-11-09 of the downloaded tag archive.
-    sha256: "e2b73363046a8f3b7e1c5056b11bde7d14a323ca84252d6d495c63b6c37b403e"
+  "1.0.0-beta.3":
+    url: "https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.3.tar.gz"
+    # sh256 of the GitHub-generated tag archive; filled right after the tag
+    # push (conan checks it on first fetch).
+    sha256: "PENDING_TAG_ARCHIVE_HASH"
 
 crow:
   url: "https://github.com/CrowCpp/Crow/archive/refs/tags/v1.3.5.tar.gz"
   # sha256 verified 2026-11-09 of the downloaded release archive.
   sha256: "4783bb3522b1de2e6300efd337ac2e234fa8f7fe9853131ee53ee47bf90cf03f"
-
-stb:
 
 stb:
   url: "https://github.com/nothings/stb/archive/4e9b368bfc071e97206ea5c6adba68dd0cbf8897.tar.gz"

@@ -356,7 +356,7 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-beta.2)
+    GIT_TAG        v1.0.0-beta.3)
 FetchContent_MakeAvailable(plyEngine)
 
 target_link_libraries(mygame PRIVATE plyEngine)

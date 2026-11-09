@@ -5,6 +5,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.0-beta.3] — 2026-11-09
+
+Additive release during the beta soak; the API freeze stays intact.
+
+### Added
+
+- **The repository itself is a vcpkg git registry.** `ports/plyengine/` and
+  `versions/` live at the repo root and are kept valid by
+  `scripts/sync-vcpkg-registry.sh` (drives `vcpkg format-manifest` +
+  `x-add-version`; the version database is generated, not hand-hashed).
+  Consumers add a `vcpkg-configuration.json` pointing at the repo — no
+  upstream submission needed. Verified end to end: fresh clone, manifest
+  consumer, `vcpkg install`, link, `ply::kVersion` printed.
+- **`PLY_CROW_SOURCE_DIR`** — system-deps mode stages a full Crow checkout
+  instead of a Crow CMake config package: Conan Center has no usable Crow
+  recipe, so the conan recipe stages Crow v1.3.5 and asio comes from the
+  Conan Center asio package. The vcpkg `find_package(Crow)` path is
+  unchanged and remains the default.
+- **Fresh-host prerequisites documented** for vcpkg (zip/unzip, pkg-config,
+  autoconf chain, SDL3 dev libs) and for the tutorial ("Before you start"
+  block in docs/TUTORIAL.md).
+
+### Fixed
+
+- `.gitignore`'s unanchored `vcpkg/` pattern shadowed `packaging/vcpkg/`, so
+  the entire vcpkg port directory had never been committed (tag
+  `39cd37a`-era fix, present in this tag's source tarball).
+- vcpkg port: `supports` expression parenthesized per manifest schema;
+  portfile stages Lua 5.4.7 (`PLY_LUA_SOURCE_DIR became a hard requirement
+  when M9 landed) with a verified archive hash.
+- `docs/CONSUMER_REPORTS.md` added so outside-consumer build reports can be
+  logged as beta-soak criterion-2 evidence.
+
 ## [1.0.0-beta.2] — 2026-11-08
 
 Additive release during the beta soak: the public API only grew (see
