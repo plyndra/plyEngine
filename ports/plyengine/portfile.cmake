@@ -15,7 +15,7 @@ set(PLYENGINE_VERSION "1.0.0-beta.4")
 # URL). Verified by sha512sum of the downloaded v1.0.0-beta.3 tag archive on
 # 2026-11-09. Bump both when a new tag is cut (the release workflow prints the
 # tarball hash).
-set(PLYENGINE_SHA512 "99491493c24e166ee4597d4716dc169763042cb7aea8eee64af871f446340a3cfe7f9c364efc9965847118112a9c8e57d8abedf75ad47356d0915417599e6901")
+set(PLYENGINE_SHA512 "4b5867f8d68dd27f38f8961e23abad27684395a5d85632ef77dca7588497da9979e85e4ff4c59f730745ea21388ab59518c14742366986ef00aec732e8a8acbe")
 
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
