@@ -12,10 +12,10 @@
 set(PLYENGINE_VERSION "1.0.0-beta.2")
 
 # Tag-archive SHA512, exactly as vcpkg_from_github fetches it (GitHub archive
-# URL). Verified by sha512sum of the downloaded v1.0.0-beta.2 tag archive on
+# URL). Verified by sha512sum of the downloaded v1.0.0-beta.3 tag archive on
 # 2026-11-09. Bump both when a new tag is cut (the release workflow prints the
 # tarball hash).
-set(PLYENGINE_SHA512 "01372aa9fb238d54c1b3d8371583d1bc29caa493c455859880192881749eb90d4f91b22faabcec899bc176fbe140a6ec9b875700f0f7877df8af3a6cc8a70631")
+set(PLYENGINE_SHA512 "99491493c24e166ee4597d4716dc169763042cb7aea8eee64af871f446340a3cfe7f9c364efc9965847118112a9c8e57d8abedf75ad47356d0915417599e6901")
 
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
