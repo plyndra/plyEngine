@@ -60,7 +60,8 @@ criteria, all of which are checkable rather than remembered:
    (`find_package(plyEngine)` or `FetchContent`), with the version and OS.
    "No external users" is not evidence of stability, and this project's
    rule is that a claim needs evidence — the alpha.2 archive was the same
-   mistake in a different costume.
+   mistake in a different costume. Reports are logged in
+   [CONSUMER_REPORTS.md](CONSUMER_REPORTS.md).
 3. **Every gate below still green**, on the tip of `main`, including the
    install-and-consume job on all three OSes.
 

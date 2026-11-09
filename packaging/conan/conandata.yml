@@ -8,9 +8,8 @@
 sources:
   "1.0.0-beta.3":
     url: "https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.3.tar.gz"
-    # sh256 of the GitHub-generated tag archive; filled right after the tag
-    # push (conan checks it on first fetch).
-    sha256: "PENDING_TAG_ARCHIVE_HASH"
+    # sha256 verified 2026-11-09 of the GitHub-generated tag archive.
+    sha256: "bb459dcfa634429f6fd5c9d834b605dbe9e94db622efa014c3b0cf300ac993af"
 
 crow:
   url: "https://github.com/CrowCpp/Crow/archive/refs/tags/v1.3.5.tar.gz"
