@@ -6,6 +6,10 @@
 # The header-only dependencies and Crow are public and hashed.
 
 sources:
+  "1.0.0-beta.4":
+    url: "https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.4.tar.gz"
+    # sha256 verified 2026-11-09 of the GitHub-generated tag archive.
+    sha256: "b18c2a1e16e2ab8958e18e18861e7baf1e5813291c935684bdf8072181af71a4"
   "1.0.0-beta.3":
     url: "https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.3.tar.gz"
     # sha256 verified 2026-11-09 of the GitHub-generated tag archive.
