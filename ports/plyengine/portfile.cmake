@@ -9,7 +9,7 @@
 # Note: PLYENGINE_REF/SHA are the release being packaged. Bump both when a new
 # tag is cut (the release workflow prints the tarball hash).
 
-set(PLYENGINE_VERSION "1.0.0-beta.2")
+set(PLYENGINE_VERSION "1.0.0-beta.3")
 
 # Tag-archive SHA512, exactly as vcpkg_from_github fetches it (GitHub archive
 # URL). Verified by sha512sum of the downloaded v1.0.0-beta.3 tag archive on
