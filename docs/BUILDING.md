@@ -118,6 +118,10 @@ ctest --test-dir build-asan --output-on-failure
 
 ## Installing the engine (find_package)
 
+Alternative consumption via a package manager is documented in
+[../packaging/README.md](../packaging/README.md): the vcpkg path needs no
+upstream submission — the repository itself is the vcpkg registry.
+
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j

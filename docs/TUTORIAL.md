@@ -10,6 +10,18 @@ run. Every code block below is taken from the finished source:
 If you want to type along, create a file and paste each step's code; the
 final section tells you how to wire it into CMake.
 
+**Before you start** you need a C++20 compiler, CMake ≥ 3.24, and the SDL3/X11
+system development packages. The full per-OS list lives in
+[BUILDING.md — Prerequisites](BUILDING.md); on Ubuntu/Debian it is:
+
+```sh
+sudo apt-get install -y build-essential cmake \
+  libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+  libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
+  libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+  libxtst-dev libxpresent-dev libxshmfence-dev
+```
+
 What you will learn: the `App` loop, sprite atlases, the archetype ECS,
 fixed-timestep physics with tilemap collision, pickups and score, HUD text,
 and why every game should ship a `--verify` check.

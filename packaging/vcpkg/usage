@@ -1,7 +1,12 @@
 # Using plyEngine with vcpkg
+# 1. Prefer the repo-as-registry flow (packaging/README.md): add a
+#    vcpkg-configuration.json that lists github.com/plyndra/plyEngine as a
+#    git registry scoped to packages: ["plyengine"], then plain manifest
+#    installs resolve it:
 #
-# 1. Put the port where vcpkg can see it (an overlay is enough while the port
-#    is not merged into the registry):
+#      vcpkg install plyengine
+#
+#    An overlay also works while the port is not in the registry:
 #
 #      vcpkg install plyengine --overlay-ports=packaging/vcpkg/port
 #

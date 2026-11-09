@@ -27,9 +27,70 @@ bootstrap (2026-10-29 toolchain):
   `find_package(plyEngine CONFIG REQUIRED)`, links, and prints
   `consumer sees plyEngine 1.0.0-beta.2`.
 
-Remaining for registry publication: submit the port upstream to
-[microsoft/vcpkg](https://github.com/microsoft/vcpkg) (`ports/plyengine`) or
-span a curated registry.
+### vcpkg — consuming without upstream submission
+
+**Decided 2026-11-09: no microsoft/vcpkg PR.** Instead, the plyEngine repo
+itself *is* a vcpkg git registry: vcpkg reads `ports/plyengine/` and
+`versions/` at the repo root (kept in sync with the canonical port under
+`vcpkg/port/` by `scripts/sync-vcpkg-registry.sh`, which drives
+`vcpkg format-manifest` + `x-add-version` so the version DB is generated, not
+hand-hashed).
+
+Consumers (vcpkg ≥ 2022-06) add one file next to their `vcpkg.json`:
+
+```json
+// vcpkg-configuration.json
+{
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "<a microsoft/vcpkg master commit sha>"
+  },
+  "registries": [
+    {
+      "kind": "git",
+      "packages": ["plyengine"],
+      "repository": "https://github.com/plyndra/plyEngine",
+      "baseline": "<a plyEngine main commit sha, see below>"
+    }
+  ]
+}
+```
+
+The plyEngine `baseline` is the registry-contract commit recorded in
+`versions/baseline.json`; every `scripts/sync-vcpkg-registry.sh` run prints
+the current value as its last line (`vcpkg-configuration.json baseline:
+<sha>`). The default registry supplies sdl3, glm, nlohmann-json, crow and
+the vcpkg-cmake host helpers; the `packages` list scopes our registry to
+`plyengine` so it shadows nothing else.
+
+**Adding a new version** (maintainer): bump `version-semver` in
+`vcpkg/port/vcpkg.json` and re-run the sync script. Idempotent when nothing
+changed; re-recording a changed port under the same unpublished version uses
+`--overwrite-version` internally, so after a version is publicly consumed,
+**bump the version first** instead.
+
+End-to-end check performed 2026-11-09: fresh clone + the
+`vcpkg-configuration.json` above → `vcpkg install` resolves plyengine from
+the repo registry and a scratch consumer links `plyEngine::plyEngine` and
+prints `ply::kVersion` = 1.0.0-beta.2, entirely from the repo's own registry.
+
+### vcpkg tool prerequisites on a fresh Linux host
+
+These cost the beta.2 execution three failed dependency builds before being
+written down. Install `zip unzip tar` (vcpkg bootstrap), `pkg-config`
+(asio), `autoconf automake libtool` (gperf chain), and SDL3's dev libraries
+— the same list as [../docs/BUILDING.md](../docs/BUILDING.md#per-os-packages).
+On Debian/Ubuntu:
+
+```sh
+sudo apt-get install -y zip unzip tar pkg-config \
+  build-essential ninja-build autoconf automake libtool \
+  libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+  libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
+  libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+  libxtst-dev libxpresent-dev libxshmfence-dev libssl-dev
+```
 
 ### The engine-side mode both recipes rely on — executed earlier
 

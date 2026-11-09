@@ -60,7 +60,7 @@ becomes a companion controller for party-style play (think Jackbox).
 ```sh
 git clone https://github.com/plyndra/plyEngine.git
 cd plyEngine
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B build -DCMAKE_BUILD_TYPE=Release   # needs SDL3/X11 dev packages, see docs/BUILDING.md
 cmake --build build -j
 ctest --test-dir build --output-on-failure     # 15 headless suites
 ```
