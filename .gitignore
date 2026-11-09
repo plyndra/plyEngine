@@ -3,7 +3,7 @@ build*/
 cmake-build-*/
 out/
 vcpkg_installed/
-vcpkg/
+/vcpkg/
 *.o
 *.obj
 *.a

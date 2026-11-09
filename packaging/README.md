@@ -4,20 +4,34 @@ plyEngine installs as a CMake package (`find_package(plyEngine)`); see
 [../docs/BUILDING.md](../docs/BUILDING.md#installing-the-engine-find_package).
 This directory prepares the two C++ package managers on top of that.
 
-## Status: prepared, not shippable — blocked on repository visibility
+## Status: vcpkg executed and verified; conan still prepared-only
 
-`github.com/plyndra/plyEngine` is currently a **private** repository. vcpkg
-and conan both fetch sources anonymously during install, so neither recipe can
-work until the repository is public. That is the only blocker; everything
-engine-side is done and tested (below).
+The repository went public on 2026-11-09, which removed the fetch blocker.
 
-The vcpkg portfile fails with an explicit message rather than a hash mismatch,
-because "hash mismatch" reads like a corrupted download and sends people
-debugging the wrong thing.
+### vcpkg — executed end to end (2026-11-09)
 
-### What *has* been executed
+The port in [`vcpkg/port/`](vcpkg/port) was run against a live vcpkg
+bootstrap (2026-10-29 toolchain):
 
-The build mode these ports rely on is verified locally, end to end:
+- Bumped to `1.0.0-beta.2` with the real tag-archive SHA512 (the private-repo
+  hard gate was removed — it served its purpose while the repo was closed).
+- Two real defects surfaced and were fixed:
+  1. `vcpkg.json` `supports` used `!(uwp | arm & windows)` without parens —
+     the manifest schema rejects mixed `&`/`|`; now `!(uwp | (arm & windows))`.
+  2. The port predated M9: offline mode now requires `PLY_LUA_SOURCE_DIR`,
+     so the portfile also stages Lua 5.4.7 (same pinned archive the engine's
+     own FetchContent build uses) and passes `-DPLY_LUA_SOURCE_DIR`.
+- `vcpkg install plyengine --overlay-ports=packaging/vcpkg/port` succeeds
+  (builds sdl3, glm, nlohmann-json, crow, asio, then the engine; ~31 s), and
+  a scratch consumer configured with the vcpkg toolchain does
+  `find_package(plyEngine CONFIG REQUIRED)`, links, and prints
+  `consumer sees plyEngine 1.0.0-beta.2`.
+
+Remaining for registry publication: submit the port upstream to
+[microsoft/vcpkg](https://github.com/microsoft/vcpkg) (`ports/plyengine`) or
+span a curated registry.
+
+### The engine-side mode both recipes rely on — executed earlier
 
 ```sh
 # no FetchContent at all: deps from CMake packages + staged header sources
@@ -27,43 +41,21 @@ cmake -B build -DPLY_USE_SYSTEM_DEPS=ON \
   -DPLY_MINIAUDIO_SOURCE_DIR=<dir with miniaudio.h> \
   -DPLY_MDNS_SOURCE_DIR=<dir with mdns.h> \
   -DASIO_INCLUDE_DIR=<asio/include>
-ctest --test-dir build        # 14/14
+ctest --test-dir build
 ```
 
-Those are exactly the variables `portfile.cmake` and `conanfile.py` set, so
-the *arguments* are proven; the registry plumbing is not.
+### conan — not yet executed
 
-### What has *not* been executed
-
-- `vcpkg install plyengine --overlay-ports=packaging/vcpkg/port` (needs a
-  public repo + the tag-archive SHA512)
 - `conan create .` against a live Conan cache (Conan Center's SDL3 package
   name and version are not verified here; the recipe pins `sdl/3.4.20`, which
-  may need adjusting to whatever the centre actually publishes)
+  may need adjusting to whatever the centre actually publishes).
 
-Do not advertise these recipes as working until that is run.
-
-### To unblock
-
-1. Make the repository public (owner decision — this is also what the beta
-   soak criterion "at least one outside consumer builds it" needs).
-2. Fill `PLYENGINE_SHA512` in `vcpkg/port/portfile.cmake`:
-
-   ```sh
-   curl -LO https://github.com/plyndra/plyEngine/archive/refs/tags/v1.0.0-beta.1.tar.gz
-   sha512sum v1.0.0-beta.1.tar.gz
-   ```
-
-   and delete the guard above it.
-3. `vcpkg install plyengine --overlay-ports=packaging/vcpkg/port`, fix whatever
-   surfaces, then either keep the overlay or submit to the registry.
-4. Repeat criterion 2 for conan (`conan create .`), adjusting the SDL3
-   reference to what Conan Center provides.
+Do not advertise the conan recipe as working until that is run.
 
 ## Layout
 
 ```
-vcpkg/port/{vcpkg.json,portfile.cmake}   port + hard gate
+vcpkg/port/{vcpkg.json,portfile.cmake}   port (verified 2026-11-09)
 vcpkg/usage                              consumer snippet (CMake)
 conan/conanfile.py                       recipe (CMakeToolchain + CMakeDeps)
 conan/conandata.yml                      pinned sources + hashes

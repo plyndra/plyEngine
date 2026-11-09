@@ -1,0 +1,23 @@
+# Using plyEngine with vcpkg
+#
+# 1. Put the port where vcpkg can see it (an overlay is enough while the port
+#    is not merged into the registry):
+#
+#      vcpkg install plyengine --overlay-ports=packaging/vcpkg/port
+#
+# 2. Consume it from CMake:
+#
+#      find_package(plyEngine CONFIG REQUIRED)
+#      target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
+#
+# 3. vcpkg's dependencies are found automatically; the engine's own install
+#    tree brings SDL3, glm and nlohmann_json along because they appear in its
+#    public headers.
+
+plyEngine::plyEngine provides the engine plus the internal archives it links
+(glad, stb_impl, miniaudio_impl). Crow/asio, mdns, stb and miniaudio are
+header-only and compiled into the engine, so they are not part of your link
+line.
+
+See docs/BUILDING.md#installing-the-engine-find_package for the equivalent
+manual install.
