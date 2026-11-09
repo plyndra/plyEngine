@@ -194,7 +194,7 @@ jobs:
         run: |
           apt-get update -qq
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ca-certificates binutils
+            xvfb libgl1-mesa-dri libglx-mesa0 fonts-dejavu-core ca-certificates binutils curl
 
       - uses: actions/download-artifact@v4
         with:
