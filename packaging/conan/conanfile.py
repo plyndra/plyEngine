@@ -66,6 +66,9 @@ class PlyEngineConan(ConanFile):
         # package above.
         tc.cache_variables["PLY_CROW_SOURCE_DIR"] = os.path.join(
             self.source_folder, "third_party_src", "crow")
+        # M9: the scripting layer links the real Lua 5.4 reference sources.
+        tc.cache_variables["PLY_LUA_SOURCE_DIR"] = os.path.join(
+            self.source_folder, "third_party_src", "lua")
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()
@@ -84,9 +87,13 @@ class PlyEngineConan(ConanFile):
              self.conan_data["miniaudio"]["sha256"]),
             ("mdns", self.conan_data["mdns"]["url"], self.conan_data["mdns"]["sha256"]),
             ("crow", self.conan_data["crow"]["url"], self.conan_data["crow"]["sha256"]),
+            ("lua", self.conan_data["lua"]["url"], self.conan_data["lua"]["sha256"]),
         ):
-            get(self, url=url, sha256=sha,
-                destination=stage, strip_root=True)
+            # One subdirectory per dep: extract-flat overlaps and, worse,
+            # Crow's CMakeLists.txt would land next to the engine's.
+            self._stage_dep(name, url, sha, os.path.join(stage, name))
+    def _stage_dep(self, name, url, sha, destination):
+        get(self, url=url, sha256=sha, destination=destination, strip_root=True)
 
     def build(self):
         self._stage_headers()

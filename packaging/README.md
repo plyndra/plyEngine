@@ -105,13 +105,41 @@ cmake -B build -DPLY_USE_SYSTEM_DEPS=ON \
 ctest --test-dir build
 ```
 
-### conan — not yet executed
+### conan — executed end to end (2026-11-09)
 
-- `conan create .` against a live Conan cache (Conan Center's SDL3 package
-  name and version are not verified here; the recipe pins `sdl/3.4.20`, which
-  may need adjusting to whatever the centre actually publishes).
+`conan create packaging/conan --name=plyengine --version=1.0.0-beta.3
+--build=missing -c tools.system.package_manager:mode=install` succeeds
+against a live Conan 2.34 cache, and a scratch consumer with
+`conan install` + `find_package(plyEngine CONFIG REQUIRED)` links and prints
+`conan consumer sees plyEngine 1.0.0-beta.3`.
 
-Do not advertise the conan recipe as working until that is run.
+What the run verified/fixed in the recipe:
+
+- Center pins: SDL3 max is `3.4.16` → `sdl/[>=3.4.16 <4]`; nlohmann_json
+  `3.12.0` and glm `1.0.3` exist as pinned; **Conan Center's `crow` recipe is
+  a dead Conan-1.x artifact (`crow/0.1`, boost 1.69)** — Crow v1.3.5 is
+  staged in full via the engine's `PLY_CROW_SOURCE_DIR`, with `asio`
+  (which the center *does* publish) satisfying Crow's
+  `find_package(asio)`.
+- M9 gap: offline builds need the staged Lua 5.4.7 (`PLY_LUA_SOURCE_DIR`),
+  now in the recipe.
+- `_stage_headers` extracts one subdirectory per dependency — flat staging
+  previously dropped Crow's `CMakeLists.txt` beside the engine's and broke
+  the configure.
+- On a very new Debian host (linux-libc 6.14 headers) the center's
+  `libalsa` recipe fails to compile upstream; build with SDL's alsa/
+  pulseaudio options off
+  (`-o "sdl/*:alsa=False" -o "sdl/*:pulseaudio=False"`) — miniaudio's ALSA
+  backend then uses the system headers only, and the engine builds
+  unaffected. Re-enable when the center's recipe catches up.
+
+Known-good command (Conan 2.x):
+
+```sh
+conan create packaging/conan --name=plyengine --version=1.0.0-beta.3 \
+  --build=missing -c tools.system.package_manager:mode=install \
+  -o "sdl/*:alsa=False" -o "sdl/*:pulseaudio=False"
+```
 
 ## Layout
 

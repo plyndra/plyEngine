@@ -27,3 +27,8 @@ miniaudio:
 mdns:
   url: "https://github.com/mjansson/mdns/archive/a569c4759bd47e0f2a7bfc4d4c19620445782806.tar.gz"
   sha256: "8a82a92bb025f3abcfb18e666c388aabc4730da3ba116b412d5c0ead466d33be"
+
+lua:
+  url: "https://github.com/lua/lua/archive/refs/tags/v5.4.7.tar.gz"
+  # sha256 suffixed after download; content-hash-checked by conan at fetch.
+  sha256: "5c39111b3fc4c1c9e56671008955a1730f54a15b95e1f1bd0752b868b929d8e3"
