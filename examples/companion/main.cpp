@@ -10,6 +10,11 @@
 // CompanionInput queue* and asserts gameplay outcomes: coins collected,
 // deaths to the pit and the saw, player 2 moving independently, and the
 // game reaching a win for player 1. Not just "pixels were drawn".
+//
+// --dump-frames <dir> writes every Nth rendered frame as a PPM sequence, so a
+// scripted run can be encoded into the docs/announcements hero animation. The
+// capture is labelled wherever it is published as a *scripted four-slot run*
+// driven through the phone input path — not as four physical phones.
 
 #include "plyEngine/App.hpp"
 #include "plyEngine/AudioSystem.hpp"
@@ -135,6 +140,24 @@ bool writeToneWav(const std::filesystem::path& path, float frequencyHz,
     return out.good();
 }
 
+// One frame as a binary PPM (P6), top row first. PPM because it is the only
+// image format that needs no library; the capture pipeline converts the
+// sequence with ffmpeg.
+bool writePpmFrame(const std::filesystem::path& path, int w, int h,
+                   const std::vector<unsigned char>& rgb) {
+    std::FILE* f = std::fopen(path.string().c_str(), "wb");
+    if (!f) {
+        return false;
+    }
+    std::fprintf(f, "P6\n%d %d\n255\n", w, h);
+    for (int y = h - 1; y >= 0; --y) {
+        std::fwrite(&rgb[static_cast<size_t>(y) * w * 3], 1,
+                    static_cast<size_t>(w) * 3, f);
+    }
+    std::fclose(f);
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -143,6 +166,12 @@ int main(int argc, char** argv) {
     bool verify = false;
     bool enableMdns = true;
     int port = 0;
+    // Capture state for --dump-frames (see the file header).
+    const char* dumpFramesDir = nullptr;
+    int dumpStride = 6;
+    int dumpFrom = 0;
+    int dumpCount = 0;  // 0 = no cap
+    int dumpedFrames = 0;
     // Resolved after argument parsing: an explicit --web wins, otherwise prefer
     // the source-tree build output and fall back to the release archive layout.
     std::string webRoot;
@@ -160,6 +189,24 @@ int main(int argc, char** argv) {
             port = std::atoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--web") == 0 && i + 1 < argc) {
             webRoot = argv[++i];
+        } else if (std::strcmp(argv[i], "--dump-frames") == 0 && i + 1 < argc) {
+            dumpFramesDir = argv[++i];
+        } else if (std::strcmp(argv[i], "--dump-stride") == 0 && i + 1 < argc) {
+            dumpStride = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--dump-from") == 0 && i + 1 < argc) {
+            dumpFrom = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--dump-count") == 0 && i + 1 < argc) {
+            dumpCount = std::atoi(argv[++i]);
+        }
+    }
+
+    if (dumpFramesDir) {
+        std::error_code ec;
+        std::filesystem::create_directories(dumpFramesDir, ec);
+        if (ec) {
+            std::fprintf(stderr, "capture: cannot create %s: %s\n", dumpFramesDir,
+                         ec.message().c_str());
+            return 1;
         }
     }
 
@@ -443,11 +490,17 @@ int main(int argc, char** argv) {
                        glm::vec4{1.0f, 1.0f, 0.6f, 1.0f}, 1.3f);
             text->draw(batch, server.url(), topLeft - glm::vec2{0.0f, 40.0f},
                        glm::vec4{0.75f, 0.85f, 1.0f, 1.0f}, 1.0f);
-            text->draw(batch,
-                       "players: " + std::to_string(server.connectedCount()) + "/" +
-                           std::to_string(serverConfig.slotCount) +
-                           (server.mdnsActive() ? "  (mDNS discoverable)" : ""),
-                       topLeft - glm::vec2{0.0f, 76.0f},
+            std::string playerLine =
+                "players: " + std::to_string(server.connectedCount()) + "/" +
+                std::to_string(serverConfig.slotCount) +
+                (server.mdnsActive() ? "  (mDNS discoverable)" : "");
+            if (dumpFramesDir) {
+                // A capture run drives every slot from the autopilot through the
+                // same input path a phone uses. Say that on screen rather than
+                // let a viewer read four moving players as four joined phones.
+                playerLine = "scripted capture: 4 slots via the phone input path";
+            }
+            text->draw(batch, playerLine, topLeft - glm::vec2{0.0f, 76.0f},
                        glm::vec4{0.6f, 1.0f, 0.75f, 1.0f}, 1.0f);
 
             // Scores: one coloured run per player, matching the sprite tint.
@@ -485,6 +538,37 @@ int main(int argc, char** argv) {
 
             batch.end();
         }
+
+        // Optional capture: read back the finished frame and write it as PPM.
+        // This lives inside the render callback because a frame only exists
+        // here — the post-run screenshot path can only ever produce the last
+        // one. Reads the back buffer that was just drawn, before the swap.
+        if (dumpFramesDir) {
+            const int frame = static_cast<int>(a.framesRendered());
+            const int stride = dumpStride > 0 ? dumpStride : 1;
+            // Stop at the winning frame: the level ends with a "P1 WINS" plate
+            // that would otherwise hold for the rest of the run and pad the
+            // animation with a still image.
+            const bool inRange = game.state != demo::GameState::Won &&
+                                 frame >= dumpFrom &&
+                                 (dumpCount <= 0 || dumpedFrames < dumpCount);
+            if (inRange && (frame - dumpFrom) % stride == 0) {
+                const int w = a.window().width();
+                const int h = a.window().height();
+                std::vector<unsigned char> frameRgb(static_cast<size_t>(w) * h * 3);
+                glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, frameRgb.data());
+                char name[64];
+                std::snprintf(name, sizeof(name), "frame_%05d.ppm", dumpedFrames);
+                const std::filesystem::path out =
+                    std::filesystem::path(dumpFramesDir) / name;
+                if (writePpmFrame(out, w, h, frameRgb)) {
+                    ++dumpedFrames;
+                } else {
+                    std::fprintf(stderr, "capture: cannot write %s\n",
+                                 out.string().c_str());
+                }
+            }
+        }
     };
 
     app.onRender(renderScene);
@@ -500,6 +584,11 @@ int main(int argc, char** argv) {
         frameCount = kVerifyFrames;
     }
     app.runFrames(frameCount);
+
+    if (dumpFramesDir) {
+        std::printf("capture: wrote %d frame(s) to %s (stride %d)\n", dumpedFrames,
+                    dumpFramesDir, dumpStride > 0 ? dumpStride : 1);
+    }
 
     int exitCode = 0;
     if (verify || screenshot) {

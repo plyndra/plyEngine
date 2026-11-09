@@ -14,3 +14,8 @@
 2026-11-09 R5 PASS  metadata non-empty (first run after 0.1-0.4 landed)
 2026-11-09 R6 PASS  no forbidden launch phrases in published text
 2026-11-09 R7 FAIL  README first screen = prose + Releases link, no image (blocked on C0.5)
+2026-11-09 C0.5 PARTIAL  docs/announcements/hero-capture.gif (417 KB, 960 px, 191 frames, 12 fps) + .mp4 exist via scripts/capture-hero.sh; README not yet wired, so the gate still reads FAIL
+2026-11-09 C0.5 NOTE     capture is a scripted four-slot run through the phone input path; HUD states it on frame 1
+2026-11-09 R1 PASS  release-check.sh still PASS after the capture flag + scripts/capture-hero.sh
+2026-11-09 R2 PASS  ctest 15/15 after the demo change
+2026-11-09 R4 PASS  no PR, no HN submission

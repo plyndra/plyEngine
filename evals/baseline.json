@@ -9,7 +9,18 @@
     "topics": [],
     "homepage": null,
     "has_discussions": false,
-    "readme_images": 0
+    "readme_images": 0,
+    "hero_asset": {
+      "gif": "docs/announcements/hero-capture.gif",
+      "gif_bytes": 417086,
+      "mp4_bytes": 134511,
+      "frames": 191,
+      "fps": 12,
+      "width": 960,
+      "generator": "scripts/capture-hero.sh",
+      "labelled_scripted": true,
+      "readme_wired": false
+    }
   },
   "counts": {
     "stars": 0,
