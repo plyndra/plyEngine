@@ -115,7 +115,16 @@ jobs:
           EXE=$(find b -name mygame -o -name mygame.exe | head -1)
           echo "running $EXE"
           "$EXE" | tee out.txt
-          grep -q "plyEngine 1\\.0\\.0-beta" out.txt
+          # Version-agnostic on purpose: read the version out of the installed
+          # header and require the consumer to report exactly that. Hardcoding
+          # "1.0.0-beta" here is what turned the 1.0.0 tag red - the same
+          # mistake release.yml already made once.
+          EXPECTED=$(sed -n 's/.*kVersion = "\([^"]*\)".*/\1/p' \
+                     "$SDK/include/plyEngine/Version.hpp")
+          [ -n "$EXPECTED" ] || { echo "::error::no kVersion in installed header"; exit 1; }
+          echo "installed kVersion: $EXPECTED"
+          grep -Fq "plyEngine $EXPECTED entities=1" out.txt \
+            || { echo "::error::consumer did not report $EXPECTED"; exit 1; }
 
       - name: Run hello example (Linux, headless, verified)
         if: runner.os == 'Linux'
