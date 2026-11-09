@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 # Single source of truth for the version string. The git tag must match it
 # (docs/ROADMAP.md release checklist); Version.hpp is generated from this
 # value so the header can never drift from the build.
-set(PLY_VERSION_STRING "1.0.0-beta.4" CACHE STRING "plyEngine version string")
+set(PLY_VERSION_STRING "1.0.0" CACHE STRING "plyEngine version string")
 
 project(plyEngine VERSION 1.0.0 LANGUAGES C CXX)
 

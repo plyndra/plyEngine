@@ -102,7 +102,7 @@ unpacked directory if Gatekeeper objects.
 | `PLY_BUILD_DEPS_INSTALL` | `ON` | Let GLM/json/SDL3 install themselves (needed by `PLY_INSTALL`) |
 | `PLY_BUILD_SCRIPTING` | `ON` | Build the Lua scripting layer (pulls in Lua 5.4) |
 | `PLY_USE_SYSTEM_DEPS` | `OFF` | Use `find_package`/staged sources instead of FetchContent (offline, package managers) |
-| `PLY_VERSION_STRING` | `1.0.0-beta.4` | Version reported by `ply::kVersion` (generated header) |
+| `PLY_VERSION_STRING` | `1.0.0` | Version reported by `ply::kVersion` (generated header) |
 
 `ply::kVersion` lives in a **generated** header. `PLY_VERSION_STRING` in
 `CMakeLists.txt` is the only place the version is authored; the git tag must

@@ -5,6 +5,47 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.0] — 2026-11-09
+
+First stable release. The public API is frozen: additions are minor changes,
+removals or renames need a deprecation cycle. Behaviour can still change to fix
+a bug.
+
+What "stable" rests on, so it can be checked rather than believed:
+
+- **Freeze enforced mechanically.** `scripts/release-check.sh` diffs every
+  header under `engine/include/` against the `v1.0.0-beta.1` freeze tag and
+  fails on any removed or renamed line unless the change is recorded in
+  `docs/DESIGN.md` and explicitly allowed.
+- **Artifacts are executed, not trusted.** For every tag, the Linux archive is
+  unpacked on a toolchain-free Ubuntu 22.04 container, every advertised binary
+  is asserted present and run headless, the glibc floor is read from
+  `objdump -T`, the phone controller is served over HTTP and must return 200,
+  and the source tarball must build the tutorial plus a `find_package`
+  consumer on a clean machine.
+- **Two documented consumption paths beyond FetchContent:**
+  `find_package(plyEngine CONFIG REQUIRED)` after `cmake --install` (built and
+  consumed in CI on Linux, Windows and macOS), and a vcpkg git registry hosted
+  by this repository (`vcpkg install plyengine` with a
+  `vcpkg-configuration.json` entry — verified end to end from the public
+  repo). The conan recipe is verified locally (`conan create` + consumer) but
+  ships as an overlay/local recipe, since Conan Center only accepts recipes
+  through its own index.
+
+### Changed since 1.0.0-beta.4
+
+- `ply_companion` resolves its web root automatically (source checkout:
+  `companion/dist`, release archive: `companion/`), so the phone controller
+  works from an unpacked release without extra flags.
+- Tutorial build time is measured and documented (1m46s configure+build on 12
+  cores, including SDL3 from source) instead of estimated.
+
+### Notes
+
+- Outside-consumer reports are wanted evidence but are no longer a release
+  gate; the reasoning and its consequences are recorded in `docs/DESIGN.md`
+  ("1.0.0 promotion rule") and `docs/ROADMAP.md`.
+
 ## [1.0.0-beta.4] — 2026-11-09
 
 Additive release during the beta soak; the API freeze stays intact (one new

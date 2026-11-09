@@ -430,3 +430,29 @@ Consequences, stated so they are not rediscovered as surprises:
 - If a future release ships an API defect that an outside user would have
   caught in an afternoon, the honest response is to reintroduce the gate — not
   to argue that the reports were merely advisory.
+
+## 1.0.0 released (2026-11-09)
+
+Promoted from `1.0.0-beta.4`. Recorded here because the promotion rule above
+requires it.
+
+The state at promotion, all checkable by re-running the gates:
+
+- additive-only drift against the freeze tag `v1.0.0-beta.1`
+  (`scripts/release-check.sh`);
+- 15 headless ctest suites green in Release and under ASan+UBSan;
+- the Linux archive unpacked and executed on a toolchain-free Ubuntu 22.04
+  container — every advertised binary run headless, the glibc floor asserted,
+  and the phone controller served over HTTP with `GET /` and `GET /app.js`
+  returning 200;
+- the source tarball building the tutorial and a `find_package` consumer;
+- the vcpkg registry resolving `plyengine` `1.0.0` from the public repository.
+
+Outside-consumer reports at promotion time: **none**, which the owner
+explicitly accepted. That is a deliberate, recorded trade-off rather than an
+oversight: see the "1.0.0 promotion rule" section above and
+`docs/ROADMAP.md`.
+
+Next branch, in priority order: Web/WASM export (the post-1.0 branch the owner
+picked), then mobile, then internet play and any binary-protocol work the
+profiling demands.

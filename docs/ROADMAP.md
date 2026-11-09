@@ -14,6 +14,8 @@
 | **M9 — scripting & packaging** | ✅ Done | Lua 5.4 scripting layer (hand-bound, sandboxed, `update(dt)`) with demo + headless tests; vendored glad (no Python/generator step); `PLY_USE_SYSTEM_DEPS` offline build mode verified; vcpkg/conan recipes prepared and gated on repository visibility; `scripts/release-check.sh` enforces version/API-drift/link/ctest; tagged `v1.0.0-beta.2` |
 | **M8 — 1.0-beta** | ✅ Done | Public API frozen; `find_package(plyEngine)` installable SDK with a CI consumer build; reference demo expanded to four phone players with synthesised sound cues asserted by `--verify`; tagged `v1.0.0-beta.1` |
 
+| **1.0.0 — stable** | ✅ Done | API frozen since `v1.0.0-beta.1` with additive-only drift enforced by `scripts/release-check.sh`; artifacts unpacked, executed and HTTP-served on a toolchain-free container before publishing; `find_package` SDK and the in-repo vcpkg registry both consumed end to end; tagged `v1.0.0` (2026-11-09) |
+
 Dependencies land at their milestone: SDL3 + glad (M1), GLM + stb + nlohmann/json (M2/M4), miniaudio + Crow + asio + mdns (M5/M6).
 
 ## The alpha gate (M7, as run)

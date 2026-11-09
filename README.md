@@ -7,9 +7,9 @@ with a twist: players join from their phones as controllers through any web
 browser, no app install. Render the game to a shared screen, and every phone
 becomes a companion controller for party-style play (think Jackbox).
 
-> **Status:** **1.0-beta** (`v1.0.0-beta.4`) — the public API is frozen for
-> 1.0: additions are allowed, breaking changes need a deprecation cycle.
-> Runtime API changes are still possible if a bug demands it.
+> **Status:** **1.0.0** — the public API is frozen (additions are minor
+> changes; removals or renames need a deprecation cycle). Behaviour can still
+> change to fix a bug.
 > Prebuilt demo binaries: [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## What you'll be able to build
@@ -77,7 +77,7 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0-beta.4)
+    GIT_TAG        v1.0.0)
 FetchContent_MakeAvailable(plyEngine)
 target_link_libraries(mygame PRIVATE plyEngine)
 
