@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ply {
 
@@ -19,6 +20,17 @@ namespace ply {
 /// session state advances and queued input is applied.
 class CompanionServer {
 public:
+    /// Pick the directory to serve the PWA from.
+    ///
+    /// The shipped release archive lays the built PWA out at `companion/`,
+    /// while a source checkout builds it into `companion/dist/` (Vite's
+    /// output dir, gitignored). Defaulting to either path breaks the other, so
+    /// callers pass a candidate list: the first entry that actually contains
+    /// `index.html` wins, and the first entry is returned unchanged when none
+    /// match (so the server's own 404 message still names what was asked for).
+    static std::string resolveWebRoot(
+        const std::vector<std::string>& candidates);
+
     struct Config {
         /// 0 picks a free ephemeral port.
         int port = 8080;

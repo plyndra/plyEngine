@@ -402,3 +402,31 @@ the same unverified-claim mistake that produced the glibc-2.43 archive.
 - Native Android/iOS apps
 - WebRTC for internet play across networks (WebSocket/LAN first)
 - Binary protocol (MessagePack) if profiling demands
+
+## 1.0.0 promotion rule (decided 2026-11-09)
+
+**The owner removed the outside-consumer requirement from the 1.0.0 gate.** The
+rule recorded in `docs/ROADMAP.md` since the alpha.2 incident ("someone who is
+not us reports a successful build") was replaced on 2026-11-09 by: outside
+builds are wanted evidence, not a precondition.
+
+Why the original rule existed and why it is being narrowed: `v1.0.0-alpha.1`
+passed CI while shipping binaries that needed glibc 2.43 and started nowhere
+current. That failure was mechanical — the artifact was never executed — and it
+is now covered by gates that do execute it: `smoke-linux` unpacks the archive on
+a toolchain-free Ubuntu 22.04, runs the headless demos, asserts the glibc floor,
+and (since beta.4) serves the shipped phone controller over HTTP and requires
+200s. What remains unproven without outside users is ergonomics: whether the
+consumption paths are pleasant and correctly documented. That is a quality
+argument, not a correctness one, so it no longer blocks the tag.
+
+Consequences, stated so they are not rediscovered as surprises:
+
+- `docs/CONSUMER_REPORTS.md` keeps collecting reports; an empty table is not a
+  release blocker and must not be cited as evidence of stability either.
+- Promotion still requires: additive-only API drift vs the freeze tag, every
+  gate green on `main`, a CHANGELOG entry, and this section updated with the
+  promotion date.
+- If a future release ships an API defect that an outside user would have
+  caught in an afternoon, the honest response is to reintroduce the gate — not
+  to argue that the reports were merely advisory.

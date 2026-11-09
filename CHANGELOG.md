@@ -5,6 +5,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.0-beta.4] — 2026-11-09
+
+Additive release during the beta soak; the API freeze stays intact (one new
+static helper, no signature changes).
+
+### Fixed
+
+- **`ply_companion` served 404 to every phone when run from a release archive.**
+  The demo's default web root was `companion/dist` (Vite's build output), but
+  the shipped archive lays the built PWA out at `companion/`, so the host
+  printed a LAN URL and every player got `404 not found: index.html` unless
+  they knew to pass `--web companion`. New
+  `ply::CompanionServer::resolveWebRoot()` picks the first candidate directory
+  that actually contains `index.html`; the demo now tries
+  `companion/dist` then `companion`, and an explicit `--web` still wins.
+  Measured before/after on the shipped binary: `GET /` was 404, now 200.
+
+### Added
+
+- **The release gate now proves the phone path.** `smoke-linux` asserts
+  `companion/{index.html,app.js,index.css}` exist in the unpacked archive and
+  serves the shipped binary, requiring `GET /` and `GET /app.js` to return 200.
+  Previously the check was `[ -d companion ]` plus headless `--verify`, neither
+  of which fetches a URL — so a web root pointing at a missing directory could
+  ship while every gate stayed green (which is exactly what happened in
+  beta.2/beta.3).
+
+### Docs
+
+- The r/gamedev call-for-testers copy is audited against the repo, with an
+  audit table recording how each claim was checked, and the tutorial's build
+  time is now measured (1m46s configure+build on 12 cores) rather than guessed.
+
 ## [1.0.0-beta.3] — 2026-11-09
 
 Additive release during the beta soak; the API freeze stays intact.

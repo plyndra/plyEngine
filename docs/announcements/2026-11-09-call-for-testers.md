@@ -1,10 +1,10 @@
-# Call for testers — publication copy (v1.0.0-beta.3, 2026-11-09)
+# Call for testers — publication copy (v1.0.0-beta.4, 2026-11-09)
 
 Tracked here so the published text is reviewable history. Reports get logged
 in [../CONSUMER_REPORTS.md](../CONSUMER_REPORTS.md).
 
 Every factual claim below was checked against the repo and the published
-`v1.0.0-beta.3` release (tag commit `0dc467c`) on 2026-11-09. Nothing here is
+`v1.0.0-beta.4` release on 2026-11-09. Nothing here is
 aspirational.
 
 **Venue order** (council recommendation, owner-approved): EngineDev / C++
@@ -19,7 +19,7 @@ way, but confirm the current sidebar rules before posting.
 
 ## Title (r/gamedev)
 
-Looking for a few testers: plyEngine 1.0.0-beta.3 — a C++20 2D engine where phones are the controllers
+Looking for a few testers: plyEngine 1.0.0-beta.4 — a C++20 2D engine where phones are the controllers
 
 (102 characters; Reddit's limit is 300.)
 
@@ -46,15 +46,17 @@ Download an archive, unpack, run:
 
 ```sh
 # Linux x86-64 / Windows x86-64 / macOS Apple Silicon (arm64 only)
-./ply_companion --web companion     # serves the phone controller from companion/
+./ply_companion                     # prints a LAN URL + 4-char room code
 ```
 
-It prints a room code and a URL like `http://192.168.1.20:49152`; have two or
+It picks the web root automatically (a source checkout builds the PWA into
+`companion/dist`, the release archive ships it in `companion/`), prints a room
+code and a URL like `http://192.168.1.20:49152`; have two or
 three people on the same Wi-Fi open that URL, type the room code, and play.
 `./ply_tutorial` is the completed five-coin game from the tutorial, for a
 single keyboard player.
 
-Release: <https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.3>
+Release: <https://github.com/plyndra/plyEngine/releases/tag/v1.0.0-beta.4>
 (each archive is unpacked on a clean Ubuntu 22.04 container and its demos run
 headless there before publishing, so a broken binary fails CI rather than
 you).
@@ -63,11 +65,12 @@ you).
 
 Any one of these is enough — pick the least annoying:
 
-1. **Source build of the tutorial** (~15 min on a warm toolchain):
+1. **Source build of the tutorial**:
    <https://github.com/plyndra/plyEngine/blob/main/docs/TUTORIAL.md>
-   Needs CMake ≥ 3.24, a C++20 compiler, and the SDL3/X11 dev packages; the
+   Measured at 1m46s configure+build on 12 cores (a cold download plus an
+   older laptop can take several times that). Needs CMake ≥ 3.24, a C++20 compiler, and the SDL3/X11 dev packages; the
    exact apt list is in the tutorial's "Before you start" block.
-2. **FetchContent** into your own CMake project (`GIT_TAG v1.0.0-beta.3`) —
+2. **FetchContent** into your own CMake project (`GIT_TAG v1.0.0-beta.4`) —
    the README has a 6-line example.
 3. **`find_package(plyEngine)`** after `cmake --install`.
 4. **vcpkg**: the repo hosts its own vcpkg registry, so no upstream port is
@@ -130,9 +133,9 @@ and to `docs/CONSUMER_REPORTS.md`.
 ## Discord `#showcase` message
 
 > plyEngine — small C++20/OpenGL 3.3 2D engine, MIT. Frozen public API at
-> v1.0.0-beta.3; I need outside builds before tagging 1.0.0. Four-player
+> v1.0.0-beta.4; I need outside builds before tagging 1.0.0. Four-player
 > phone-controller demo runs from the release binaries (no build), and the
-> tutorial builds in ~15 min: https://github.com/plyndra/plyEngine
+> tutorial builds in a couple of minutes: https://github.com/plyndra/plyEngine
 > Especially interested in `find_package`/FetchContent friction.
 
 ---
@@ -141,18 +144,18 @@ and to `docs/CONSUMER_REPORTS.md`.
 
 | Claim in the post | Verified how | Result |
 |---|---|---|
-| Version is 1.0.0-beta.3 | `git tag`, release assets, `PLY_VERSION_STRING` | ✅ correct |
+| Version is 1.0.0-beta.4 | `git tag`, release assets, `PLY_VERSION_STRING` | ✅ correct |
 | Release URL resolves | HTTP GET | ✅ 200 |
 | macOS archive | release asset list | ⚠️ **arm64 only** — stated in the post |
 | Archives run without a build | release gate: unpack + `--verify` on Ubuntu 22.04 | ✅ |
-| `--web companion` needed for phones | archive ships `companion/index.html`; default `webRoot` is `companion/dist` which the archive lacks | ✅ fixed in copy (previously wrong) |
+| Phone controller loads from the archive | shipped binary, archive layout: `GET /` 200, `GET /app.js` 200 (was 404 before beta.4) | ✅ fixed in engine; no `--web` needed |
 | Four players | `kPlayerCount = 4` in `examples/companion/platformer.hpp` | ✅ |
 | Five-coin tutorial | `kCoinCount = 5` | ✅ |
 | API frozen since beta.1 | tag `v1.0.0-beta.1` + `release-check.sh` drift gate | ✅ |
 | Lua 5.4 sandboxed | `engine/src/Scripting.cpp`, M9 record | ✅ |
 | 15 headless suites | `ls tests/*.cpp` = 15, 15 `add_test` | ✅ |
 | CI green on 3 OSes + sanitizers | Actions run on `8566cc9` | ✅ |
-| vcpkg snippet installs | end-to-end run from the public repo, baseline `a8e1a35` | ✅ |
+| vcpkg snippet installs | end-to-end run from the public repo (baseline quoted in the snippet) | ✅ |
 | "scan the QR code" | no QR code anywhere in engine/demo/PWA | ❌ **removed** — room code is typed |
 | "room code + mDNS discovery" for phones | mDNS advertises the host; browsers still need the URL typed | ⚠️ reworded |
-| ~15 min tutorial build | plausible warm; cold SDL3 build is slower | ⚠️ qualified |
+| Tutorial build time | measured: 1m46s configure+build, 12 cores, incl. SDL3 | ✅ measured, not guessed |

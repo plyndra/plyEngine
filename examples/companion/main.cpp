@@ -143,7 +143,9 @@ int main(int argc, char** argv) {
     bool verify = false;
     bool enableMdns = true;
     int port = 0;
-    std::string webRoot = "companion/dist";
+    // Resolved after argument parsing: an explicit --web wins, otherwise prefer
+    // the source-tree build output and fall back to the release archive layout.
+    std::string webRoot;
 
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--frames") == 0 && i + 1 < argc) {
@@ -170,6 +172,14 @@ int main(int argc, char** argv) {
     if (!app.valid()) {
         std::fprintf(stderr, "app invalid: %s\n", app.error());
         return 1;
+    }
+
+    if (webRoot.empty()) {
+        // A source checkout builds the PWA into companion/dist (Vite output,
+        // gitignored); the release archive ships it directly in companion/.
+        // Pick whichever actually has an index.html.
+        webRoot = ply::CompanionServer::resolveWebRoot(
+            {"companion/dist", "companion"});
     }
 
     ply::CompanionServer server;

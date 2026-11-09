@@ -76,6 +76,19 @@ re-cut beta.N with a CHANGELOG note rather than to promote 1.0 on the
 strength of our own tests alone. Promotion is a decision, and it gets
 written down in `docs/DESIGN.md` when it happens.
 
+### Owner decision 2026-11-09: criterion 2 is advice, not a gate
+
+The project owner has ruled that **1.0.0 is not gated on an outside consumer**.
+Outside build reports are wanted and will keep being collected in
+[CONSUMER_REPORTS.md](CONSUMER_REPORTS.md), but their absence no longer blocks
+a release. What replaces it: the frozen API must still survive additive-only
+drift (`scripts/release-check.sh`), every artifact gate must stay green, and
+promotion must be recorded in `docs/DESIGN.md`. The trade-off is stated
+plainly rather than hidden: the original rule existed because the alpha.2
+archive passed CI and could not run anywhere — that class of defect is now
+covered mechanically by the unpack-and-run and phone-path gates, so the
+remaining risk is API/ergonomics rather than "does it run".
+
 ## The beta gate (M8, as run)
 
 1. Every alpha gate below, still green.

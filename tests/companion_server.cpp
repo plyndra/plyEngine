@@ -224,6 +224,39 @@ std::string makeWebRoot() {
 
 int main() {
     const WinsockGuard winsock;
+
+    // --- resolveWebRoot: the shipped-archive vs source-tree layouts ---------
+    // The release archive ships the PWA in companion/, a source checkout
+    // builds it into companion/dist/. Defaulting to either alone 404s on
+    // every phone for the other; this is the regression guard for that.
+    {
+        const std::filesystem::path scratch =
+            std::filesystem::temp_directory_path() / "ply_webroot_probe";
+        std::filesystem::remove_all(scratch);
+        std::filesystem::create_directories(scratch / "archive");
+        std::filesystem::create_directories(scratch / "empty");
+        {
+            std::ofstream index(scratch / "archive" / "index.html");
+            index << "<script src=\"app.js\"></script>";
+        }
+
+        const std::string archiveOnly = ply::CompanionServer::resolveWebRoot(
+            {(scratch / "empty").string(), (scratch / "archive").string()});
+        check(archiveOnly == (scratch / "archive").string(),
+              "resolveWebRoot skips a directory without index.html");
+
+        const std::string preferred = ply::CompanionServer::resolveWebRoot(
+            {(scratch / "archive").string(), (scratch / "empty").string()});
+        check(preferred == (scratch / "archive").string(),
+              "resolveWebRoot takes the first directory that has index.html");
+
+        const std::string none = ply::CompanionServer::resolveWebRoot(
+            {(scratch / "missing").string(), (scratch / "empty").string()});
+        check(none == (scratch / "missing").string(),
+              "resolveWebRoot returns the first candidate when none match");
+        std::filesystem::remove_all(scratch);
+    }
+
     ply::CompanionServer server;
     ply::CompanionServer::Config config;
     config.port = 0;  // ephemeral

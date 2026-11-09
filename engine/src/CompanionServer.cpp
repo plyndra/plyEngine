@@ -145,6 +145,26 @@ struct CompanionServer::Impl {
 
 CompanionServer::CompanionServer() : impl_(std::make_unique<Impl>()) {}
 
+std::string CompanionServer::resolveWebRoot(
+    const std::vector<std::string>& candidates) {
+    if (candidates.empty()) {
+        return {};
+    }
+    for (const std::string& candidate : candidates) {
+        if (candidate.empty()) {
+            continue;
+        }
+        const std::string index = candidate + "/index.html";
+        std::ifstream probe(index, std::ios::binary);
+        if (probe.good()) {
+            return candidate;
+        }
+    }
+    // Nothing matched: report the caller's first choice so the server's 404
+    // message points at what was actually asked for.
+    return candidates.front();
+}
+
 CompanionServer::~CompanionServer() { stop(); }
 
 bool CompanionServer::running() const { return impl_ && impl_->active.load(); }
