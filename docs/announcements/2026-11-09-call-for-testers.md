@@ -11,6 +11,13 @@ aspirational.
 beta and updated after the promotion; the ask (build it, report friction) is
 unchanged, but §What I'd love to hear back no longer frames reports as a gate.
 
+**Access note (measured 2026-11-09):** this network gets a "Prove your
+humanity" challenge on Reddit HTML and 403 on `*.json` paths, so the live rule
+list and flair picker must be read in a browser while signed in; `/r/<sub>/.rss`
+**is** readable and is how rule 3's current text was obtained. Rule 3 (updated
+2026-11-09) permits sharing your own free tool only with technical takeaways
+plus engagement in comments — hence the rewrite below.
+
 **Venue order** (council recommendation, owner-approved): EngineDev / C++
 Discord `#showcase` first as a soft launch → r/gamedev → r/cpp Show & Tell →
 Show HN only after ~2 weeks with no qualifying report. Never cross-post the
@@ -23,102 +30,79 @@ way, but confirm the current sidebar rules before posting.
 
 ## Title (r/gamedev)
 
-Looking for a few testers: plyEngine 1.0.0 — a C++20 2D engine where phones are the controllers
+Four things that broke in my 2D engine only after people could download it
 
-(102 characters; Reddit's limit is 300.)
-
----
-
-## Body (r/gamedev)
-
-Up to four people play a four-player platformer together on **their own
-phones**, no app install: the host runs the game, prints a LAN URL and a
-4-character room code, and everyone joins from the browser. Coins are
-contested and the first to the flag wins.
-
-Under the hood it is a small MIT-licensed 2D engine: C++20, SDL3 + OpenGL
-3.3, an archetype ECS, swept-AABB tilemap physics, PNG/TTF assets, miniaudio
-audio, and a sandboxed Lua 5.4 scripting layer.
-
-Why I'm posting: 1.0.0 shipped with the public API frozen since `v1.0.0-beta.1`,
-and the honest gap is ergonomics — whether these consumption paths are pleasant
-with someone else's project layout. Outside reports no longer gate a release,
-so the ask is simpler: build it, and tell me what broke.
-
-### The 10-second version (no build, no toolchain)
-
-Download an archive, unpack, run:
-
-```sh
-# Linux x86-64 / Windows x86-64 / macOS Apple Silicon (arm64 only)
-./ply_companion                     # prints a LAN URL + 4-char room code
-```
-
-It picks the web root automatically (a source checkout builds the PWA into
-`companion/dist`, the release archive ships it in `companion/`), prints a room
-code and a URL like `http://192.168.1.20:49152`; have two or
-three people on the same Wi-Fi open that URL, type the room code, and play.
-`./ply_tutorial` is the completed five-coin game from the tutorial, for a
-single keyboard player.
-
-Release: <https://github.com/plyndra/plyEngine/releases/tag/v1.0.0>
-(each archive is unpacked on a clean Ubuntu 22.04 container and its demos run
-headless there before publishing, so a broken binary fails CI rather than
-you).
-
-### The version I actually need (a build)
-
-Any one of these is enough — pick the least annoying:
-
-1. **Source build of the tutorial**:
-   <https://github.com/plyndra/plyEngine/blob/main/docs/TUTORIAL.md>
-   Measured at 1m46s configure+build on 12 cores (a cold download plus an
-   older laptop can take several times that). Needs CMake ≥ 3.24, a C++20 compiler, and the SDL3/X11 dev packages; the
-   exact apt list is in the tutorial's "Before you start" block.
-2. **FetchContent** into your own CMake project (`GIT_TAG v1.0.0`) —
-   the README has a 6-line example.
-3. **`find_package(plyEngine)`** after `cmake --install`.
-4. **vcpkg**: the repo hosts its own vcpkg registry, so no upstream port is
-   needed. Add this next to your `vcpkg.json`:
-
-```json
-{
-  "default-registry": {
-    "kind": "git",
-    "repository": "https://github.com/microsoft/vcpkg",
-    "baseline": "ec48c11eae9448c8c6e7739d93e06fa2433aa95f"
-  },
-  "registries": [{
-    "kind": "git",
-    "packages": ["plyengine"],
-    "repository": "https://github.com/plyndra/plyEngine",
-    "baseline": "a8e1a35b2301c55dd80708edc93010d0a1832aff"
-  }]
-}
-```
-
-   then `vcpkg install plyengine`. On a vanilla Linux box this also wants
-   `zip unzip pkg-config` and the autoconf/libtool chain; full list in
-   [packaging/README.md](https://github.com/plyndra/plyEngine/blob/main/packaging/README.md).
-
-### What I'd love to hear back
-
-- The **version and OS** you used, and your compiler if you built it.
-- Anything that broke or surprised you — including "this doc is wrong about
-  X". Friction reports are worth more to me than praise.
-- If you build something, even a moving square: I'd like to log it (with your
-  permission) as a real-world data point.
-
-I'll log qualifying reports (with your permission) in
-[docs/CONSUMER_REPORTS.md](https://github.com/plyndra/plyEngine/blob/main/docs/CONSUMER_REPORTS.md).
-
-Repo, docs, changelog: <https://github.com/plyndra/plyEngine> — CI is green on
-Windows/Linux/macOS plus an ASan+UBSan job, and the release gate re-runs the
-shipped archives rather than trusting the build tree.
-
-Not asking for money or stars — just real builds and real friction.
+(75 characters; Reddit's limit is 300. Technical-title framing because rule 3
+treats a project announcement as a showcase unless it carries takeaways.)
 
 ---
+
+## Body (r/gamedev) — rewritten for rule 3
+
+> **Why this shape.** r/gamedev's rule 3 ("No Showcasing Projects") permits
+> sharing your own *free* tool only with "discussion or technical takeaways" —
+> what challenges you hit, how you solved them, formulas/features/workarounds,
+> examples of use — plus engaging with comments about it. A "please test my
+> engine" post is a showcase and gets removed. The copy below leads with the
+> engineering, and the ask is secondary. Flair: pick the closest of *Discussion*
+> / *Feedback Request* in the composer; the current flair list could not be read
+> from this network (see the access note at the end).
+
+**Title:** Four things that broke in my 2D engine only after people could
+download it
+
+**Body:**
+
+I maintain plyEngine, a free MIT-licensed 2D engine (C++20, SDL3 + OpenGL 3.3,
+archetype ECS, sandboxed Lua 5.4, phone-as-controller multiplayer). It reached
+1.0 yesterday. Rather than pitch it, here are the four problems that only
+showed up once the thing was actually downloaded and run by someone other than
+me — they cost more time than any feature:
+
+**1. Green CI shipped a binary nobody could start.** One release built on a
+new CI image produced artifacts needing glibc 2.43. Every test passed, every
+demo ran — in the *build tree*. Fix: the release job now unpacks the archive on
+a toolchain-free Ubuntu 22.04 container, runs it there, and asserts the glibc
+floor by reading `objdump -T` symbols instead of trusting the base image.
+
+**2. The list of shipped binaries and the gate disagreed.** A later release
+silently omitted a demo binary: packaging enumerated files by hand, the smoke
+check only executed two of six. Presence and execution are different claims —
+both are now asserted against the unpacked artifact, not the build directory.
+
+**3. The flagship demo 404'd for every player.** The phone controller is served
+by the engine's HTTP server from a directory of static files. The default path
+pointed at Vite's build output (`companion/dist`), but the *release archive*
+ships the built PWA at `companion/`. Headless `--verify` never fetches a URL,
+so everything was green while every player's phone got
+`404 not found: index.html`. Fix: resolve the web root by probing for
+`index.html`, and make CI start the shipped binary and require 200s from `/`
+and `/app.js`.
+
+**4. Registering a package without owning a registry.** vcpkg only installs
+ports it knows about; my repo isn't in the registry and I didn't want to
+maintain an upstream PR before 1.0. It turns out a *repository can be its own
+git registry*: `ports/<name>/` plus `versions/<first-letter>-/<name>.json` and
+`versions/baseline.json`. Two traps that cost an evening: a flat
+`versions/<name>.json` is silently ignored (the letter-prefixed directory is
+mandatory), and `baseline.json` holds **version strings**, not the port's tree
+hash — putting a tree hash there yields
+`no version database entry for <port> at <sha>`. Let `vcpkg x-add-version`
+generate the database; don't hand-roll it.
+
+Bonus, because it is the part I am least sure others handle the same way:
+testing a game engine with no GPU in CI. Every demo has a `--verify` mode that
+plays a scripted session and asserts outcomes — coins collected, deaths
+attributed to pit vs saw, four players moving independently, audio cues
+requested *and* played — on top of the usual ctest suite under ASan+UBSan.
+
+**The actual ask, kept small:** the free public API has been frozen since the
+beta, and the part I cannot test myself is ergonomics of the consumption paths.
+If you build something with it — `find_package` after `cmake --install`,
+FetchContent, or the repo-as-vcpkg-registry above — I would like to know what
+broke. Demos, docs and the archives:
+<https://github.com/plyndra/plyEngine/releases/tag/v1.0.0>. Happy to answer
+anything about the four failures above; that is the discussion I am here for.
 
 ## r/cpp Show & Tell variant
 
@@ -147,7 +131,7 @@ and to `docs/CONSUMER_REPORTS.md`.
 
 ---
 
-## Audit table (checked 2026-11-09 against repo `8566cc9` + release assets)
+## Audit table (checked 2026-11-09 against repo + the published v1.0.0 release)
 
 | Claim in the post | Verified how | Result |
 |---|---|---|
@@ -166,3 +150,5 @@ and to `docs/CONSUMER_REPORTS.md`.
 | "scan the QR code" | no QR code anywhere in engine/demo/PWA | ❌ **removed** — room code is typed |
 | "room code + mDNS discovery" for phones | mDNS advertises the host; browsers still need the URL typed | ⚠️ reworded |
 | Tutorial build time | measured: 1m46s configure+build, 12 cores, incl. SDL3 | ✅ measured, not guessed |
+| r/gamedev rule 3 compliance | rule 3 text obtained via `/r/gamedev/.rss` (post 1x6s41i, updated 2026-11-09) | ✅ body restructured around technical takeaways |
+| Live rules page / flair list | 403 + "Prove your humanity" from this network; RSS readable | ⚠️ unverified — read in a signed-in browser at posting time |
