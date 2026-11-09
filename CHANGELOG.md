@@ -75,9 +75,9 @@ static helper, no signature changes).
 
 ### Docs
 
-- The r/gamedev call-for-testers copy is audited against the repo, with an
-  audit table recording how each claim was checked, and the tutorial's build
-  time is now measured (1m46s configure+build on 12 cores) rather than guessed.
+- The tester-announcement copy is audited against the repo, with an audit table
+  recording how each claim was checked, and the tutorial's build time is now
+  measured (1m46s configure+build on 12 cores) rather than guessed.
 
 ## [1.0.0-beta.3] — 2026-11-09
 
