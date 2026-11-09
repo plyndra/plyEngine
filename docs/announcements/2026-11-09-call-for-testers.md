@@ -58,7 +58,7 @@ call it 1.0 until someone other than me has built something with it. Concretely:
          "kind": "git",
          "packages": ["plyengine"],
          "repository": "https://github.com/plyndra/plyEngine",
-         "baseline": "04257a45a20c4849f91d63c7fe39b969713f1d9a"
+         "baseline": "9e4a48a3d7e09917e1eeea74e09dd9c2b7c554f4"
        }]
      }
      ```
