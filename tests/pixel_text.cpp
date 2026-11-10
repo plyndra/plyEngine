@@ -268,11 +268,15 @@ void testLinesAndMissing() {
 
     // Kerning never crosses a line break: "A\nV" has no A/V kern.
     const ply::TextLayout kinked = ply::layoutText(font, "A\nV", 0, 20, 1);
+    eq(static_cast<long long>(kinked.quads.size()), 2,
+       "A\nV emits two glyphs (asserted outside the guard so a count regression fails)");
     if (kinked.quads.size() == 2) {
         eq(kinked.quads[1].topLeft.x, 0, "no kerning across a line break");
     }
     // But on one line it does apply.
     const ply::TextLayout kerned = ply::layoutText(font, "AV", 0, 20, 1);
+    eq(static_cast<long long>(kerned.quads.size()), 2,
+       "AV emits two glyphs (asserted outside the guard so a count regression fails)");
     if (kerned.quads.size() == 2) {
         eq(kerned.quads[1].topLeft.x, 5, "V pulled left by the A/V kern");
     }
@@ -378,6 +382,44 @@ void testGlyphHash() {
         }
         check(ply::structuralHash(original) != ply::structuralHash(resampled),
               "so the hash covers the sampled source rect, not just the target rect");
+    }
+
+    // Same discipline for the other two components, which the first version of
+    // these probes missed entirely: a hash that silently dropped vertex y or
+    // source v would otherwise pass the whole suite. (Found by a read of the
+    // probes, not by an injection: the injections only perturbed x and u.)
+    {
+        // Vertex y: shifting the baseline moves every y while leaving x, the
+        // advance and the glyph count untouched.
+        const ply::TextLayout low = ply::layoutText(ten, "AB", 0, 20, 1);
+        const ply::TextLayout high = ply::layoutText(ten, "AB", 0, 21, 1);
+        eq(high.advanceWidth, low.advanceWidth, "shifting the baseline keeps the advance");
+        eq(high.quads.size(), low.quads.size(), "and the glyph count");
+        if (!low.quads.empty() && !high.quads.empty()) {
+            eq(high.quads[0].topLeft.x, low.quads[0].topLeft.x, "and the x placement");
+            check(high.quads[0].topLeft.y != low.quads[0].topLeft.y, "but moves y");
+        }
+        check(ply::structuralHash(low) != ply::structuralHash(high),
+              "so the hash covers vertex y, not just vertex x");
+    }
+    {
+        // Source v: moving a glyph down its atlas page leaves every metric and
+        // every target coordinate alone.
+        ply::BMFont movedDown = ten;
+        for (ply::BMFontGlyph& glyph : movedDown.glyphs) {
+            if (glyph.id == 65) glyph.y += 4;  // same cell size, lower on the page
+        }
+        const ply::TextLayout original = ply::layoutText(ten, "AB", 0, 20, 1);
+        const ply::TextLayout resampled = ply::layoutText(movedDown, "AB", 0, 20, 1);
+        eq(resampled.advanceWidth, original.advanceWidth, "same advance after a vertical resample");
+        if (!original.quads.empty() && !resampled.quads.empty()) {
+            eq(resampled.quads[0].topLeft.y, original.quads[0].topLeft.y,
+               "and identical target geometry");
+            check(resampled.quads[0].topLeft.v != original.quads[0].topLeft.v,
+                  "while the source row differs");
+        }
+        check(ply::structuralHash(original) != ply::structuralHash(resampled),
+              "so the hash covers source v, not just source u");
     }
 
     // A different string at the same size must not collide.
