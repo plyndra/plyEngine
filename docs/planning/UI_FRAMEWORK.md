@@ -103,7 +103,10 @@ precedent for what a UI atlas needs:
     "bar.frame":   { "x": 96, "y": 0, "w": 64, "h": 16,
                      "margins": [4, 4, 4, 4], "margins_source": "derived" },
     "slot.normal": { "x": 160, "y": 0, "w": 20, "h": 20 },
-    "cursor.point":{ "x": 200, "y": 0, "w": 8,  "h": 8, "hotspot": [1, 1] }
+    "cursor.point":{ "x": 200, "y": 0, "w": 8,  "h": 8, "hotspot": [1, 1] },
+    "panel.tip":   { "x": 0, "y": 96, "w": 32, "h": 24,
+                     "margins": [8, 6, 8, 6], "margins_source": "declared",
+                     "slice": "three_h" }
   },
   "animations": {
     "next-arrow": { "frames": ["arrow.0", "arrow.1", "arrow.2"], "duration_ms": [120, 120, 200] }
@@ -111,6 +114,15 @@ precedent for what a UI atlas needs:
   "fonts": { "ui": { "file": "ui.ttf", "sizes": [10, 20, 30] } }
 }
 ```
+
+`slice` is `nine` (the default), `three_h`, `three_v` or `plain`; `plain`
+stretches the whole region and ignores margins. A region that omits both margin
+keys has no margins and behaves as `plain` until a3 derives them.
+
+The loader ignores keys it does not know, so a newer document still loads in an
+older build. `emit` writes the canonical form — region, animation and font
+entries in name order, default-valued fields omitted, two-space indent — which is
+what makes load→emit→load byte-identical rather than merely equal.
 
 `margins_source` matters: `derived` entries are re-derived and re-checked at
 load and fail the art lint if the derived values drift outside ±1 px of the
