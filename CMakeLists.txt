@@ -283,6 +283,7 @@ add_library(plyEngine STATIC
     engine/src/UISlot.cpp
     engine/src/UIHotbar.cpp
     engine/src/UIPanel.cpp
+    engine/src/RenderTarget.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -489,6 +490,13 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_ui_panel_test tests/ui_panel.cpp)
     target_link_libraries(ply_ui_panel_test PRIVATE plyEngine)
     add_test(NAME ui_panel COMMAND ply_ui_panel_test)
+
+    # Render target policy: integer upscale, nearest mapping of a 1 px line,
+    # camera snap and scene layer order (E-a7.x). Geometry and order only — no
+    # GL context, so it runs on any CI runner.
+    add_executable(ply_render_target_test tests/render_target.cpp)
+    target_link_libraries(ply_render_target_test PRIVATE plyEngine)
+    add_test(NAME render_target COMMAND ply_render_target_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
