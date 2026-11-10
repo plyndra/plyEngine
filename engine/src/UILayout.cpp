@@ -43,9 +43,13 @@ Vert vert(UIAnchor anchor) {
     return Vert::Top;  // unreachable; every enumerator is handled
 }
 
+}  // namespace
+
 /// Floor division: rounds toward negative infinity, unlike C++'s truncation.
 /// This *is* the snapping step — a half-pixel from the centre-line division
 /// resolves down, deterministically, with no floating point involved.
+/// Exported (additively) for the minimap path (M1a a8): the marker centring
+/// is the same halving rule, so it calls this rather than re-deriving it.
 int floorDiv2(int numerator) {
     int q = numerator / 2;
     if (numerator % 2 != 0 && numerator < 0) --q;
@@ -54,12 +58,11 @@ int floorDiv2(int numerator) {
 
 /// Scaled size: the integer scale multiplies the source art before any layout
 /// arithmetic. A scale below 1 is treated as 1 (named behaviour, tested).
+/// Exported (additively) for the minimap marker transform (M1a a8).
 int scaledSize(int artSize, int scale) {
     const int s = scale < 1 ? 1 : scale;
     return artSize * s;
 }
-
-}  // namespace
 
 std::vector<UIRect> layoutWidgets(const std::vector<UIWidgetSpec>& widgets, int logicalWidth,
                                   int logicalHeight) {
