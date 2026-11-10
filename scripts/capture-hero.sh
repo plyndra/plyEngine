@@ -31,19 +31,21 @@ command -v ffmpeg >/dev/null || { echo "ffmpeg not installed" >&2; exit 1; }
 
 echo "capturing frames -> $frames_dir"
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a "$bin" --verify --no-mdns --web companion/dist \
-    --dump-frames "$frames_dir" --dump-stride 2 | grep -E 'capture:|verify:'
+    --dump-frames "$frames_dir" --dump-stride 1 | grep -E 'capture:|verify:'
 
 count=$(find "$frames_dir" -name 'frame_*.ppm' | wc -l)
 [ "$count" -gt 0 ] || { echo "no frames captured" >&2; exit 1; }
 echo "frames: $count"
 
-# 12 fps keeps a 190-frame match near 16 s. Two-pass palette, no dithering
+# 20 fps: every frame of the scripted match (~380 of them) over ~19 s. The sim
+# runs at 60 Hz, so 20 fps drops two of every three frames rather than
+# introducing motion the capture never had. Two-pass palette, no dithering
 # artefacts on the flat tile art.
-ffmpeg -y -hide_banner -loglevel error -framerate 12 -i "$frames_dir/frame_%05d.ppm" \
+ffmpeg -y -hide_banner -loglevel error -framerate 20 -i "$frames_dir/frame_%05d.ppm" \
     -vf "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle" \
     -loop 0 "${prefix}.gif"
 
-ffmpeg -y -hide_banner -loglevel error -framerate 12 -i "$frames_dir/frame_%05d.ppm" \
+ffmpeg -y -hide_banner -loglevel error -framerate 20 -i "$frames_dir/frame_%05d.ppm" \
     -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart "${prefix}.mp4"
 
 ls -la "${prefix}.gif" "${prefix}.mp4"

@@ -1,16 +1,66 @@
 # plyEngine
 
-**A free, open-source 2D game engine that helps you create games.**
+**A 2D game engine for C++ where players join from their phones — no app, no
+accounts, no build step to try it.**
 
-plyEngine gives you the tools to build 2D games in C++20 and run them on a PC —
-with a twist: players join from their phones as controllers through any web
-browser, no app install. Render the game to a shared screen, and every phone
-becomes a companion controller for party-style play (think Jackbox).
+![Four-player platformer driven by phone controllers](docs/announcements/hero-capture.gif)
 
-> **Status:** **1.0.0** — the public API is frozen (additions are minor
-> changes; removals or renames need a deprecation cycle). Behaviour can still
-> change to fix a bug.
-> Prebuilt demo binaries: [Releases](https://github.com/plyndra/plyEngine/releases).
+*Scripted capture of the reference platformer: four controller slots driven
+through the engine's real phone input path.*
+[The controller that runs on the phone](docs/announcements/hero-controller.png)
+
+## Try it in 30 seconds
+
+No account, no compiler, no form. Download the archive for your OS from
+[Releases](https://github.com/plyndra/plyEngine/releases/latest), unpack it, run
+it, and open the printed URL on your phones (same Wi-Fi).
+
+```sh
+# Linux x86-64 (glibc 2.35+, desktop OpenGL 3.3)
+tar xzf plyEngine-v*-linux-x86_64.tar.gz && cd plyEngine-v*/
+./ply_companion           # prints a room code and a LAN URL
+
+# macOS (Apple Silicon)
+tar xzf plyEngine-v*-macos-arm64.tar.gz && cd plyEngine-v*/
+xattr -dr com.apple.quarantine .   # unsigned build: clears Gatekeeper
+./ply_companion
+
+# Windows x64: extract the .zip, then in PowerShell
+.\ply_companion.exe
+```
+
+Four phones become P1–P4 for the platformer (coins, patrolling saws, a pit, a
+staircase, a flag — first to the flag wins, with sound cues for jumps, coins,
+deaths and the win). No phones? Keyboard works: P1 arrows + Space, P2 A/D/W,
+`P` pauses, `R` restarts. `./ply_tutorial` is the game from
+[docs/TUTORIAL.md](docs/TUTORIAL.md), built step by step.
+
+## Use it in your project
+
+The engine is one CMake target; C++20, include paths and dependencies
+propagate. Pin the tag you tested:
+
+```cmake
+include(FetchContent)
+set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(plyEngine
+    GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
+    GIT_TAG        v1.0.0)
+FetchContent_MakeAvailable(plyEngine)
+target_link_libraries(mygame PRIVATE plyEngine)
+```
+
+Or from an installed SDK / package manager:
+
+```sh
+cmake --install build --prefix /opt/plyengine   # then: find_package(plyEngine CONFIG REQUIRED)
+vcpkg install plyengine --overlay-ports=ports   # in-repo registry; see packaging/
+```
+
+> **Status:** public API is frozen (additions are minor changes; removals or
+> renames need a deprecation cycle). Behaviour can still change to fix a bug.
+> Prebuilt binaries and source: [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## What you'll be able to build
 
@@ -55,7 +105,7 @@ becomes a companion controller for party-style play (think Jackbox).
 | Build | CMake + FetchContent (pinned) |
 | Licence | MIT (DCO sign-off, no CLA) |
 
-## Quick start
+## Build it yourself
 
 ```sh
 git clone https://github.com/plyndra/plyEngine.git
@@ -65,32 +115,12 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure     # 15 headless suites
 ```
 
-Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md).
+Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md). The walkthrough
+that builds a game line by line is [docs/TUTORIAL.md](docs/TUTORIAL.md).
 
-Using the engine from your own game — either as a CMake subproject (one target,
-include paths/dependencies/C++20 propagate) or from an installed SDK:
-
-```cmake
-# A) Subproject
-include(FetchContent)
-set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(plyEngine
-    GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0)
-FetchContent_MakeAvailable(plyEngine)
-target_link_libraries(mygame PRIVATE plyEngine)
-
-# B) Installed SDK
-#   cmake --install build --prefix /opt/plyengine
-find_package(plyEngine CONFIG REQUIRED)
-target_link_libraries(mygame PRIVATE plyEngine::plyEngine)
-```
-
-See [docs/TUTORIAL.md](docs/TUTORIAL.md) for the full walkthrough and
-[docs/BUILDING.md](docs/BUILDING.md) for the install layout.
-
-Run the examples:
+A source checkout needs the controller PWA built once
+(`cd companion && npm ci && npm run build`); the release archives already ship
+it. Each demo then runs interactively until you close its window:
 
 ```sh
 ./build/ply_hello          # batching + atlas + camera
@@ -101,19 +131,6 @@ Run the examples:
 ./build/ply_scripting      # drone behaviour written in Lua, rendered in C++
 ./build/ply_companion      # reference platformer, phone-controlled
 ```
-
-Play the reference demo with phones:
-
-```sh
-cd companion && npm ci && npm run build && cd ..   # once: build the PWA
-./build/ply_companion                              # prints room code + URL
-```
-
-Open the URL on each phone (same Wi-Fi), enter the room code. Slots 1-4 drive
-**P1**-**P4**; with a keyboard, P1 is arrows + Space and P2 is A/D/W. Coins,
-patrolling saws, a pit and a staircase lead to the flag — first player there
-wins, and the game plays sound cues for jumps, coins, deaths and the win.
-`P` pauses, `R` restarts.
 
 ## Verification
 

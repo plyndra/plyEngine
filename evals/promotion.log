@@ -19,3 +19,9 @@
 2026-11-09 R1 PASS  release-check.sh still PASS after the capture flag + scripts/capture-hero.sh
 2026-11-09 R2 PASS  ctest 15/15 after the demo change
 2026-11-09 R4 PASS  no PR, no HN submission
+2026-11-09 C0.5 PASS   README line 7 references docs/announcements/hero-capture.gif (727 KB, 960 px, 382 frames, 19.1 s, 20 fps); provenance in docs/announcements/2026-11-09-hero-capture.md
+2026-11-09 C0.5 NOTE   deviation from the round-2 answer: hero GIF plus a separate static controller still (docs/announcements/hero-controller.png, the real PWA joined to a live room), not one composite - at 960 px total the d-pad was unreadable
+2026-11-09 C0.6 PARTIAL "Try it in 30 seconds" block written (three OS, archive-relative, no flags) but NOT runnable against the v1.0.0 archives: they ship demos that close in under a second. Blocked on publishing 1.0.1
+2026-11-09 R7 PASS   first README screen = hero image + one-liner + download block
+2026-11-09 DEFECT   every demo exited after 120 frames with no flags (0.45 s for ply_companion): a room code printed, then the process died. Fixed with an interactive app.run() default; CI guard "Demos stay open with no flags" added
+2026-11-09 DEFECT   PLY_VERSION_STRING is a CACHE variable, so reconfiguring an existing build tree kept the old version and the runtime banner lied (1.0.0-beta.2 while CMakeLists said 1.0.1). Fresh CI configure is unaffected; local builds need -DPLY_VERSION_STRING=...
