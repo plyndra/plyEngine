@@ -282,6 +282,7 @@ add_library(plyEngine STATIC
     engine/src/UIBar.cpp
     engine/src/UISlot.cpp
     engine/src/UIHotbar.cpp
+    engine/src/UIPanel.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -482,6 +483,12 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_ui_hotbar_test tests/ui_hotbar.cpp)
     target_link_libraries(ply_ui_hotbar_test PRIVATE plyEngine)
     add_test(NAME ui_hotbar COMMAND ply_ui_hotbar_test)
+
+    # Panel title bar + tooltip clamping (E-a5.4): the tooltip must never leave
+    # the logical viewport for any cursor position. Pure integer math.
+    add_executable(ply_ui_panel_test tests/ui_panel.cpp)
+    target_link_libraries(ply_ui_panel_test PRIVATE plyEngine)
+    add_test(NAME ui_panel COMMAND ply_ui_panel_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
