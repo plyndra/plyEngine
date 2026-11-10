@@ -152,6 +152,7 @@ void testCornerInvariance() {
         eq(at(quads, 3).bottomLeft.y, targetHeight, "bottom-right flush bottom");
         eq(at(quads, 1).topLeft.u, region.x + region.w - 12, "top-right samples the right corner");
 
+        check(positiveQuads(quads), "corner invariance never inverts a quad");
         cornerHashes.push_back(cornerSignature(quads));
         fullHashes.push_back(ply::structuralHash(quads));
     }
@@ -182,6 +183,15 @@ void testTiledEdges() {
     eq(at(quads, topFirst + 3).topRight.x, 100 - 12, "last tile flush to the right corner");
     eq(at(quads, topFirst + 3).topLeft.u, 12, "clipped tile samples from the strip start");
 
+    // The emission order the header documents, pinned at each run's first index:
+    // 4 corners, 4 top tiles (4..7), 4 bottom tiles (8..11), left (12), right (13).
+    eq(at(quads, 8).topLeft.y, 48 - 12, "bottom edge run starts at index 8");
+    eq(at(quads, 11).topRight.x, 100 - 12, "bottom run ends flush");
+    eq(at(quads, 12).topLeft.x, 0, "left edge is index 12");
+    eq(quadW(at(quads, 12)), 12, "left edge keeps the corner width");
+    eq(at(quads, 13).topLeft.x, 100 - 12, "right edge is index 13");
+
+    check(positiveQuads(quads), "tiled edges never invert a quad");
     for (const ply::UIQuad& quad : quads) {
         check(insideRegion(quad, region), "tiled edge never samples outside the region");
     }
@@ -196,6 +206,7 @@ void testStretchedEdges() {
     eq(quadW(at(quads, 4)), 76, "stretched top edge spans the gap");
     eq(at(quads, 4).topRight.u - at(quads, 4).topLeft.u, 24,
        "stretched edge keeps the whole source strip");
+    check(positiveQuads(quads), "stretched edges never invert a quad");
 }
 
 void testTiledCentre() {
@@ -207,12 +218,17 @@ void testTiledCentre() {
     eq(static_cast<long long>(quads.size()), 18, "tiled centre quad count");
     const std::size_t centreFirst = 14;
     const int widths[4] = {24, 24, 24, 4};
+    eq(at(quads, centreFirst).topLeft.x, 12, "centre run starts after the left corner");
     for (std::size_t i = 0; i < 4; ++i) {
         const ply::UIQuad& quad = at(quads, centreFirst + i);
         eq(quadW(quad), widths[i], "centre tile width, last one clipped");
         eq(quadH(quad), 24, "centre tile height");
         eq(quad.topRight.u - quad.topLeft.u, widths[i], "centre tile samples 1:1");
     }
+    // Same fixture, same quad: the clipped centre tile is 1:1 *and* flush.
+    eq(at(quads, centreFirst + 3).topRight.x, 100 - 12,
+       "clipped centre tile is flush with the right corner");
+    check(positiveQuads(quads), "tiled centre never inverts a quad");
     for (const ply::UIQuad& quad : quads) check(insideRegion(quad, region), "centre tile in bounds");
 }
 
@@ -222,6 +238,7 @@ void testPlainAndThreeSlice() {
         eq(static_cast<long long>(quads.size()), 1, "plain emits one quad");
         eq(quadW(at(quads, 0)), 40, "plain stretches across the target");
         eq(at(quads, 0).topRight.u - at(quads, 0).topLeft.u, 16, "plain samples the whole region");
+        check(positiveQuads(quads), "plain never inverts its quad");
     }
     {
         const std::vector<ply::UIQuad> quads = ply::nineSliceGeometry(tooltip(), 100, 24);
@@ -232,6 +249,7 @@ void testPlainAndThreeSlice() {
         eq(at(quads, 1).topRight.u - at(quads, 1).topLeft.u, 16, "centre samples the source strip");
         eq(at(quads, 2).topLeft.x, 92, "right cap sits at the far edge");
         eq(at(quads, 2).topLeft.u, 24, "right cap samples the right strip");
+        check(positiveQuads(quads), "three_h never inverts a quad");
     }
     {
         // Tiled three-slice centre: 84 px over a 16 px strip = 5 whole + 4 clipped.
@@ -253,6 +271,7 @@ void testPlainAndThreeSlice() {
         eq(quadW(at(quads, 0)), 32, "top cap fills the target width");
         eq(at(quads, 1).topLeft.y, 6, "three_v centre starts below the cap");
         eq(at(quads, 2).topLeft.y, 60 - 6, "three_v bottom cap sits at the far edge");
+        check(positiveQuads(quads), "three_v never inverts a quad");
     }
 }
 
@@ -290,6 +309,7 @@ void testTinyAndEmpty() {
         eq(static_cast<long long>(quads.size()), 1, "1x1 target emits only the centre");
         eq(quadW(at(quads, 0)), 1, "1x1 centre width");
         eq(quadH(at(quads, 0)), 1, "1x1 centre height");
+        check(positiveQuads(quads), "1x1 target never inverts a quad");
     }
     check(ply::nineSliceGeometry(panel(), 0, 48).empty(), "zero width emits nothing");
     check(ply::nineSliceGeometry(panel(), 48, 0).empty(), "zero height emits nothing");
@@ -347,7 +367,10 @@ void testStructuralHasher() {
         nudged[0].topLeft.u += 1;
         check(ply::structuralHash(quads) != ply::structuralHash(nudged),
               "quad hash covers the source rect");
-        eqHash(ply::structuralHash(quads), ply::structuralHash(quads), "quad hash is stable");
+        // Recomputed from scratch, not the same value compared to itself.
+        eqHash(ply::structuralHash(quads),
+               ply::structuralHash(ply::nineSliceGeometry(panel(), 96, 96)),
+               "quad hash is reproducible across recomputation");
     }
 }
 
