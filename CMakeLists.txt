@@ -275,6 +275,7 @@ add_library(plyEngine STATIC
     engine/src/Physics.cpp
     engine/src/PhysicsBody.cpp
     engine/src/Tilemap.cpp
+    engine/src/UIAtlas.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -433,6 +434,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_spritesheet_test tests/spritesheet.cpp)
     target_link_libraries(ply_spritesheet_test PRIVATE plyEngine)
     add_test(NAME spritesheet COMMAND ply_spritesheet_test)
+
+    # UI atlas schema: pure data, so the round-trip and named-error graders
+    # (E-a1.1, E-a1.2) run without a GL context.
+    add_executable(ply_ui_atlas_test tests/ui_atlas.cpp)
+    target_link_libraries(ply_ui_atlas_test PRIVATE plyEngine)
+    target_compile_definitions(ply_ui_atlas_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME ui_atlas COMMAND ply_ui_atlas_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)

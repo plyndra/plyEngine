@@ -1,8 +1,9 @@
 # Planning — plyEngine 2.0 target
 
-**Status:** planning record, 2026-11-09. Nothing here is implemented. These
-documents define what plyEngine becomes after 1.0.1, and they exist so the
-decisions are checkable rather than remembered.
+**Status:** planning record, 2026-11-09; implementation started 2026-11-10 with
+unit a1 (`UIAtlasLoader`) on `feat/ui-framework` — everything else here is still
+design. These documents define what plyEngine becomes after 1.0.1, and they
+exist so the decisions are checkable rather than remembered.
 
 ## What this is
 

@@ -7,3 +7,7 @@
 2026-11-09 R6 PASS  no generated assets exist yet
 2026-11-09 R7 PASS  no wall-clock reads outside clock modules; no unordered iteration in sim modules (none exist)
 2026-11-09 E-a1..E-c3 FAIL  not implemented - graders marked [build] in 2.0.md
+2026-11-10 E-a1.1 PASS  ctest ui_atlas: fixture load->emit->load byte-identical, emit is a fixed point and ignores struct order; fault-injected (drop slice on emit, drop emit sort) -> FAIL
+2026-11-10 E-a1.2 PASS  ctest ui_atlas: 30 named-error cases + FileNotReadable + 6 validateUIAtlas cases for faults JSON cannot express; fault-injected (margin sum, derived-without-margins, hotspot bounds, frame/duration count) -> FAIL
+2026-11-10 R1 PASS  release-check.sh PASS (version, additive-only API, doc links, ctest)
+2026-11-10 R2 PASS  ctest 16/16 in 0.44s
