@@ -205,6 +205,10 @@ void testTiledEdges() {
     eq(at(quads, 12).bottomLeft.v - at(quads, 12).topLeft.v, 24, "left edge samples 1:1 vertically");
     eq(at(quads, 13).bottomLeft.v - at(quads, 13).topLeft.v, 24, "right edge samples 1:1 vertically");
 
+    eq(quadW(at(quads, 14)), 76, "stretched centre spans the gap");
+    eq(quadH(at(quads, 14)), 24, "stretched centre fills the height");
+    eq(at(quads, 14).topRight.u - at(quads, 14).topLeft.u, 24,
+       "stretched centre keeps the whole source strip");
     check(positiveQuads(quads), "tiled edges never invert a quad");
     for (const ply::UIQuad& quad : quads) {
         check(insideRegion(quad, region), "tiled edge never samples outside the region");
@@ -226,22 +230,42 @@ void testStretchedEdges() {
 void testTiledCentre() {
     ply::UIAtlasRegion region = panel();
     region.centre = ply::StretchMode::Tile;
-    const std::vector<ply::UIQuad> quads = ply::nineSliceGeometry(region, 100, 48);
+    // 100x60 so the vertical gap (36) is not a whole number of 24 px tiles either:
+    // with a 48 px target the vertical tile and stretch cases would be identical.
+    const std::vector<ply::UIQuad> quads = ply::nineSliceGeometry(region, 100, 60);
 
-    // 4 corners, 4+4 edge tiles, 1+1 side tiles, 4 centre tiles.
-    eq(static_cast<long long>(quads.size()), 18, "tiled centre quad count");
-    const std::size_t centreFirst = 14;
-    const int widths[4] = {24, 24, 24, 4};
+    // 4 corners; 4+4 horizontal edge tiles; 2+2 vertical edge tiles (24+12);
+    // 4x2 centre tiles.
+    eq(static_cast<long long>(quads.size()), 24, "tiled centre quad count");
+
+    const std::size_t leftFirst = 12;
+    eq(quadH(at(quads, leftFirst)), 24, "left edge first tile keeps the strip size");
+    eq(quadH(at(quads, leftFirst + 1)), 12, "left edge second tile is clipped");
+    eq(quadH(at(quads, leftFirst + 1)), at(quads, leftFirst + 1).bottomLeft.v -
+                                            at(quads, leftFirst + 1).topLeft.v,
+       "clipped left tile samples 1:1 vertically");
+    eq(quadH(at(quads, leftFirst + 2)), 24, "right edge first tile keeps the strip size");
+    eq(quadH(at(quads, leftFirst + 3)), 12, "right edge second tile is clipped");
+
+    const std::size_t centreFirst = 16;
+    eq(static_cast<long long>(centreFirst), 16, "centre run starts at index 16");
     eq(at(quads, centreFirst).topLeft.x, 12, "centre run starts after the left corner");
-    for (std::size_t i = 0; i < 4; ++i) {
-        const ply::UIQuad& quad = at(quads, centreFirst + i);
-        eq(quadW(quad), widths[i], "centre tile width, last one clipped");
-        eq(quadH(quad), 24, "centre tile height");
-        eq(quad.topRight.u - quad.topLeft.u, widths[i], "centre tile samples 1:1");
+    const int widths[4] = {24, 24, 24, 4};
+    const int heights[2] = {24, 12};
+    for (std::size_t row = 0; row < 2; ++row) {
+        for (std::size_t col = 0; col < 4; ++col) {
+            const ply::UIQuad& quad = at(quads, centreFirst + row * 4 + col);
+            eq(quadW(quad), widths[col], "centre tile width, last in the row clipped");
+            eq(quadH(quad), heights[row], "centre tile height, last row clipped");
+            eq(quad.topRight.u - quad.topLeft.u, widths[col], "centre tile samples 1:1 horizontally");
+            eq(quad.bottomLeft.v - quad.topLeft.v, heights[row], "centre tile samples 1:1 vertically");
+        }
     }
-    // Same fixture, same quad: the clipped centre tile is 1:1 *and* flush.
-    eq(at(quads, centreFirst + 3).topRight.x, 100 - 12,
+    // Same fixture, same quad: the clipped corner of the tile grid is 1:1 and flush.
+    eq(at(quads, centreFirst + 7).topRight.x, 100 - 12,
        "clipped centre tile is flush with the right corner");
+    eq(at(quads, centreFirst + 7).bottomLeft.y, 60 - 12,
+       "last centre row is flush with the bottom corner");
     check(positiveQuads(quads), "tiled centre never inverts a quad");
     for (const ply::UIQuad& quad : quads) check(insideRegion(quad, region), "centre tile in bounds");
 }
@@ -271,6 +295,12 @@ void testPlainAndThreeSlice() {
         region.centre = ply::StretchMode::Tile;
         const std::vector<ply::UIQuad> quads = ply::nineSliceGeometry(region, 100, 24);
         eq(static_cast<long long>(quads.size()), 8, "three_h tiled centre quad count");
+        eq(at(quads, 1).topLeft.x, 8, "three_h tiled centre starts after the left cap");
+        for (std::size_t i = 1; i <= 5; ++i) {
+            eq(quadW(at(quads, i)), 16, "three_h whole tile width");
+            eq(at(quads, i).topRight.u - at(quads, i).topLeft.u, 16, "three_h whole tile samples 1:1");
+        }
+        eq(at(quads, 6).topLeft.x, 88, "three_h clipped tile starts one whole tile later");
         eq(quadW(at(quads, 6)), 4, "three_h last tile clipped");
         eq(at(quads, 6).topRight.x, 92, "three_h last tile flush to the right cap");
         eq(at(quads, 6).topRight.u - at(quads, 6).topLeft.u, 4, "three_h clipped tile samples 1:1");
@@ -286,7 +316,13 @@ void testPlainAndThreeSlice() {
         eq(quadH(at(quads, 0)), 6, "top cap keeps its source height");
         eq(quadW(at(quads, 0)), 32, "top cap fills the target width");
         eq(at(quads, 1).topLeft.y, 6, "three_v centre starts below the cap");
+        eq(quadH(at(quads, 1)), 48, "three_v centre fills the gap");
+        // tooltip is 24 tall with 6+6 caps, so its centre strip is 12 tall.
+        eq(at(quads, 1).bottomLeft.v - at(quads, 1).topLeft.v, 12,
+           "three_v centre samples the whole source strip");
         eq(at(quads, 2).topLeft.y, 60 - 6, "three_v bottom cap sits at the far edge");
+        eq(quadH(at(quads, 2)), 6, "three_v bottom cap keeps its source height");
+        eq(at(quads, 2).bottomLeft.y, 60, "three_v bottom cap ends at the target edge");
         check(positiveQuads(quads), "three_v never inverts a quad");
     }
 }
@@ -304,6 +340,8 @@ void testDegenerateWidth() {
     eq(quadW(at(quads, 0)), 4, "top-left cap compressed");
     eq(quadW(at(quads, 1)), 5, "top-right cap takes the remainder");
     eq(at(quads, 1).topRight.x, 10, "caps plus centre fill the target exactly");
+    eq(quadW(at(quads, 8)), 1, "degenerate width leaves a 1 px centre");
+    eq(at(quads, 8).topLeft.x, 4, "degenerate centre starts after the compressed cap");
     eq(at(quads, 0).topRight.u - at(quads, 0).topLeft.u, 12,
        "compressed cap still samples the full corner");
     for (const ply::UIQuad& quad : quads) check(insideRegion(quad, region), "compressed in bounds");
@@ -317,6 +355,7 @@ void testDegenerateHeight() {
     eq(quadH(at(quads, 0)), 4, "top cap compressed");
     eq(quadH(at(quads, 2)), 5, "bottom cap takes the remainder");
     eq(at(quads, 2).bottomLeft.y, 10, "caps plus centre fill the target height");
+    eq(quadH(at(quads, 8)), 1, "degenerate height leaves a 1 px centre row");
 }
 
 void testTinyAndEmpty() {
@@ -390,6 +429,40 @@ void testStructuralHasher() {
     }
 }
 
+
+// One line of measured values, printed so a ledger entry can be a verbatim
+// transcript instead of prose. Every number here is also asserted above; if the
+// implementation changes, this line changes and the transcript stops matching.
+void printEvidence() {
+    const std::vector<ply::UIQuad> nine = ply::nineSliceGeometry(panel(), 100, 48);
+    ply::UIAtlasRegion tiled = panel();
+    tiled.centre = ply::StretchMode::Tile;
+    const std::vector<ply::UIQuad> centre = ply::nineSliceGeometry(tiled, 100, 60);
+    const std::vector<ply::UIQuad> threeH = ply::nineSliceGeometry(tooltip(), 100, 24);
+    ply::UIAtlasRegion tiledH = tooltip();
+    tiledH.centre = ply::StretchMode::Tile;
+    const std::vector<ply::UIQuad> hTiles = ply::nineSliceGeometry(tiledH, 100, 24);
+    ply::UIAtlasRegion vertical = tooltip();
+    vertical.slice = ply::SliceMode::ThreeV;
+    const std::vector<ply::UIQuad> threeV = ply::nineSliceGeometry(vertical, 32, 60);
+    const std::vector<ply::UIQuad> narrow = ply::nineSliceGeometry(panel(), 10, 48);
+    const std::vector<ply::UIQuad> tiny = ply::nineSliceGeometry(panel(), 1, 1);
+
+    std::printf(
+        "EVIDENCE nine_slice tiled_edges=%zu top=%d/%d/%d/%d bottom=%d/%d/%d/%d side=%dx%d centre=%dx%d "
+        "tiled_centre=%zu centre_run=%d/%d/%d/%d centre_rows=%d/%d three_h=%d/%d/%d three_h_tiled=%d+%d+%d+%d+%d+%d "
+        "three_v=%d/%d/%d degenerate=%d/%d/%d tiny=%zu:%dx%d\n",
+        nine.size(), quadW(at(nine, 4)), quadW(at(nine, 5)), quadW(at(nine, 6)), quadW(at(nine, 7)),
+        quadW(at(nine, 8)), quadW(at(nine, 9)), quadW(at(nine, 10)), quadW(at(nine, 11)),
+        quadW(at(nine, 12)), quadH(at(nine, 12)), quadW(at(nine, 14)), quadH(at(nine, 14)),
+        centre.size(), quadW(at(centre, 16)), quadW(at(centre, 17)), quadW(at(centre, 18)),
+        quadW(at(centre, 19)), quadH(at(centre, 16)), quadH(at(centre, 20)), quadW(at(threeH, 0)), quadW(at(threeH, 1)), quadW(at(threeH, 2)),
+        quadW(at(hTiles, 1)), quadW(at(hTiles, 2)), quadW(at(hTiles, 3)), quadW(at(hTiles, 4)),
+        quadW(at(hTiles, 5)), quadW(at(hTiles, 6)), quadH(at(threeV, 0)), quadH(at(threeV, 1)),
+        quadH(at(threeV, 2)), quadW(at(narrow, 0)), quadW(at(narrow, 8)), quadW(at(narrow, 1)),
+        tiny.size(), quadW(at(tiny, 0)), quadH(at(tiny, 0)));
+}
+
 }  // namespace
 
 int main() {
@@ -404,6 +477,7 @@ int main() {
     testTinyAndEmpty();
 
     if (failures == 0) {
+        printEvidence();
         std::printf("nine_slice tests: PASS\n");
         return 0;
     }
