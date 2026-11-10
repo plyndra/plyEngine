@@ -280,6 +280,7 @@ add_library(plyEngine STATIC
     engine/src/NineSlice.cpp
     engine/src/UILayout.cpp
     engine/src/UIBar.cpp
+    engine/src/UISlot.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -465,6 +466,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_ui_bar_test tests/ui_bar.cpp)
     target_link_libraries(ply_ui_bar_test PRIVATE plyEngine)
     add_test(NAME ui_bar COMMAND ply_ui_bar_test)
+
+    # Slot state mapping: state -> frame region, stack-count formatting
+    # (E-a5.2), graded against the fixture atlas. Pure data, no GL context.
+    add_executable(ply_ui_slot_test tests/ui_slot.cpp)
+    target_link_libraries(ply_ui_slot_test PRIVATE plyEngine)
+    target_compile_definitions(ply_ui_slot_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME ui_slot COMMAND ply_ui_slot_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)

@@ -91,7 +91,7 @@ void testFixtureLoads() {
 
     checkString(atlas.image, "ui.png", "fixture image");
     checkString(atlas.palette, "ui-32", "fixture palette");
-    check(atlas.regions.size() == 10, "fixture region count");
+    check(atlas.regions.size() == 12, "fixture region count");
     check(atlas.animations.size() == 1, "fixture animation count");
     check(atlas.fonts.size() == 1, "fixture font count");
 

@@ -20,6 +20,12 @@
     "slot.normal": {
       "x": 0, "y": 48, "w": 20, "h": 20
     },
+    "slot.selected": {
+      "x": 112, "y": 48, "w": 20, "h": 20
+    },
+    "slot.disabled": {
+      "x": 132, "y": 48, "w": 20, "h": 20
+    },
     "cursor.point": {
       "x": 20, "y": 48, "w": 8, "h": 8,
       "hotspot": [1, 1]
