@@ -138,7 +138,7 @@ recorded ones.
 | `Hotbar` | row of slots, selection index, keyboard/phone input | selection wraps; click hits the right slot after layout rounding |
 | `InventoryGrid` | row/column layout over a container model | item at index maps to the right cell |
 | `Tooltip` | follows cursor, clamps inside the logical viewport | never leaves bounds for any cursor position, for tooltips that fit the viewport (a tooltip larger than the viewport cannot be inside it; it pins to the near edge and the art lint owns it, E-c1.x) |
-| `Minimap` | render-target downscale + marker transforms | world (x,y) → minimap px, verified for 4 corner cases |
+| `Minimap` | render-target downscale + marker transforms | world (x,y) → minimap px at the world grid's 4 corner px + centre (y-up → y-down), verified integer-exact |
 | `DialogueBox` | 9-slice box, name plate, portrait frame, typewriter reveal | reveal state; skip advances |
 | `FloatingText` | world→screen projection, rise + fade, integer positions | projection matches camera; fades deterministically |
 

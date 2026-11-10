@@ -286,6 +286,7 @@ add_library(plyEngine STATIC
     engine/src/RenderTarget.cpp
     engine/src/PixelText.cpp
     engine/src/UIRouter.cpp
+    engine/src/Minimap.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -514,6 +515,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_ui_router_test tests/ui_router.cpp)
     target_link_libraries(ply_ui_router_test PRIVATE plyEngine)
     add_test(NAME ui_router COMMAND ply_ui_router_test)
+
+    # Minimap: world -> minimap px at the four corners and the centre, the
+    # marker transform at integer scale, and the render-target downscale
+    # (E-a8.1). Pure integer math, so no GL context and no floating-point
+    # determinism.
+    add_executable(ply_minimap_test tests/minimap.cpp)
+    target_link_libraries(ply_minimap_test PRIVATE plyEngine)
+    add_test(NAME minimap COMMAND ply_minimap_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)

@@ -65,6 +65,18 @@ struct UIWidgetSpec {
 std::vector<UIRect> layoutWidgets(const std::vector<UIWidgetSpec>& widgets, int logicalWidth,
                                   int logicalHeight);
 
+/// Floor halving of a numerator by 2, rounding toward negative infinity
+/// (unlike C++'s truncation). This is the layout snapping step: a half-pixel
+/// from a centre-line division resolves down, deterministically, with no
+/// floating point involved. Used by layoutWidgets' centre anchors and by the
+/// minimap marker centring (a8) — one rule, one function.
+int floorDiv2(int numerator);
+
+/// The integer scale multiplied into source art before any layout rounding,
+/// with a scale below 1 treated as 1 (named behaviour, tested). Used by
+/// layoutWidgets and by the minimap marker transform (a8).
+int scaledSize(int artSize, int scale);
+
 /// FNV-1a 64 over the rect list: count, then each rect as i32 x, y, w, h.
 /// Same discipline as the quad hash in NineSlice — explicit little-endian
 /// integers, never `std::hash` — so the value is stable across runs,
