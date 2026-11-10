@@ -115,7 +115,10 @@ fi
 section "documentation links"
 
 broken=0
-for file in README.md CHANGELOG.md CONTRIBUTING.md CODE_OF_CONDUCT.md docs/*.md; do
+# The planning set is included: a decision record whose links rot is worse than
+# no record, and these files are only checked if they are listed here.
+for file in README.md CHANGELOG.md CONTRIBUTING.md CODE_OF_CONDUCT.md \
+            docs/*.md docs/planning/*.md docs/planning/adr/*.md; do
     [ -f "$file" ] || continue
     dir="$(dirname "$file")"
     # Skip fenced code blocks: `[&](ply::App& a)` in a C++ sample is not a link.
