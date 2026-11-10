@@ -18,6 +18,16 @@ of time.
 Gate definitions and run history live in `evals/promotion.md`;
 `scripts/release-check.sh` is regression gate R1.
 
+**Status 2026-11-09 (round 2) — two channels are held.** The engine's target
+identity changed to a top-down simulation engine
+([ADR 0001](planning/adr/0001-top-down-sim-identity.md)), so the platformer demo
+this plan uses as its landing page is being replaced. Per
+[ADR 0013](planning/adr/0013-promotion-sequencing.md): the incident write-up
+still publishes on schedule, but **Show HN, Discord `#showcase` and any
+curated-list PR wait** until the 2.0 village frame exists and the README hero
+shows it. The 2026-12-01 HN floor is superseded; the readiness gate in Phase 2
+below is what fires it. Phase 0 metadata already shipped and stands.
+
 ## Principles
 
 1. **The repository is the landing page for every channel.** Every post, list
@@ -88,6 +98,9 @@ tried with zero response (that is data too — record it in
 `docs/CONSUMER_REPORTS.md` as an outreach note, not as a build).
 
 ## Phase 2 — Show HN, once (earliest 2026-12-01; fires on readiness, not date)
+
+> **Held as of 2026-11-09** — see [ADR 0013](planning/adr/0013-promotion-sequencing.md).
+> Do not submit while the README hero still shows the platformer demo.
 
 Trigger: all three of (a) 0.5 is live and rendered in the README, (b) Phase 1's
 exit gate is met, (c) the owner has 4–6 free hours that day. 2026-12-01 is a

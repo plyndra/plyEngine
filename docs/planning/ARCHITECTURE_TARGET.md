@@ -31,6 +31,12 @@ prove, and what it may reuse from 1.x.
 
 ## 2. Render pipeline
 
+**Fixed by [ADR 0012](adr/0012-internal-resolution-and-tile-size.md):** the world
+renders at **640×360** internal, 16 px tiles (32 px for buildings and large
+props), presented with an integer nearest-neighbour upscale — 3× at 1080p, 4× at
+1440p — with the HUD drawn above the upscale at 2×/3×. A full screen of ground is
+40 × 22.5 ≈ 900 cells.
+
 Today the demo hardcodes its draw order inside `examples/companion/main.cpp`:
 tiles, then sprites, then text. A simulation game cannot.
 
@@ -228,7 +234,7 @@ All figures are **targets to assert once a benchmark exists**, not measurements.
 
 | Metric | Budget |
 |---|---|
-| Visible quads, per internal frame | ≤ 4 000 (tiles + props + entities + particles). At 640×360 internal with 16 px tiles a full screen is 40×22.5 = 900 ground cells, leaving room for layers and particles. At 1920×1080 internal the same art would need 8 100 ground cells and this budget is unreachable — which is why internal resolution is a gating decision |
+| Visible quads, per internal frame | ≤ 4 000 (tiles + props + entities + particles). At 640×360 with 16 px tiles a full screen is 40×22.5 = 900 ground cells, leaving room for decor, props, entities and particles under budget |
 | Draw calls per world frame | ≤ 8 (ground, decor, shadow, world, overhead, particles, light, post) |
 | NPC pathfinding | 100 agents re-pathing at 1 Hz within 2 ms |
 | Economy tick | 200 agents, 30 goods, clear within 1 ms |

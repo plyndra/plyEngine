@@ -48,7 +48,7 @@ exist. Same rule as the CC packs in Appendix A.
 | Piece | Choice | Why |
 |---|---|---|
 | Toolchain state (measured 2026-11-09) | ComfyUI **not installed**; Aseprite **not installed** (paid, optional); Python 3 + pip present; Pillow **was missing** and is a declared dependency of `tools/artgen` (assembly, lint, atlas emission); ffmpeg present; Docker present; GPU = RTX 3050 8 GB |
-| Runtime | **ComfyUI**, local, pinned commit | Node graph is a file, so a spec can name a workflow and a seed |
+| Runtime | **ComfyUI**, local, pinned commit. Installed at **M1c start** under `/opt/comfyui` in its own venv with a systemd unit — no system-wide CUDA changes | Node graph is a file, so a spec can name a workflow and a seed; installing at first use avoids weeks of drift from the pinned version |
 | Base model | SDXL + a pixel-art LoRA | Fits 8 GB, permissive licence |
 | Structure control | ControlNet (openpose/grid for characters, canny/depth for props) | Keeps silhouettes repeatable across a set |
 | Identity/consistency | IP-Adapter against a reference sheet | Same outfit/palette across 16 frames |
@@ -95,7 +95,8 @@ accepted assets and their manifests enter `assets/`.
   "workflow": "workflow/tileable-terrain.json",
   "seed": 20261109,
   "palette": "assets/licenses/palettes/field-24.json",
-  "geometry": { "tile_px": 16, "components": ["centre", "edge_n", "corner_outer", "corner_inner"] },
+  "geometry": { "tile_px": 16, "large_prop_px": 32, "canvas": "640x360",
+                "components": ["centre", "edge_n", "corner_outer", "corner_inner"] },
   "prompt": "16x16 seamless grass ground tile, top-down, flat lighting, no perspective, dense turf texture",
   "negative": "text, watermark, gradient, 3d, perspective, anti-aliasing",
   "candidates": 12,
@@ -130,6 +131,11 @@ came to exist.
 
 `ply_art_lint` is a normal CMake target and a CI step. Lint failures are build
 failures, exactly like `release-check.sh`.
+
+**Scope (decided):** generated assets (`assets/generated/**`) and the fixture
+sheets under `tests/data/art/**` only. The 1.x demo's synthesised atlas is out of
+scope until it is itself regenerated — a gate that goes red on day one because of
+legacy art gets switched off by day three.
 
 ---
 
@@ -167,7 +173,8 @@ loader and the linter cannot disagree about what an asset is.
 
 | Class | Generate | Assemble | Special gates |
 |---|---|---|---|
-| **Terrain** | centre, edge, outer corner, inner corner per terrain, tileable prompt | blob-47 from components; **terrain pairs** assembled from two component sets to get cross-transitions | `blob47-complete`, `seam-continuity` |
+| **Terrain** | centre, edge, outer corner, inner corner per terrain at **16 px**, tileable prompt | blob-47 from components; **terrain pairs** assembled from two component sets to get cross-transitions | `blob47-complete`, `seam-continuity` |
+| **Cave** | own family (rock wall, floor, cave water) sharing the overworld **palette**, not a tint of the overworld set | blob-47 walls + floors, emissive flora as separate props | `palette`, plus the dark-fixture light check |
 | **Props** | single object, transparent background requested, then alpha-keyed | shadow generated procedurally (ellipse, never AI); pivot recorded at feet | `alpha-binary`, `pivot-shadow` |
 | **Buildings** | base + roof as separate generations so roofs can occlude the player | two-region atlas entry + collision rect per floor-level | occlusion flag; collision fits footprint |
 | **Characters (4-dir)** | ControlNet openpose 4×4 grid (down/up/left/right × 4 frames) + IP-Adapter for outfit identity + LoRA for style | sheet grid → per-clip regions; idle + walk minimum | palette, silhouette readability at 1× |
@@ -194,6 +201,15 @@ order of strength:
    same seed family per asset class, recorded in the spec.
 
 ---
+
+## 8a. Time-box (agreed)
+
+Terrain components are the riskiest class, so they are **time-boxed to three
+working sessions**. If a lint-clean 47-case grass/dirt pair does not exist by then,
+switch terrain *components* to a hosted generator (Retro Diffusion, ~$0.03/image,
+MCP-reachable) and keep local generation for props and UI, where one good asset is
+worth more than set coherence. The switch is recorded in the spec files and in
+provenance; it is not a silent fallback.
 
 ## 9. Human-in-the-loop acceptance
 

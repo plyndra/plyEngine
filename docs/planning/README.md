@@ -47,6 +47,14 @@ scale are therefore *our* decision, not an inference (see the open dependencies 
 | 9 | Engine work lands on `feat/*` branches with PR review; docs and assets go to main | [0009](adr/0009-branch-per-subsystem.md) |
 | 10 | Art is generated self-hosted into assets plyEngine owns | [0010](adr/0010-self-hosted-generated-art.md) |
 | 11 | Every new simulation system is deterministic and headless-testable | [0011](adr/0011-determinism-for-simulation.md) |
+| 12 | Internal resolution 640×360; 16 px world tiles, 32 px large props | [0012](adr/0012-internal-resolution-and-tile-size.md) |
+| 13 | Publish the incident write-up; hold Show HN and Discord until the 2.0 frame exists | [0013](adr/0013-promotion-sequencing.md) |
+
+Round-2 parameters that follow from 0012 and the M1 scope decisions (640×360
+internal, 16/32 px tiles, 96×72 village, 64×48 cave, ≤4 000 quads, render target
+in M1a, scripted input first, three-session art time-box, generated-only art gate,
+ComfyUI at M1c, own cave tileset) are tabulated at the top of
+[ROADMAP_TARGET.md](ROADMAP_TARGET.md).
 
 ## Relationship to existing documents
 

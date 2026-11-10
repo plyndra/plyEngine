@@ -24,6 +24,11 @@ native JSON format, so the HUD is not a shell over nothing.
 - **Risk accepted:** a polished HUD can disguise a missing world. Mitigation is
   structural — the HUD is built over a real (if plain) map from `MapLoader`, and
   the milestone gate requires that map to render behind it.
+- **Amended 2026-11-09 (round 2):** `RenderTarget` + integer upscale moved from
+  M1b into M1a (unit a7). The minimap needs it, and the integer upscale is part of
+  the present path anyway, so HUD-first could not defer it without shipping a
+  non-integer presentation. `UI_FRAMEWORK.md` now fixes the logical viewport at
+  640×360 per [0012](0012-internal-resolution-and-tile-size.md).
 - The 9-slice/atlas schema settled here constrains the art pipeline's UI class,
   which is cheaper to get wrong now than after 200 assets exist.
 - The world renderer (M1b) starts one milestone later; the village frame arrives

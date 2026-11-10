@@ -29,6 +29,17 @@ shipped maps and never included in release archives. CC BY material keeps its
 credit line in `assets/licenses/CREDITS.md` even as a fixture, because the
 repository — unlike the archive — is public.
 
+**Amended 2026-11-09 (round 2), four constraints:**
+
+1. **Time-box:** terrain components get three working sessions; then a hosted
+   generator takes over that class and the switch is recorded in provenance.
+2. **Gate scope:** `ply_art_lint` covers generated assets and fixture sheets
+   only; the 1.x synthesised atlas is out of scope until regenerated.
+3. **Geometry:** 16 px world tiles, 32 px buildings and large props, 640×360
+   canvas ([0012](0012-internal-resolution-and-tile-size.md)).
+4. **Cave is its own tileset family** sharing the overworld palette, not a tint
+   of the overworld set; ComfyUI installs at M1c start, pinned, in its own venv.
+
 ## Consequences
 
 - No per-asset licence obligations in shipped builds; no dependency on a hosted
