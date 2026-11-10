@@ -29,6 +29,22 @@ UIRect internalLineQuad(int x, int y, int length, bool horizontal) {
     return horizontal ? UIRect{x, y, length, 1} : UIRect{x, y, 1, length};
 }
 
+RenderTargetPlan makeRenderTargetPlan(int internalWidth, int internalHeight, int outputWidth,
+                                      int outputHeight) {
+    RenderTargetPlan plan;
+    plan.internalWidth = internalWidth;
+    plan.internalHeight = internalHeight;
+    plan.outputWidth = outputWidth;
+    plan.outputHeight = outputHeight;
+    plan.factor = integerUpscale(internalWidth, internalHeight, outputWidth, outputHeight);
+
+    const int shownWidth = internalWidth * plan.factor;
+    const int shownHeight = internalHeight * plan.factor;
+    plan.destination = UIRect{(outputWidth - shownWidth) / 2, (outputHeight - shownHeight) / 2,
+                              shownWidth, shownHeight};
+    return plan;
+}
+
 int snapCameraAxis(double worldPosition) {
     // Floor, not round: ARCHITECTURE_TARGET.md §11 requires 10.4 and 10.6 to
     // render identically, and round-to-nearest would split them into 10 and 11.
@@ -104,6 +120,30 @@ std::uint64_t structuralHash(const SceneSubmission& scene) {
         }
     }
     return hasher.value();
+}
+
+void SceneRenderer::submit(SceneLayer layer, const UIRect& quad) {
+    for (SceneLayerDraw& existing : layers_) {
+        if (existing.layer == layer) {
+            existing.quads.push_back(quad);
+            return;
+        }
+    }
+    SceneLayerDraw draw;
+    draw.layer = layer;
+    draw.quads.push_back(quad);
+    layers_.push_back(std::move(draw));
+}
+
+void SceneRenderer::submitLayer(SceneLayer layer, const std::vector<UIRect>& quads) {
+    for (const UIRect& quad : quads) submit(layer, quad);
+}
+
+SceneSubmission SceneRenderer::submission(int upscaleFactor) const {
+    SceneSubmission scene;
+    scene.upscaleFactor = upscaleFactor;
+    scene.layers = orderSceneLayers(layers_);
+    return scene;
 }
 
 }  // namespace ply
