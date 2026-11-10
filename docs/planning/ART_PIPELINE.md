@@ -47,12 +47,13 @@ exist. Same rule as the CC packs in Appendix A.
 
 | Piece | Choice | Why |
 |---|---|---|
+| Toolchain state (measured 2026-11-09) | ComfyUI **not installed**; Aseprite **not installed** (paid, optional); Python 3 + pip present; Pillow **was missing** and is a declared dependency of `tools/artgen` (assembly, lint, atlas emission); ffmpeg present; Docker present; GPU = RTX 3050 8 GB |
 | Runtime | **ComfyUI**, local, pinned commit | Node graph is a file, so a spec can name a workflow and a seed |
 | Base model | SDXL + a pixel-art LoRA | Fits 8 GB, permissive licence |
 | Structure control | ControlNet (openpose/grid for characters, canny/depth for props) | Keeps silhouettes repeatable across a set |
 | Identity/consistency | IP-Adapter against a reference sheet | Same outfit/palette across 16 frames |
 | Pixel snapping | nearest-exact downscale, then palette quantize | Removes "AI-mush"; output stays on the grid |
-| Palette quantize | Aseprite CLI (`--palette`, `ColorQuantization`) or our own LUT pass | Deterministic, scriptable, CI-runnable |
+| Palette quantize | **our own LUT pass** (Python + Pillow) — preferred, because it is the same code the linter uses. Aseprite CLI (`--palette`, `ColorQuantization`) is a convenience if a licence is bought; it is **not installed** on the dev host and is not a dependency | Deterministic, scriptable, CI-runnable |
 | Autotile assembly | **our own assembler** in `tools/artgen/assemble` | Tilesetter/TilePipe2 prove the approach; we need it in CI and in our manifest format |
 | 9-slice assembly | our own, with alpha-contour margin derivation | Same reason; mirrors `slicewright`'s inspect-after-generate pattern |
 | Hosted fallback | Retro Diffusion ($0.03/img, MCP) or PixelLab ($12/mo, 4-/8-dir rotation) | If local quality stalls on characters, these are the cheap escape hatches — see Appendix B |
