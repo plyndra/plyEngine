@@ -81,6 +81,11 @@ tile.
 **Degenerate sizes**: if a target rect is smaller than corner sum + 1, the caps
 compress uniformly (documented behaviour, not clipped garbage).
 
+**Tiled fill**: a tiled edge or centre emits whole tiles from the region's
+start corner and clips the final tile at the target edge, so tile boundaries stay
+pixel-exact. The clipped remainder is part of the structural hash, not an
+emergent rounding artefact. (Decided 2026-11-10, before a2's geometry existed.)
+
 ## 4. Atlas schema
 
 Follows the shape of the CC0 Hearthmark pack's `atlas.json`, which is a good
