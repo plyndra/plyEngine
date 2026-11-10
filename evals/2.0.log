@@ -1,0 +1,9 @@
+# format: <date> <eval-id> <PASS|FAIL> <evidence>
+2026-11-09 R1 PASS  release-check.sh PASS, now including docs/planning/** links (fault-injected to prove it)
+2026-11-09 R2 PASS  ctest 15/15 in 0.43s
+2026-11-09 R3 PASS  platformer --verify unchanged (1.0.1 build)
+2026-11-09 R4 PASS  no removals in engine/include vs v1.0.0-beta.1
+2026-11-09 R5 PASS  no art specs exist yet, therefore no forbidden model
+2026-11-09 R6 PASS  no generated assets exist yet
+2026-11-09 R7 PASS  no wall-clock reads outside clock modules; no unordered iteration in sim modules (none exist)
+2026-11-09 E-a1..E-c3 FAIL  not implemented - graders marked [build] in 2.0.md

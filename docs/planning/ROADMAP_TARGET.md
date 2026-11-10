@@ -35,7 +35,7 @@ plus the HUD that frames it. No AI, no economy, no generation beyond M1c's asset
 | # | Unit | Done when |
 |---|---|---|
 | a1 | `UIAtlasLoader`: regions, 9-slice margins, stretch/tile modes, animation frames | loads the fixture atlas; load→emit→load identical |
-| a2 | `NineSlice` draw: corners fixed, edges/centre stretched or tiled | corner-invariance hash at 3 panel sizes |
+| a2 | `NineSlice` draw: corners fixed, edges/centre stretched or tiled | structural corner-invariance hash at 3 panel sizes ([0014](adr/0014-structural-hashes-for-visual-tests.md)) |
 | a3 | Margin derivation from alpha contours (fallback when the atlas declares none) | derived == declared on the fixture |
 | a4 | Anchor+offset+scale layout, integer snapping | 9 anchors × 3 logical sizes × 3 scales → expected rects |
 | a5.1 | `Bar`: frame + gradient fill + ticks, value 0..1 | fill fraction → pixel width; clamps at 0/1 |
@@ -43,7 +43,7 @@ plus the HUD that frames it. No AI, no economy, no generation beyond M1c's asset
 | a5.3 | `Hotbar`: row of slots, selection index, wrap-around | click hits the right slot after layout rounding |
 | a5.4 | `Panel` + `Tooltip`: nine-slice background, title bar, cursor-follow clamped to the viewport | tooltip never leaves bounds for any cursor position |
 | a6 | Pixel text at integer sizes (BMFont/TTF), no AA, baseline-aligned | measured bounds == drawn quad extents; glyph hash |
-| a7 | `RenderTarget` + integer upscale + `SceneRenderer` layer list | 1 px line stays k px wide; layer order asserted; camera snap: x=10.4 vs 10.6 → identical hash |
+| a7 | `RenderTarget` + integer upscale + `SceneRenderer` layer list | 1 px line geometry asserted; layer order asserted; camera snap: x=10.4 vs 10.6 → identical structural hash |
 | a8 | `Minimap`: render-target downscale of the world + markers | world (x,y) → minimap pixel for 4 corner cases |
 | a9 | `MapLoader` + the static tileset slice (regions + solid flags; full metadata is b1) and one hand-authored map | map lints clean; static tiles render behind the HUD |
 | a10 | Scripted synthetic input source + router tests | UI consumes before world; release kept after capture leaves the widget |
@@ -71,14 +71,15 @@ world rendering through an integer-scaled render target; the router test green;
 | b5.4 | Occlusion layer toggle (roof/canopy over the player) | ordering flips exactly when the player is behind |
 | b6 | `YSort` across props/NPCs/items/player, id tiebreak | fixture order array matches; stable on repeat |
 | b7 | `Camera2D`: follow, deadzone, clamp to map, integer snap | snap test; clamp test at all 4 map edges |
-| b8a | `LightMap`: ambient tint × light sprites | light hash from (clock, lights); noon vs cave fixtures differ |
+| b8a | `LightMap`: ambient tint × light sprites | structural light hash from (clock, lights); noon vs cave fixtures differ |
 | b8b | `PostPass`: vignette (+ optional palette LUT) | off/on hashes differ; off is the default in tests |
 | b9 | `ParticleSystem` (seeded, fixed-step, visual-only) | same seed → same positions; gameplay hash unchanged with particles on |
 | b10 | Headless benchmark harness | emits quads/frame, draw calls, step p95 against the budget |
 
 **Gate to leave M1b:** 96×72 village and 64×48 cave maps, autotiled grass/dirt/
 water/cliff, signed props with occlusion, following camera, lights in the cave;
-golden frame hashes committed; benchmark inside the budget.
+golden **structural** hashes committed (pixel goldens stay opt-in, local,
+container-pinned per ADR 0014); benchmark inside the budget.
 
 ### M1c — The two frames (≈2 weeks, time-boxed)
 
@@ -181,7 +182,7 @@ save/reload mid-way, no invariant violation.
 ## Cross-cutting work that never gets its own milestone
 
 - Art generation and lint for each new asset class (`ART_PIPELINE.md`).
-- Golden-frame hashes for every visual subsystem that lands.
+- Structural golden hashes for every visual subsystem that lands (ADR 0014).
 - Benchmark upkeep against the performance budget.
 - API-freeze discipline: additive only; any reshape needs a deprecation cycle.
 - Documentation updates here when a decision changes — an ADR is marked

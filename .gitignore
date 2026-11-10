@@ -25,3 +25,6 @@ dist/
 # Tooling
 compile_commands.json
 .cache/
+
+# Art generation candidates (never committed)
+tools/artgen/out/

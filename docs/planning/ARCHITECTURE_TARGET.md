@@ -61,10 +61,13 @@ Present: nearest-neighbour integer upscale of the world target
 - Draw order is data, not code: a test renders a fixture scene and asserts the
   layer sequence and per-layer quad counts.
 - Integer snapping: camera at x=10.4 and x=10.6 produce identical frames after
-  rounding (a hashed framebuffer test catches shimmer regressions).
+  rounding — a **structural** hash (snapped position, tile-rect list, emitted
+  quads), never a framebuffer comparison: pixel hashes flake on software GL, see
+  [ADR 0014](adr/0014-structural-hashes-for-visual-tests.md).
 - Upscale is nearest and integer: a 1 px line at internal res is *k* px wide at
   output, never blended.
-- The light pass is deterministic from (clock, light list) → a hash.
+- The light pass is deterministic from (clock, light list) → a structural hash
+  of sampled light values at named coordinates.
 
 **Reuse:** `SpriteBatch`, `SpriteAtlas`, `Texture` (`TextureFilter::Nearest`),
 `Shader`, `OrthoCamera` (extended).

@@ -28,6 +28,14 @@ stop meaning anything.
   running the acceptance command by default, specialists only for named risks
   (determinism, render-thread boundaries, freeze compliance).
 
+**Amended 2026-11-09 (pre-implementation audit):** `main` has **no branch
+protection** (`gh api …/branches/main/protection` → 404). That is deliberate, not
+an oversight: docs and assets must keep landing directly, so protection with
+required checks would block the workflow this ADR depends on. The compensating
+controls are `scripts/release-check.sh` (version, API drift, links — now
+including `docs/planning/**`, tests) plus the review rule above. Revisit only if
+a bad push to `main` actually happens.
+
 ## Alternatives considered
 
 1. **Everything to main** — fastest, worst failure mode during a renderer

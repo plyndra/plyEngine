@@ -2,6 +2,16 @@
 
 ## Purpose
 
+> **Target status:** this section describes plyEngine 1.x — a side-view engine
+> with phones as companion controllers. The 2.0 target (top-down sandbox
+> simulation, phones repurposed as a developer tool) is decided in
+> [planning/adr/0001-top-down-sim-identity.md](planning/adr/0001-top-down-sim-identity.md)
+> and
+> [planning/adr/0002-phone-companion-as-dev-tool.md](planning/adr/0002-phone-companion-as-dev-tool.md),
+> with the architecture in [planning/ARCHITECTURE_TARGET.md](planning/ARCHITECTURE_TARGET.md).
+> Everything below this note remains accurate for 1.x and is extended, not
+> replaced, by that plan.
+
 An open-source 2D game engine. Games render natively on a PC to a shared
 screen; players join from phones as companion controllers through a web
 browser / PWA (Jackbox-style). The PC is the single source of truth; phones
