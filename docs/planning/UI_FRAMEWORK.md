@@ -12,7 +12,7 @@ native JSON format, so the HUD cannot be a pretty shell over nothing.
 
 ## 1. Coordinate model
 
-Fixed by [ADR 0012](../adr/0012-internal-resolution-and-tile-size.md): the world
+Fixed by [ADR 0012](adr/0012-internal-resolution-and-tile-size.md): the world
 renders at **640×360** internal and is upscaled by an integer factor (3× at
 1080p, 4× at 1440p). UI lays out against that same **640×360 logical viewport**
 and is drawn above the upscale.
