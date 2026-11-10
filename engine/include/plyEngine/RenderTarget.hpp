@@ -10,14 +10,15 @@ namespace ply {
 
 /// Render-target and scene-order policy (M1a a7, ARCHITECTURE_TARGET.md §11).
 ///
-/// This is the *headless half* of a7: what the internal resolution is, how the
-/// integer upscale maps a pixel, how the camera snaps, and what order the
-/// scene's layers are submitted in. All of it is pure data, which is what makes
-/// the three a7 graders structural instead of framebuffer comparisons (ADR
-/// 0014). The GL side — allocating the world framebuffer and binding it for the
-/// present blit — is a thin wrapper around these numbers and lands with the
-/// renderer wiring, where a GL context exists; no test here needs one, and the
-/// M1a gate forbids a GPU dependency in these tests.
+/// This is the *headless half* of a7: the render-target plan (internal size,
+/// integer factor, centred present rect), the pixel mapping, the camera snap and
+/// the scene layer order — including a `SceneRenderer` that emits the ordered
+/// submission. All of it is pure data, which is what makes the three a7 graders
+/// structural instead of framebuffer comparisons (ADR 0014). The GL side —
+/// allocating the world texture and binding it for the present blit — consumes
+/// these numbers and lands with the renderer wiring, where a GL context exists;
+/// no test here needs one, and the M1a gate forbids a GPU dependency in these
+/// tests.
 
 // --- integer upscale ---------------------------------------------------------
 
@@ -42,6 +43,28 @@ bool pixelAligned(const UIRect& outputRect, int factor);
 /// lines are `length` wide and 1 tall; vertical ones 1 wide and `length` tall.
 /// This is the fixture E-a7.1 scales: it must come out `factor` px thick.
 UIRect internalLineQuad(int x, int y, int length, bool horizontal);
+
+/// The render target's allocation policy: how big the internal surface is, what
+/// integer factor it is presented at, and exactly which output rect the present
+/// blit covers. The texture itself is GL; this is every number that allocation
+/// needs, and the numbers are what tests can hold still.
+struct RenderTargetPlan {
+    int internalWidth = 0, internalHeight = 0;
+    int outputWidth = 0, outputHeight = 0;
+    int factor = 1;
+    /// The upscaled image's rect in output pixels, centred so an odd remainder
+    /// splits evenly between the two sides instead of piling on one.
+    UIRect destination;
+
+    bool operator==(const RenderTargetPlan&) const = default;
+};
+
+/// Builds the plan for an internal surface presented into an output window.
+/// The destination is `internal * factor` centred in the window, so 1920x1080
+/// gives a full-bleed {0,0,1920,1080} at factor 3 while an odd window leaves an
+/// equal margin on both sides.
+RenderTargetPlan makeRenderTargetPlan(int internalWidth, int internalHeight, int outputWidth,
+                                      int outputHeight);
 
 // --- camera snap --------------------------------------------------------------
 
@@ -108,5 +131,29 @@ std::vector<SceneLayerCount> sceneLayerCounts(const SceneSubmission& scene);
 /// Integers only — the camera's float position never reaches the hash, which is
 /// what makes E-a7.3 a structural comparison rather than a float one.
 std::uint64_t structuralHash(const SceneSubmission& scene);
+
+/// Collects scene quads into named layers and emits them in draw order.
+///
+/// This is the headless `SceneRenderer`: draw order is data (the layer a quad is
+/// submitted to), never the sequence of calls a caller happened to make. A
+/// GL-backed renderer consumes the same submission, so the order the tests
+/// assert is the order that gets drawn.
+class SceneRenderer {
+public:
+    /// Queues `quad` (internal-resolution px) on `layer`.
+    void submit(SceneLayer layer, const UIRect& quad);
+
+    /// Queues every quad of `layer` at once.
+    void submitLayer(SceneLayer layer, const std::vector<UIRect>& quads);
+
+    /// Drops every queued quad; the next submission starts empty.
+    void reset() { layers_.clear(); }
+
+    /// The queued scene, ordered and with empty layers dropped.
+    SceneSubmission submission(int upscaleFactor) const;
+
+private:
+    std::vector<SceneLayerDraw> layers_;
+};
 
 }  // namespace ply

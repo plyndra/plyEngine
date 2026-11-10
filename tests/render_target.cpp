@@ -301,6 +301,99 @@ void testCameraSnap() {
            "world->internal subtracts the snapped camera");
 }
 
+// --- render target plan -----------------------------------------------------------
+
+void testRenderTargetPlan() {
+    // Full-bleed: 640x360 into 1920x1080 at factor 3 covers the window exactly.
+    {
+        const ply::RenderTargetPlan plan = ply::makeRenderTargetPlan(640, 360, 1920, 1080);
+        eq(plan.factor, 3, "plan factor at 1080p");
+        eqRect(plan.destination, UIRect{0, 0, 1920, 1080}, "full-bleed destination");
+        eq(plan.internalWidth, 640, "plan keeps the internal width");
+        eq(plan.outputWidth, 1920, "plan keeps the output width");
+    }
+    // Odd window: 1919x1080 at factor 2 shows 1280x720, centred.
+    {
+        const ply::RenderTargetPlan plan = ply::makeRenderTargetPlan(640, 360, 1919, 1080);
+        eq(plan.factor, 2, "odd window takes the floor factor");
+        eqRect(plan.destination, UIRect{(1919 - 1280) / 2, (1080 - 720) / 2, 1280, 720},
+               "odd window destination is centred");
+        eq(plan.destination.x, 319, "the odd remainder splits: 639/2 floors to 319");
+        // Centred means the leftover pixels on both sides are equal or differ by
+        // one, never all piled on one side.
+        const int left = plan.destination.x;
+        const int right = 1919 - (plan.destination.x + plan.destination.w);
+        check(right - left == 0 || right - left == 1, "leftover pixels split evenly");
+    }
+    // The destination is always exactly internal*factor.
+    for (int factor = 1; factor <= 4; ++factor) {
+        const ply::RenderTargetPlan plan =
+            ply::makeRenderTargetPlan(640, 360, 640 * factor, 360 * factor);
+        eq(plan.destination.w, 640 * factor, "destination width is internal * factor");
+        eq(plan.destination.h, 360 * factor, "destination height is internal * factor");
+        check(ply::pixelAligned(plan.destination, plan.factor),
+              "the destination is on the output pixel grid");
+    }
+}
+
+// --- the headless SceneRenderer ----------------------------------------------------
+
+void testSceneRenderer() {
+    // Draw order is data, not call order: submit the layers back to front and
+    // the submission still comes out in the fixed order.
+    ply::SceneRenderer renderer;
+    renderer.submit(SceneLayer::Particles, UIRect{200, 100, 2, 2});
+    renderer.submit(SceneLayer::World, UIRect{100, 200, 16, 32});
+    renderer.submit(SceneLayer::GroundTiles, UIRect{0, 0, 16, 16});
+    renderer.submitLayer(SceneLayer::GroundTiles, {{16, 0, 16, 16}, {32, 0, 16, 16}});
+    renderer.submit(SceneLayer::World, UIRect{120, 210, 16, 32});
+
+    const SceneSubmission scene = renderer.submission(3);
+    eq(scene.upscaleFactor, 3, "submission carries the factor");
+    eq(static_cast<long long>(scene.layers.size()), 3, "only submitted layers appear");
+    if (scene.layers.size() == 3) {
+        check(scene.layers[0].layer == SceneLayer::GroundTiles, "tiles first despite last submits");
+        check(scene.layers[1].layer == SceneLayer::World, "world in the middle");
+        check(scene.layers[2].layer == SceneLayer::Particles, "particles last");
+        eq(static_cast<long long>(scene.layers[0].quads.size()), 3, "three tile quads accumulated");
+        eq(static_cast<long long>(scene.layers[1].quads.size()), 2, "two world quads accumulated");
+    }
+
+    // Accumulating in submission order keeps each layer's own order stable.
+    if (scene.layers.size() == 3) {
+        eq(scene.layers[1].quads[0].x, 100, "world quads keep submission order");
+        eq(scene.layers[1].quads[1].x, 120, "world quads keep submission order");
+    }
+
+    // reset() clears everything.
+    ply::SceneRenderer reused;
+    reused.submit(SceneLayer::Shadows, UIRect{1, 2, 3, 4});
+    reused.reset();
+    reused.submit(SceneLayer::Overhead, UIRect{5, 6, 7, 8});
+    const SceneSubmission afterReset = reused.submission(1);
+    eq(static_cast<long long>(afterReset.layers.size()), 1, "reset drops prior layers");
+    if (afterReset.layers.size() == 1) {
+        check(afterReset.layers[0].layer == SceneLayer::Overhead, "only the post-reset layer remains");
+    }
+
+    // The renderer and the direct ordering path produce the identical
+    // submission for the same quads: one ordering implementation, not two.
+    {
+        ply::SceneRenderer fromRenderer;
+        for (const ply::SceneLayerDraw& layer : fixtureLayers()) {
+            fromRenderer.submitLayer(layer.layer, layer.quads);
+        }
+        const SceneSubmission viaRenderer = fromRenderer.submission(3);
+
+        SceneSubmission viaFunction;
+        viaFunction.upscaleFactor = 3;
+        viaFunction.layers = ply::orderSceneLayers(fixtureLayers());
+
+        eqHash(ply::structuralHash(viaRenderer), ply::structuralHash(viaFunction),
+               "SceneRenderer emits the same submission as orderSceneLayers");
+    }
+}
+
 // One line of measured values, printed so a ledger entry can be a verbatim
 // transcript instead of prose. Every value here is also asserted above.
 void printEvidence(long long alignedQuads) {
@@ -319,12 +412,15 @@ void printEvidence(long long alignedQuads) {
 
     std::printf(
         "EVIDENCE render_target factor=%d/%d/%d line1px_1x=%dx%d line1px_3x=%dx%d "
-        "aligned=%lld layers=%zu counts=%zu/%zu/%zu/%zu/%zu total=%zu "
+        "aligned=%lld dest=%d,%d,%d,%d layers=%zu counts=%zu/%zu/%zu/%zu/%zu total=%zu "
         "snap=%.1f->%d/%.1f->%d hash_same=%s hash_moved=%s\n",
         ply::integerUpscale(640, 360, 1920, 1080), ply::integerUpscale(640, 360, 2560, 1440),
         ply::integerUpscale(640, 360, 2560, 800), hLine.w, hLine.h, k3.w, k3.h, alignedQuads,
-        ordered.size(), counts[0].quads, counts[1].quads, counts[2].quads, counts[3].quads,
-        counts[4].quads,
+        ply::makeRenderTargetPlan(640, 360, 1919, 1080).destination.x,
+        ply::makeRenderTargetPlan(640, 360, 1919, 1080).destination.y,
+        ply::makeRenderTargetPlan(640, 360, 1919, 1080).destination.w,
+        ply::makeRenderTargetPlan(640, 360, 1919, 1080).destination.h, ordered.size(),
+        counts[0].quads, counts[1].quads, counts[2].quads, counts[3].quads, counts[4].quads,
         counts[0].quads + counts[1].quads + counts[2].quads + counts[3].quads + counts[4].quads,
         10.4, ply::snapCameraAxis(10.4), 10.6, ply::snapCameraAxis(10.6),
         hashA == hashB ? "match" : "differ", hashA != hashC ? "differ" : "same");
@@ -335,6 +431,8 @@ void printEvidence(long long alignedQuads) {
 int main() {
     testUpscaleFactor();
     const long long alignedQuads = testNearestUpscale();
+    testRenderTargetPlan();
+    testSceneRenderer();
     testLayerOrderAndCounts();
     testCameraSnap();
 
