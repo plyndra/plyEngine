@@ -281,6 +281,7 @@ add_library(plyEngine STATIC
     engine/src/UILayout.cpp
     engine/src/UIBar.cpp
     engine/src/UISlot.cpp
+    engine/src/UIHotbar.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -474,6 +475,13 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_ui_slot_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME ui_slot COMMAND ply_ui_slot_test)
+
+    # Hotbar: row layout, selection wrap, hit-test after layout rounding
+    # (E-a5.3). Pure integer math, so no GL context and no floating-point
+    # determinism.
+    add_executable(ply_ui_hotbar_test tests/ui_hotbar.cpp)
+    target_link_libraries(ply_ui_hotbar_test PRIVATE plyEngine)
+    add_test(NAME ui_hotbar COMMAND ply_ui_hotbar_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
