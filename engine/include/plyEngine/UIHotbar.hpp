@@ -39,8 +39,9 @@ int hotbarSlotAt(const std::vector<UIRect>& slots, int x, int y);
 /// wrap-around: slotCount-1 wraps to 0, 0 wraps back to slotCount-1. The
 /// current index is normalised by floor-mod into [0, slotCount) first, so an
 /// out-of-range value keeps behaving (7 of 5 slots resumes at 2). A current
-/// index of -1 (nothing selected) selects slot 0 on a right step and the last
-/// slot on a left step. A hotbar with no slots has no selection: -1.
+/// index of -1 (nothing selected — any current below 0) selects slot 0 on a
+/// right step and the last slot on a left step. A hotbar with no slots has no
+/// selection: -1.
 int hotbarWrapSelection(int current, int delta, int slotCount);
 
 /// The visual state of the slot at `index` given the bar's selection:
