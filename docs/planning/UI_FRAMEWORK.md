@@ -63,13 +63,20 @@ Rules:
 | `ThreeSliceH` / `ThreeSliceV` | end caps fixed | — | stretch or tile |
 | `Plain` | — | — | stretch |
 
-**Margins** come from the atlas entry (`left, top, right, bottom` in source
-pixels, pre-scale). When an entry declares none — generated art usually does
+**Margins** come from the atlas entry: a `margins` array of
+`[left, top, right, bottom]` in source pixels, pre-scale, with `margins_source`
+recording where they came from (`"declared"` or `"derived"`) — §4 is the
+normative field shape. When an entry declares none — generated art usually does
 not — margins are **derived from the alpha contour**: find the run-length of
 uniform border pixels per side and use that as the margin, then verify the
 corners are stretch-invariant. This mirrors what `slicewright` does for
-generated UI, and it is why the atlas schema has an explicit
-`margins: "declared" | "derived"` field.
+generated UI, and it is why provenance is a separate field rather than an
+overloaded `margins`.
+
+**A source region must keep a centre**: an individual margin larger than half
+that axis, or a pair summing to the whole axis, is rejected at load with a named
+error — there would be nothing left to slice, or a zero-width centre that cannot
+tile.
 
 **Degenerate sizes**: if a target rect is smaller than corner sum + 1, the caps
 compress uniformly (documented behaviour, not clipped garbage).
