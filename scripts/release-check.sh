@@ -137,6 +137,20 @@ done
 [ "$broken" -eq 0 ] && pass "all relative links resolve"
 
 # --- 4. Tests ---------------------------------------------------------------
+section "eval evidence transcripts"
+
+# A ledger line must be a transcript of what the suite printed, not prose about
+# what it meant to check. Three a2 reviews found only that class of defect.
+if [ -x "$repo_root/scripts/eval-evidence-check.sh" ]; then
+    if evidence_output="$(scripts/eval-evidence-check.sh "$build_dir" 2>&1)"; then
+        note "$(printf '%s' "$evidence_output" | tr '\n' ' ')"
+        pass "every printed EVIDENCE line is in evals/2.0.log"
+    else
+        printf '%s\n' "$evidence_output" >&2
+        fail "an EVIDENCE line is not in evals/2.0.log"
+    fi
+fi
+
 section "ctest ($build_dir)"
 
 if [ ! -d "$build_dir" ]; then
