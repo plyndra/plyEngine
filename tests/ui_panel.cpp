@@ -156,6 +156,10 @@ long long testTooltipSweeps() {
     total += sweepAllCursors(40, 24, 30, 18, 2, 3);   // neither side fits: clamps
     total += sweepAllCursors(33, 21, 0, 0, 2, 3);     // zero-size tooltip
     total += sweepAllCursors(33, 21, 33, 21, 0, 0);   // tooltip exactly the viewport, no offset
+    // The total is pinned too, so shortening any sweep cannot quietly shrink
+    // the claim while the printed transcript still reads plausibly.
+    eq(total, 91 * 161 + 41 * 25 + 41 * 25 + 34 * 22 + 34 * 22,
+       "swept position total = strided 640x360 + four exhaustive small sweeps");
     return total;
 }
 
