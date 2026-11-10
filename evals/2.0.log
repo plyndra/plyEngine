@@ -12,3 +12,7 @@
 2026-11-10 R1 PASS  release-check.sh PASS (version, additive-only API, doc links, ctest)
 2026-11-10 R2 PASS  ctest 16/16 in 0.44s
 2026-11-10 a1-verify PASS  ctest ui_atlas PASS, ctest 16/16, release-check.sh PASS; a-g confirmed: E-a1.1/E-a1.2 "now", 2026-11-10 ledger lines, byte-identical emit compare, 4/4 named-error families, margins array + margins_source in docs §4 and loader, no clock/GL/window, 23/23 enum tokens distinct
+2026-11-10 E-a2.1 PASS  ctest nine_slice: four corner quads keep size and source rect at 48x48, 96x64, 200x120; corner-signature hash identical, whole-geometry hash differs; fault-injected (corner order, compressed-corner source) -> FAIL
+2026-11-10 E-a2.2 PASS  ctest nine_slice: tiled edges 24+24+24+4 over a 76 px gap, last tile clipped and flush, source width == target width everywhere, every vertex inside the region; stretch mode keeps the whole strip; three_h/three_v caps; fault-injected (stretch last tile, stretch centre tile) -> FAIL
+2026-11-10 E-a2.3 PASS  ctest nine_slice: 10 px target against 12+12 caps compresses to 4+5 with a 1 px centre, 1x1 target emits one quad, non-positive target emits nothing, no inverted quad in any fixture; fault-injected (no compression, compression off by one) -> FAIL
+2026-11-10 R2 PASS  ctest 17/17 in 0.44s

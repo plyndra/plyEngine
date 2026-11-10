@@ -276,6 +276,8 @@ add_library(plyEngine STATIC
     engine/src/PhysicsBody.cpp
     engine/src/Tilemap.cpp
     engine/src/UIAtlas.cpp
+    engine/src/StructuralHash.cpp
+    engine/src/NineSlice.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -437,6 +439,12 @@ if(PLY_BUILD_TESTS)
 
     # UI atlas schema: pure data, so the round-trip and named-error graders
     # (E-a1.1, E-a1.2) run without a GL context.
+    # UI geometry: nine-slice quad emission and the structural hash (E-a2.x).
+    # Integer-only output, so no GL context and no floating-point determinism.
+    add_executable(ply_nine_slice_test tests/nine_slice.cpp)
+    target_link_libraries(ply_nine_slice_test PRIVATE plyEngine)
+    add_test(NAME nine_slice COMMAND ply_nine_slice_test)
+
     add_executable(ply_ui_atlas_test tests/ui_atlas.cpp)
     target_link_libraries(ply_ui_atlas_test PRIVATE plyEngine)
     target_compile_definitions(ply_ui_atlas_test PRIVATE
