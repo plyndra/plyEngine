@@ -285,6 +285,7 @@ add_library(plyEngine STATIC
     engine/src/UIPanel.cpp
     engine/src/RenderTarget.cpp
     engine/src/PixelText.cpp
+    engine/src/UIRouter.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -506,6 +507,13 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_pixel_text_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME pixel_text COMMAND ply_pixel_text_test)
+
+    # Input routing: UI consumes before world, press-capture keeps the release,
+    # and the scripted synthetic input source replays deterministically
+    # (E-a10.1). Pure data, so no window and no device.
+    add_executable(ply_ui_router_test tests/ui_router.cpp)
+    target_link_libraries(ply_ui_router_test PRIVATE plyEngine)
+    add_test(NAME ui_router COMMAND ply_ui_router_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
