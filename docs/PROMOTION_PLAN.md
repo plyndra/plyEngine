@@ -64,6 +64,11 @@ asserts each demo is still alive after 4 s with no flags) and recorded as
 1.0.1**: 0.6 cannot be marked done while the download a stranger actually gets
 is the broken build. Tagging is the owner's call.
 
+0.7's image is **generated and waiting** (`docs/announcements/social-preview.png`,
+1280x640: title, one-line pitch, a real capture frame). Uploading it through
+Settings → Social preview is the owner's step; nothing else in Phase 0 depends
+on it.
+
 The v1.0.0 gates could not catch it because every CI step passes `--frames`, and
 `smoke-linux` — which really does unpack and execute the archive — also passes
 `--frames`/`--verify`. Same failure class as the incident write-up: the gate

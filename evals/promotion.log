@@ -25,3 +25,4 @@
 2026-11-09 R7 PASS   first README screen = hero image + one-liner + download block
 2026-11-09 DEFECT   every demo exited after 120 frames with no flags (0.45 s for ply_companion): a room code printed, then the process died. Fixed with an interactive app.run() default; CI guard "Demos stay open with no flags" added
 2026-11-09 DEFECT   PLY_VERSION_STRING is a CACHE variable, so reconfiguring an existing build tree kept the old version and the runtime banner lied (1.0.0-beta.2 while CMakeLists said 1.0.1). Fresh CI configure is unaffected; local builds need -DPLY_VERSION_STRING=...
+2026-11-09 C0.7 ASSET  docs/announcements/social-preview.png generated (1280x640: title, pitch, real capture frame); upload via repo settings is owner-only
