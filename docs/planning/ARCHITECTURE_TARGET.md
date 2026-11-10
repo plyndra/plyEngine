@@ -1,8 +1,13 @@
 # Architecture target — top-down simulation engine
 
-Reference frames: `/testpng/` (three screenshots, 2560×1440, ~16 px tiles at 4×
-integer scale). Target capability: sandbox survival games with behaviour-tree
-NPCs, procedurally generated towns, and an agent-driven economy.
+Reference frames: `/testpng/` (three screenshots, 2560×1440). Measured: dominant
+fine period 16 px, coarse cluster period 48 px, 10.6k–18.6k unique colours per
+frame — a **style** reference, not a pixel-exact spec. Internal render resolution
+and tile size are open decisions (see `ROADMAP_TARGET.md`); every budget below is
+stated **per internal resolution** for that reason.
+
+Target capability: sandbox survival games with behaviour-tree NPCs, procedurally
+generated towns, and an agent-driven economy.
 
 This document is the map. Each layer names the modules it adds, what it must
 prove, and what it may reuse from 1.x.
@@ -219,9 +224,11 @@ bus gains.
 
 Design target, asserted by a headless benchmark in CI:
 
+All figures are **targets to assert once a benchmark exists**, not measurements.
+
 | Metric | Budget |
 |---|---|
-| Visible quads at 1920×1080 | ≤ 6 000 (tiles + props + entities + particles) |
+| Visible quads, per internal frame | ≤ 4 000 (tiles + props + entities + particles). At 640×360 internal with 16 px tiles a full screen is 40×22.5 = 900 ground cells, leaving room for layers and particles. At 1920×1080 internal the same art would need 8 100 ground cells and this budget is unreachable — which is why internal resolution is a gating decision |
 | Draw calls per world frame | ≤ 8 (ground, decor, shadow, world, overhead, particles, light, post) |
 | NPC pathfinding | 100 agents re-pathing at 1 Hz within 2 ms |
 | Economy tick | 200 agents, 30 goods, clear within 1 ms |

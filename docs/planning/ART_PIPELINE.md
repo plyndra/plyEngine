@@ -23,7 +23,7 @@ Measured on this host (PVE3): **NVIDIA RTX 3050, 8 GB VRAM, 12 cores, 31 GB RAM.
 
 | Constraint | Consequence |
 |---|---|
-| 8 GB VRAM | SDXL at 1024² with fp16 and `--medvram` is realistic (~6–15 s/image). Batch generation happens overnight or in a background queue, never in a test. |
+| 8 GB VRAM | SDXL at 1024² with fp16 and `--medvram` is expected to fit; **throughput is unmeasured on this host** (rough estimate 6–15 s/image — verify before quoting it). Batch generation happens in a background queue, never in a test. |
 | FLUX.1 [dev] is too heavy **and** non-commercial | Not used. |
 | FLUX.1 [schnell] (Apache-2.0) is viable but slow on 8 GB | Fallback for prompts SDXL fails; not the default. |
 | No GPU in CI | Generation never runs in CI. Only **deterministic assembly and linting** do. |
@@ -218,11 +218,18 @@ to need a fix pass; budget it per class instead of being surprised by it.
 
 ---
 
-## Appendix A — CC0 / CC-BY reference material (not shipped)
+## Appendix A — CC0 / CC-BY reference material (not in shipped builds)
 
 Collected during research. Roles: style reference, LoRA training data (CC0 only),
 geometry fixtures for the assembler and linter, and a fallback if the generated
-pipeline stalls. **None of these ship in a build** under the current decision.
+pipeline stalls.
+
+Precise scope, because "not shipped" is ambiguous: fixture packs may be **committed
+under `tests/data/art/`** (with their licence files) so the linter has known-good
+47-case sheets to test against, but they are **never referenced by shipped maps
+and never included in release archives**. Attributed material (CC BY) keeps its
+credit line in `assets/licenses/CREDITS.md` even when used only as a fixture,
+because the repository is public.
 
 | Pack | Contents | Licence (verified on source page where readable) | Role |
 |---|---|---|---|

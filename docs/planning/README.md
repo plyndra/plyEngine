@@ -14,8 +14,13 @@ mechanically tested, and shipping.
 The target is a **top-down sandbox survival engine**: a tiled world with layered
 art and y-sorted depth, simulated NPCs on schedules, procedurally generated
 towns, and an in-game economy. The reference frames for the visual target are in
-`/testpng/` (16 px tiles at 4× integer scale, dense decoration, autotiled
-terrain, day/night light pools, HUD-heavy UI).
+`/testpng/` — dense decoration, autotiled terrain, day/night light pools,
+HUD-heavy UI. Measured on those files: 2560×1440, dominant fine period **16 px**,
+coarse cluster period **48 px** (3×16), 10.6k–18.6k unique colours per frame. The
+high colour count means they are **not** palette-quantised, pixel-exact
+screenshots — they are a style reference, not a pixel spec. Tile size and integer
+scale are therefore *our* decision, not an inference (see the open dependencies in
+`ROADMAP_TARGET.md`).
 
 ## Documents
 

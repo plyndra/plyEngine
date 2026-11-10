@@ -27,13 +27,24 @@ Ordered by [ADR 0007](adr/0007-hud-first.md) (UI first) and scoped by
 | a4 | Anchor+offset+scale layout, integer snapping, DPI-independent | anchor math tests for 9 anchor points × 3 scales |
 | a5 | `Bar` (gradient fill, animated), `Slot`, `Hotbar`, `Panel`, `Tooltip` | widget rects and fill fractions asserted |
 | a6 | Pixel text: BMFont/TTF at integer sizes, no AA, baseline alignment | text bounds + a rendered-glyph hash |
-| a7 | `Minimap`: render-target downscale of the world + markers | marker at world (x,y) maps to the expected minimap pixel |
-| a8 | `MapLoader` + `TileSetLoader` (static, no autotile yet) and one hand-authored 30×20 map | map lints clean; static tiles render behind the HUD |
+| a7 | `Minimap`: render-target downscale of the world + markers (**depends on `RenderTarget`, listed at b8** — see Open dependencies) | marker at world (x,y) maps to the expected minimap pixel |
+| a8 | `MapLoader` + the *static* slice of the tileset format (regions + solid flags only; full metadata is b1) and one hand-authored map | map lints clean; static tiles render behind the HUD |
 | a9 | Input router: UI consumes first, then world; phone dev client can drive both | a scripted click on a slot does not also move the player |
 
 **Gate to leave M1a:** the HUD from `UI_FRAMEWORK.md` renders over a real
 (if plain) map; 6 new test suites green; no wall-clock or GPU dependency in any
 UI test.
+
+**Open dependencies (resolved in the planning round, not silently):**
+
+1. `a7 Minimap` needs `RenderTarget` (b8). Either pull `RenderTarget` + integer
+   upscale into M1a, or move the minimap to M1b. HUD-first does not require a
+   minimap; it requires the panel/bar/slot framework.
+2. Internal render resolution and tile size gate the quad budget and the art
+   canvas. Until they are fixed, the `b3` culling test has no expected count and
+   `ART_PIPELINE.md` has no tile geometry.
+3. Map size is provisional: the reference frames show a world several screens
+   wide, so the hand-authored M1a map will be smaller than the target town.
 
 ### M1b — Tile worlds (≈2–3 weeks)
 

@@ -34,8 +34,13 @@ Every new simulation system must be:
   the alternative is untestable simulation.
 - CI gains cheap, high-value tests: same-seed equality, save/load equality,
   economy conservation, schedule satisfaction, generation validation.
-- A grep gate rejects `std::chrono::`/`time()` usage outside the clock module
-  and any iteration of `std::unordered_map` in `engine/src/sim` code paths.
+- A grep gate rejects `std::chrono::`/`time()` usage outside the clock module and
+  any iteration of `std::unordered_map` in simulation code paths. **Scope
+  matters:** the gate covers the new sim/render-world modules, not the whole of
+  `engine/src`, because `AudioSystem`, `AssetCache` and `CompanionServer` already
+  hold unordered maps. Asset ids and audio voice ids must be assigned in load
+  order rather than map order so they stay reproducible once the sim consumes
+  them.
 - Particle and lighting systems must observe state, never mutate gameplay state;
   that keeps golden gameplay hashes stable when visuals change.
 

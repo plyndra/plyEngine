@@ -22,8 +22,12 @@ FLUX schnell Apache-2.0 as fallback; **FLUX dev forbidden**) into assets the
 project owns, using the pipeline in `ART_PIPELINE.md`: generate components,
 assemble deterministically, lint hard, commit with provenance.
 
-CC0 packs remain in-repo knowledge only as style reference, geometry fixtures and
-(palette-permitting) LoRA training data — they do not ship.
+CC0 packs remain in-repo knowledge only: style reference, geometry fixtures for
+the assembler and linter (allowed under `tests/data/art/` with their licence
+files), and (palette-permitting) LoRA training data. They are never referenced by
+shipped maps and never included in release archives. CC BY material keeps its
+credit line in `assets/licenses/CREDITS.md` even as a fixture, because the
+repository — unlike the archive — is public.
 
 ## Consequences
 
