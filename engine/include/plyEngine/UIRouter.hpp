@@ -10,10 +10,15 @@ namespace ply {
 /// Input routing (M1a a10, UI_FRAMEWORK.md §6).
 ///
 /// The router is the single place that decides whether a pointer event belongs
-/// to the UI or to the world. It is pure data — rects in, decisions out — so the
-/// same router serves the keyboard/mouse path and the phone dev client's virtual
-/// cursor, and so a test can replay an exact script of events rather than drive
-/// a window.
+/// to the UI or to the world. It is pure data — rects in, decisions out — and it
+/// is the *decision core* that both the real input path and the phone dev
+/// client's virtual cursor are meant to feed. Neither source is wired yet: as of
+/// a10 nothing in the tree constructs a UIRouter outside its tests, so what is
+/// proven here is the routing rule, not a working device path. There is also no
+/// key event in this API (see PointerEventType), so the keyboard half of
+/// UI_FRAMEWORK.md §6 is not merely unwired — it is not representable yet, and
+/// the "global handler runs while a panel has focus" rule is asserted only for
+/// pointer events.
 
 /// What a pointer can do. A button has one press and one release per gesture;
 /// `Move` is the cursor travelling without a button changing state.
@@ -35,9 +40,10 @@ struct RouteResult {
     int widget = -1;
     /// True when the world queue receives the event.
     bool worldConsumed = false;
-    /// True when the global handler (pause, toggle debug) sees it. The global
-    /// handler runs for every event, UI or world, which is what makes a
-    /// keyboard shortcut work while a panel has focus.
+    /// True when the global handler (pause, toggle debug) sees it. Constant
+    /// true today: every routed event reaches the global queue. It is a field
+    /// rather than an assumption so a future "the UI swallowed this one"
+    /// suppression has somewhere to live, and the hash covers it.
     bool globalConsumed = true;
     /// Capture state after this event.
     int capturedWidget = -1;

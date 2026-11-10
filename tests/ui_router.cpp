@@ -184,7 +184,7 @@ void testOverlapPicksTopmost() {
     // (110,110) is only inside widget 0.
     eq(router.route(move(110, 110)).widget, 0, "a non-overlapping point picks its own widget");
     // Widget 0 spans x 100..140, widget 1 spans 124..164, so 100..123 is
-    // widget 0 alone, 124..139 is the overlap (1 wins), 140..164 is 1 alone.
+    // widget 0 alone, 124..139 is the overlap (1 wins), 140..163 is 1 alone.
     // Edges are half-open: these are the exact boundary pixels on both sides.
     eq(router.route(move(123, 110)).widget, 0, "x=123 is widget 0's last pixel alone");
     eq(router.route(move(124, 110)).widget, 1, "x=124 starts the overlap, topmost wins");
