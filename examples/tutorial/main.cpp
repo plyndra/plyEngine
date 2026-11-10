@@ -288,7 +288,14 @@ int main(int argc, char** argv) {
         }
     });
 
-    app.runFrames(frames > 0 ? frames : (verify ? 240 : 120));
+    // Interactive by default: the tutorial is meant to be played, and a
+    // bounded default closed the window before the first level finished.
+    const bool automated = verify || screenshot != nullptr;
+    if (frames > 0 || automated) {
+        app.runFrames(frames > 0 ? frames : (verify ? 240 : 120));
+    } else {
+        app.run();
+    }
 
     int exitCode = 0;
     if (verify || screenshot) {

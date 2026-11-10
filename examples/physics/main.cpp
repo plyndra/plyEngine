@@ -264,7 +264,14 @@ int main(int argc, char** argv) {
     };
 
     app.onRender(renderScene);
-    app.runFrames(frames > 0 ? frames : 90);
+    // Interactive by default: a bounded default ran the whole demo in well
+    // under a second and closed the window before anyone could look at it.
+    const bool automated = verify || screenshot != nullptr;
+    if (frames > 0 || automated) {
+        app.runFrames(frames > 0 ? frames : 90);
+    } else {
+        app.run();
+    }
 
     int exitCode = 0;
     if (verify || screenshot) {

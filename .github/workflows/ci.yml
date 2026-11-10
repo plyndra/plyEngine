@@ -160,3 +160,26 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a ./build/ply_tutorial --frames 240 --verify
+
+      # The v1.0.0 archives shipped demos that closed their window in under a
+      # second: every gate above passes --frames, so none of them could see it,
+      # and a downloaded `./ply_companion` died before a phone could join. Run
+      # each demo with *no* flags and require it to still be alive afterwards.
+      - name: Demos stay open with no flags
+        if: runner.os == 'Linux'
+        run: |
+          set -uo pipefail
+          failed=0
+          for exe in ply_hello ply_ecs ply_assets ply_physics ply_tutorial \
+                     ply_scripting ply_companion; do
+            LIBGL_ALWAYS_SOFTWARE=1 timeout 4 xvfb-run -a "./build/$exe" --no-mdns \
+              >/dev/null 2>&1
+            code=$?
+            if [ "$code" -ne 124 ]; then
+              echo "::error::$exe exited with code $code instead of staying open"
+              failed=1
+            else
+              echo "alive after 4s: $exe"
+            fi
+          done
+          exit "$failed"

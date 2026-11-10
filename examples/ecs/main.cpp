@@ -223,7 +223,14 @@ int main(int argc, char** argv) {
 
     int exitCode = 0;
     const int targetFrames = frames > 0 ? frames : 0;
-    exitCode = app.runFrames(targetFrames > 0 ? targetFrames : 120);
+    // No --frames and no automated mode means a person is watching: run the
+    // event loop until the window closes instead of exiting after 120 frames.
+    const bool automated = verify || screenshot != nullptr;
+    if (targetFrames > 0 || automated) {
+        exitCode = app.runFrames(targetFrames > 0 ? targetFrames : 120);
+    } else {
+        exitCode = app.run();
+    }
 
     if (verify || screenshot) {
         // Render one more frame WITHOUT swapping, then read the back buffer.

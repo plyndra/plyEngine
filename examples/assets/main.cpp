@@ -165,7 +165,15 @@ int main(int argc, char** argv) {
 
     app.onRender(renderScene);
 
-    app.runFrames(frames > 0 ? frames : 60);
+    // With no --frames and no automated mode, a person is watching: run the
+    // event loop until the window closes. A bounded default here made every
+    // demo exit in under a second on machines that do not vsync the swap.
+    const bool automated = verify || screenshot != nullptr;
+    if (frames > 0 || automated) {
+        app.runFrames(frames > 0 ? frames : 60);
+    } else {
+        app.run();
+    }
 
     int exitCode = 0;
     if (verify || screenshot) {

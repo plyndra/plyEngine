@@ -583,7 +583,16 @@ int main(int argc, char** argv) {
                     kVerifyFrames);
         frameCount = kVerifyFrames;
     }
-    app.runFrames(frameCount);
+    // Interactive by default: this is the flagship path ("run it, open the URL
+    // on your phone"), so no flags must mean "stay up until the window closes".
+    // A bounded default here exited in under a second, which made every room
+    // code printed on launch dead on arrival.
+    const bool automated = verify || screenshot != nullptr || dumpFramesDir != nullptr;
+    if (frames > 0 || automated) {
+        app.runFrames(frameCount);
+    } else {
+        app.run();
+    }
 
     if (dumpFramesDir) {
         std::printf("capture: wrote %d frame(s) to %s (stride %d)\n", dumpedFrames,

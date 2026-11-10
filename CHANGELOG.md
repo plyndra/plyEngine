@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [1.0.1] — 2026-11-09
+
+### Fixed
+
+- **The demos now stay open when you run them without flags.** Every example
+  ended in `app.runFrames(frames > 0 ? frames : N)` and therefore closed its
+  window in well under a second — `./ply_companion` printed a room code and
+  exited before any phone could join, which made the flagship path unusable for
+  anyone who followed the download instructions. The default is now `app.run()`
+  (interactive until the window closes); `--frames`, `--verify` and
+  `--screenshot` keep the bounded behaviour that CI and the capture pipeline
+  depend on. Found while capturing the README hero animation: the v1.0.0 gates
+  never exercised this path, because every CI step passes `--frames`.
+- `ply_companion` gained `--dump-frames <dir>` (with `--dump-stride`,
+  `--dump-from`, `--dump-count`) so a scripted run can be encoded into the
+  documentation animation without a screen recorder.
+
 ## [1.0.0] — 2026-11-09
 
 First stable release. The public API is frozen: additions are minor changes,
