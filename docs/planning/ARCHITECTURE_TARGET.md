@@ -60,10 +60,13 @@ Present: nearest-neighbour integer upscale of the world target
 **Must prove:**
 - Draw order is data, not code: a test renders a fixture scene and asserts the
   layer sequence and per-layer quad counts.
-- Integer snapping: camera at x=10.4 and x=10.6 produce identical frames after
-  rounding — a **structural** hash (snapped position, tile-rect list, emitted
-  quads), never a framebuffer comparison: pixel hashes flake on software GL, see
-  [ADR 0014](adr/0014-structural-hashes-for-visual-tests.md).
+- Integer snapping: camera at x=10.4 and x=10.6 produce identical frames after the
+  position is snapped by **flooring** — a **structural** hash (snapped position,
+  tile-rect list, emitted quads), never a framebuffer comparison: pixel hashes
+  flake on software GL, see [ADR 0014](adr/0014-structural-hashes-for-visual-tests.md).
+  Floor rather than round-to-nearest is not a style choice: nearest sends 10.4 to
+  10 and 10.6 to 11, so it cannot satisfy this bullet's own example. Flooring is
+  also monotone, so panning never oscillates across a boundary.
 - Upscale is nearest and integer: a 1 px line at internal res is *k* px wide at
   output, never blended.
 - The light pass is deterministic from (clock, light list) → a structural hash
