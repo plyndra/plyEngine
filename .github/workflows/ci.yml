@@ -172,9 +172,13 @@ jobs:
           failed=0
           for exe in ply_hello ply_ecs ply_assets ply_physics ply_tutorial \
                      ply_scripting ply_companion; do
+            # "|| code=$?" is load-bearing: Actions runs this with bash -e, so a
+            # bare `timeout` would abort the whole step on its first 124 -- the
+            # very status this gate treats as success. That made this step fail
+            # on every tip it ever ran on (found 2026-11-10).
+            code=0
             LIBGL_ALWAYS_SOFTWARE=1 timeout 4 xvfb-run -a "./build/$exe" --no-mdns \
-              >/dev/null 2>&1
-            code=$?
+              >/dev/null 2>&1 || code=$?
             if [ "$code" -ne 124 ]; then
               echo "::error::$exe exited with code $code instead of staying open"
               failed=1
