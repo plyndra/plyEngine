@@ -278,6 +278,7 @@ add_library(plyEngine STATIC
     engine/src/UIAtlas.cpp
     engine/src/StructuralHash.cpp
     engine/src/NineSlice.cpp
+    engine/src/UILayout.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -450,6 +451,13 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_ui_atlas_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME ui_atlas COMMAND ply_ui_atlas_test)
+
+    # UI layout: anchors, offset+scale, integer snapping and the two-process
+    # layout hash (E-a4.x). Pure integer math, so no GL context and no
+    # floating-point determinism.
+    add_executable(ply_ui_layout_test tests/ui_layout.cpp)
+    target_link_libraries(ply_ui_layout_test PRIVATE plyEngine)
+    add_test(NAME ui_layout COMMAND ply_ui_layout_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
