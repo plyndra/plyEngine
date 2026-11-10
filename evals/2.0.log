@@ -11,3 +11,4 @@
 2026-11-10 E-a1.2 PASS  ctest ui_atlas: 30 named-error cases + FileNotReadable + 6 validateUIAtlas cases for faults JSON cannot express; fault-injected (margin sum, derived-without-margins, hotspot bounds, frame/duration count) -> FAIL
 2026-11-10 R1 PASS  release-check.sh PASS (version, additive-only API, doc links, ctest)
 2026-11-10 R2 PASS  ctest 16/16 in 0.44s
+2026-11-10 a1-verify PASS  ctest ui_atlas PASS, ctest 16/16, release-check.sh PASS; a-g confirmed: E-a1.1/E-a1.2 "now", 2026-11-10 ledger lines, byte-identical emit compare, 4/4 named-error families, margins array + margins_source in docs §4 and loader, no clock/GL/window, 23/23 enum tokens distinct
