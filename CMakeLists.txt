@@ -279,6 +279,7 @@ add_library(plyEngine STATIC
     engine/src/StructuralHash.cpp
     engine/src/NineSlice.cpp
     engine/src/UILayout.cpp
+    engine/src/UIBar.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -458,6 +459,12 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_ui_layout_test tests/ui_layout.cpp)
     target_link_libraries(ply_ui_layout_test PRIVATE plyEngine)
     add_test(NAME ui_layout COMMAND ply_ui_layout_test)
+
+    # Bar widget geometry: fill fraction -> pixel width, clamps, ticks (E-a5.1).
+    # Pure integer math, so no GL context and no floating-point determinism.
+    add_executable(ply_ui_bar_test tests/ui_bar.cpp)
+    target_link_libraries(ply_ui_bar_test PRIVATE plyEngine)
+    add_test(NAME ui_bar COMMAND ply_ui_bar_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
