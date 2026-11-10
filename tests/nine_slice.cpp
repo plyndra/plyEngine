@@ -187,9 +187,23 @@ void testTiledEdges() {
     // 4 corners, 4 top tiles (4..7), 4 bottom tiles (8..11), left (12), right (13).
     eq(at(quads, 8).topLeft.y, 48 - 12, "bottom edge run starts at index 8");
     eq(at(quads, 11).topRight.x, 100 - 12, "bottom run ends flush");
+    for (std::size_t i = 0; i < 4; ++i) {
+        const ply::UIQuad& quad = at(quads, 8 + i);
+        eq(quadW(quad), widths[i], "bottom tile width, last one clipped");
+        eq(quad.topRight.u - quad.topLeft.u, widths[i], "bottom tile samples 1:1");
+        eq(quadH(quad), 12, "bottom edge height stays the source margin");
+    }
     eq(at(quads, 12).topLeft.x, 0, "left edge is index 12");
     eq(quadW(at(quads, 12)), 12, "left edge keeps the corner width");
+    eq(at(quads, 12).topRight.u - at(quads, 12).topLeft.u, 12, "left edge samples 1:1");
+    eq(at(quads, 12).bottomLeft.y - at(quads, 12).topLeft.y, 24, "left edge spans the gap");
     eq(at(quads, 13).topLeft.x, 100 - 12, "right edge is index 13");
+    eq(quadW(at(quads, 13)), 12, "right edge keeps the corner width");
+    eq(at(quads, 13).topRight.u - at(quads, 13).topLeft.u, 12, "right edge samples 1:1");
+    eq(at(quads, 13).bottomLeft.y - at(quads, 13).topLeft.y, 24, "right edge spans the gap");
+    // Vertical 1:1 on the side edges: the source span matches the target span.
+    eq(at(quads, 12).bottomLeft.v - at(quads, 12).topLeft.v, 24, "left edge samples 1:1 vertically");
+    eq(at(quads, 13).bottomLeft.v - at(quads, 13).topLeft.v, 24, "right edge samples 1:1 vertically");
 
     check(positiveQuads(quads), "tiled edges never invert a quad");
     for (const ply::UIQuad& quad : quads) {
@@ -259,6 +273,8 @@ void testPlainAndThreeSlice() {
         eq(static_cast<long long>(quads.size()), 8, "three_h tiled centre quad count");
         eq(quadW(at(quads, 6)), 4, "three_h last tile clipped");
         eq(at(quads, 6).topRight.x, 92, "three_h last tile flush to the right cap");
+        eq(at(quads, 6).topRight.u - at(quads, 6).topLeft.u, 4, "three_h clipped tile samples 1:1");
+        check(positiveQuads(quads), "three_h tiled centre never inverts a quad");
         for (const ply::UIQuad& quad : quads) check(insideRegion(quad, region), "three_h in bounds");
     }
     {
