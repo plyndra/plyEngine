@@ -1,5 +1,10 @@
 # plyEngine — Roadmap
 
+> **1.x history only.** This file records the milestones that produced 1.0.x and
+> is complete. The 2.0 target — top-down simulation engine — is planned in
+> [planning/ROADMAP_TARGET.md](planning/ROADMAP_TARGET.md), with the decisions
+> behind it in [planning/adr/](planning/adr/).
+
 | Milestone | Status | Exit criteria |
 |---|---|---|
 | **M0 — Scaffold** | ✅ Done | MIT LICENSE, README, CONTRIBUTING (DCO), CMake, CI matrix, repo layout |
