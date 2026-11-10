@@ -284,6 +284,7 @@ add_library(plyEngine STATIC
     engine/src/UIHotbar.cpp
     engine/src/UIPanel.cpp
     engine/src/RenderTarget.cpp
+    engine/src/PixelText.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -497,6 +498,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_render_target_test tests/render_target.cpp)
     target_link_libraries(ply_render_target_test PRIVATE plyEngine)
     add_test(NAME render_target COMMAND ply_render_target_test)
+
+    # Pixel text: BMFont parse, baseline-aligned integer layout, ink bounds
+    # equal to the drawn quads, and glyph hashes stable at 10/20 px (E-a6.1).
+    add_executable(ply_pixel_text_test tests/pixel_text.cpp)
+    target_link_libraries(ply_pixel_text_test PRIVATE plyEngine)
+    target_compile_definitions(ply_pixel_text_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME pixel_text COMMAND ply_pixel_text_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
