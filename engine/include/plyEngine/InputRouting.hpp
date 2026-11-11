@@ -123,9 +123,17 @@ InputFrame inputFrameFrom(const Input& input, PointerSource source, int presentF
 /// as a widget press sees the capture that press established.
 ///
 /// Keys follow the same ownership rule as the pointer: a captured widget owns
-/// the keys pressed during its gesture (the router has no separate focus
-/// concept yet, and inventing one here would be unstated behaviour), otherwise
-/// the key goes to the world. The global handler sees every key.
+/// the key EDGES seen during its gesture — both down and up, since an up edge
+/// belongs to the gesture that is still running (the router has no separate
+/// focus concept, and inventing one here would be unstated behaviour) —
+/// otherwise the key goes to the world. The global handler sees every key.
+///
+/// Two edge cases are named rather than left to be discovered: on the first
+/// frame a button that is already down is not a press, so releasing it later
+/// produces a world Release with no preceding Press (a release without a press
+/// is the world's event, per UIRouter); and because the Release is routed
+/// before the frame's keys, a key up edge in that same frame is the world's,
+/// not the just-released widget's.
 FrameRoute pumpFrame(UIRouter& router, PumpState& state, const InputFrame& frame);
 
 /// FNV-1a 64 over a frame transcript: pointer count, then each pointer result
