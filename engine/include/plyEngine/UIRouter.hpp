@@ -1,5 +1,6 @@
 #pragma once
 
+#include "plyEngine/Input.hpp"
 #include "plyEngine/UILayout.hpp"
 
 #include <cstdint>
@@ -12,18 +13,16 @@ namespace ply {
 /// The router is the single place that decides whether a pointer event belongs
 /// to the UI or to the world. It is pure data — rects in, decisions out — and it
 /// is the *decision core* that both the real input path and the phone dev
-/// client's virtual cursor are meant to feed. Neither source is wired yet: as of
-/// a10 nothing in the tree constructs a UIRouter outside its tests, so what is
-/// proven here is the routing rule, not a working device path. There is also no
-/// key event in this API (see PointerEventType), so the keyboard half of
-/// UI_FRAMEWORK.md §6 is not merely unwired — it is not representable yet, and
-/// the "global handler runs while a panel has focus" rule is asserted only for
-/// pointer events.
+/// client's virtual cursor feed. a10 built this decision core and recorded that
+/// nothing outside its tests fed it; a11 (InputRouting.hpp) is the wiring, and it
+/// uses this class through `pumpFrame` — the router itself is unchanged by the
+/// wiring. The keyboard half of §6 is `KeyEvent`/`routeKey` below: a10 could not
+/// represent keys at all, so the "global handler runs while a panel has focus"
+/// rule was pointer-only until a11 added them.
 
 /// What a pointer can do. A button has one press and one release per gesture;
 /// `Move` is the cursor travelling without a button changing state.
 enum class PointerEventType { Move, Press, Release };
-
 /// One pointer event at a point in logical (or output, see UIRouter) pixels.
 struct PointerEvent {
     PointerEventType type = PointerEventType::Move;
@@ -53,6 +52,35 @@ struct RouteResult {
     bool operator==(const RouteResult&) const = default;
 };
 
+/// One key edge, routed by the same ownership rule as the pointer.
+struct KeyEvent {
+    Key key = Key::Unknown;
+    /// True for a down edge, false for an up edge.
+    bool pressed = false;
+
+    bool operator==(const KeyEvent&) const = default;
+};
+
+/// Where one key went: the captured widget, or the world.
+///
+/// The rule is deliberately narrow, because the router has no focus concept:
+/// while a widget holds a pointer capture it owns the keys pressed during that
+/// gesture (a slider keeps the arrow keys it grabbed), and with no capture the
+/// key goes to the world. The global handler sees every key regardless, so a
+/// pause or debug toggle cannot be swallowed by a widget.
+struct KeyRouteResult {
+    /// Index of the widget that took the key, or -1.
+    int widget = -1;
+    /// True when the world queue receives the key.
+    bool worldConsumed = false;
+    /// True when the global handler sees it. Constant true, like RouteResult's.
+    bool globalConsumed = true;
+
+    bool uiConsumed() const { return widget >= 0; }
+
+    bool operator==(const KeyRouteResult&) const = default;
+};
+
 /// The router. Interactive rects are supplied in the same order the caller
 /// renders them, because the index a route returns is the slot the caller needs
 /// to act on; nothing else about them is assumed.
@@ -74,6 +102,10 @@ public:
 
     /// Routes one event and advances the capture state.
     RouteResult route(const PointerEvent& event);
+
+    /// Routes one key edge. Does not change the capture: keys are owned by an
+    /// existing gesture, they do not start or end one.
+    KeyRouteResult routeKey(const KeyEvent& event);
 
     /// The widget currently holding the pointer, or -1.
     int capturedWidget() const { return captured_; }

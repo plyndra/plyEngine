@@ -289,6 +289,7 @@ add_library(plyEngine STATIC
     engine/src/Minimap.cpp
     engine/src/MapLoader.cpp
     engine/src/UIMargins.cpp
+    engine/src/InputRouting.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -543,6 +544,13 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_ui_margins_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME ui_margins COMMAND ply_ui_margins_test)
+
+    # Router wiring: one pump feeding UIRouter from any source, edge detection
+    # across frames, and the keyboard half of section 6 (E-a11.1). Pure data:
+    # no window, no device, no clock.
+    add_executable(ply_input_routing_test tests/input_routing.cpp)
+    target_link_libraries(ply_input_routing_test PRIVATE plyEngine)
+    add_test(NAME input_routing COMMAND ply_input_routing_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)

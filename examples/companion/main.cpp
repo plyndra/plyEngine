@@ -18,6 +18,7 @@
 
 #include "plyEngine/App.hpp"
 #include "plyEngine/AudioSystem.hpp"
+#include "plyEngine/InputRouting.hpp"
 #include "plyEngine/CompanionServer.hpp"
 #include "plyEngine/Font.hpp"
 #include "plyEngine/PhysicsBody.hpp"
@@ -386,6 +387,43 @@ int main(int argc, char** argv) {
         // Drain network input at the fixed-step boundary.
         server.update(monotonicSeconds());
 
+        // Keyboard goes through the UI router (M1a a11), the same one path the
+        // HUD uses: a frame is built from the polled device state, pumped, and
+        // a key only reaches gameplay when the router says the world consumed
+        // it. With no interactive rects yet — this demo draws no HUD, the
+        // composite pass adds them — every key is the world's, but the code
+        // path is the wired one, so a HUD button that captures the pointer also
+        // stops the player walking while it is dragged.
+        static ply::UIRouter uiRouter;
+        static ply::PumpState pumpState;
+        static const std::vector<ply::Key> kTrackedKeys = {
+            ply::Key::Left, ply::Key::Right, ply::Key::Space, ply::Key::A,
+            ply::Key::D,    ply::Key::W,     ply::Key::P,     ply::Key::R};
+        const ply::InputFrame frame =
+            ply::inputFrameFrom(a.input(), ply::PointerSource::HostMouse, 1, kTrackedKeys);
+        const ply::FrameRoute routed = ply::pumpFrame(uiRouter, pumpState, frame);
+        // Two different questions, and conflating them is a bug: an EDGE key
+        // (jump, pause, restart) is decided by its own route result, while a
+        // HELD key (movement) has no edge this frame and is decided by whether
+        // any widget owns the gesture. `frame.keys` and `routed.keys` are
+        // parallel, so the edge lookup is by key, not by a fixed index — a
+        // frame with only Space pressed has no entry for Left.
+        const bool uiOwnsPointer = uiRouter.capturedWidget() >= 0;
+        const auto edgeReachedWorld = [&frame, &routed](ply::Key key) {
+            for (std::size_t i = 0; i < frame.keys.size() && i < routed.keys.size(); ++i) {
+                if (frame.keys[i].key == key) return routed.keys[i].worldConsumed;
+            }
+            return false;  // no edge for this key this frame
+        };
+        const bool keyLeft = a.input().isKeyDown(ply::Key::Left) && !uiOwnsPointer;
+        const bool keyRight = a.input().isKeyDown(ply::Key::Right) && !uiOwnsPointer;
+        const bool keyJumpP1 = edgeReachedWorld(ply::Key::Space);
+        const bool keyLeftP2 = a.input().isKeyDown(ply::Key::A) && !uiOwnsPointer;
+        const bool keyRightP2 = a.input().isKeyDown(ply::Key::D) && !uiOwnsPointer;
+        const bool keyJumpP2 = edgeReachedWorld(ply::Key::W);
+        const bool keyPause = edgeReachedWorld(ply::Key::P);
+        const bool keyRestart = edgeReachedWorld(ply::Key::R);
+
         // Assemble per-player input: phone slot i drives player i, with a
         // keyboard fallback so the demo is playable without any phones.
         std::array<demo::PlayerInput, demo::kPlayerCount> input{};
@@ -399,13 +437,13 @@ int main(int argc, char** argv) {
             }
 
             if (i == 0) {
-                if (a.input().isKeyDown(ply::Key::Left)) input[i].x = -1.0f;
-                if (a.input().isKeyDown(ply::Key::Right)) input[i].x = 1.0f;
-                if (a.input().isKeyPressed(ply::Key::Space)) input[i].jumpPressed = true;
+                if (keyLeft) input[i].x = -1.0f;
+                if (keyRight) input[i].x = 1.0f;
+                if (keyJumpP1) input[i].jumpPressed = true;
             } else {
-                if (a.input().isKeyDown(ply::Key::A)) input[i].x = -1.0f;
-                if (a.input().isKeyDown(ply::Key::D)) input[i].x = 1.0f;
-                if (a.input().isKeyPressed(ply::Key::W)) input[i].jumpPressed = true;
+                if (keyLeftP2) input[i].x = -1.0f;
+                if (keyRightP2) input[i].x = 1.0f;
+                if (keyJumpP2) input[i].jumpPressed = true;
             }
         }
 
@@ -416,7 +454,7 @@ int main(int argc, char** argv) {
                 startPressed = true;
             }
         }
-        if (a.input().isKeyPressed(ply::Key::R)) {
+        if (keyRestart) {
             game.reset(world);
             decorate(world);
         } else if (game.state == demo::GameState::Won) {
@@ -424,7 +462,7 @@ int main(int argc, char** argv) {
                 game.reset(world);
                 decorate(world);
             }
-        } else if (startPressed || a.input().isKeyPressed(ply::Key::P)) {
+        } else if (startPressed || keyPause) {
             game.togglePause();
         }
 
