@@ -103,10 +103,14 @@ void testFixtures() {
     // (the a5.1 lesson: an unguarded index turns a red run into a crash).
     if (t.tileset.tiles.size() >= 4) {
         eq(t.tileset.tiles[0].id, 0, "tiles sort by id (0)");
+        eq(t.tileset.tiles[1].id, 1, "tiles sort by id (1)");
+        eq(t.tileset.tiles[2].id, 2, "tiles sort by id (2)");
+        eq(t.tileset.tiles[3].id, 3, "tiles sort by id (3)");
         eqRect(t.tileset.tiles[0].region, UIRect{0, 0, 16, 16}, "tile 0 region");
         eq(t.tileset.tiles[0].solid, 0, "tile 0 is not solid");
         eqRect(t.tileset.tiles[1].region, UIRect{16, 0, 16, 16}, "tile 1 region");
         eq(t.tileset.tiles[1].solid, 1, "tile 1 is solid");
+        eqRect(t.tileset.tiles[2].region, UIRect{32, 0, 16, 16}, "tile 2 region");
         eq(t.tileset.tiles[2].solid, 1, "tile 2 is solid");
         eqRect(t.tileset.tiles[3].region, UIRect{0, 16, 16, 16}, "tile 3 region");
         eq(t.tileset.tiles[3].solid, 0, "tile 3 is not solid");
