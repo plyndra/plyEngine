@@ -32,6 +32,8 @@ const char* toString(MapErrorCode code) {
         case MapErrorCode::OutOfRangeTileId: return "OutOfRangeTileId";
         case MapErrorCode::MaskOutOfRange: return "MaskOutOfRange";
         case MapErrorCode::UnknownMask: return "UnknownMask";
+        case MapErrorCode::UnknownLayerFlag: return "UnknownLayerFlag";
+        case MapErrorCode::ConflictingLayerFlags: return "ConflictingLayerFlags";
     }
     return "None";  // unreachable; every enumerator is handled
 }
@@ -75,6 +77,30 @@ bool parseDocument(std::string_view document, json& doc, MapError& error) {
 }
 
 }  // namespace
+
+// --- layer flag tokens (b3a) ----------------------------------------------
+
+const char* toString(unsigned layerFlag) {
+    switch (layerFlag) {
+        case kLayerBelowEntities: return "below-entities";
+        case kLayerAboveEntities: return "above-entities";
+        case kLayerAnimated: return "animated";
+        case kLayerOpaque: return "opaque";
+        default: return nullptr;  // 0, a combination, or a future flag
+    }
+}
+
+unsigned parseLayerFlag(std::string_view token) {
+    // Exact match only: a prefix or a different case is not a token, so a
+    // typo surfaces as UnknownLayerFlag instead of a silently different
+    // layer.
+    for (const unsigned flag : {kLayerBelowEntities, kLayerAboveEntities,
+                                kLayerAnimated, kLayerOpaque}) {
+        const char* name = toString(flag);
+        if (name != nullptr && token == name) return flag;
+    }
+    return 0;
+}
 
 const TileDef* TilesetSlice::findTile(int id) const {
     for (const TileDef& tile : tiles) {
@@ -228,6 +254,43 @@ MapLoadResult loadMapFromString(std::string_view document) {
             }
         }
 
+        // b3a: layer flags. Absent means the default (ground), which is the
+        // struct initialiser; an empty array is the same statement. Every
+        // token must be one this build knows, and below/above are mutually
+        // exclusive because they name one draw order.
+        const auto flags = entry.find("flags");
+        if (flags != entry.end()) {
+            if (!flags->is_array()) {
+                result.error = fail(MapErrorCode::WrongType, "flags");
+                result.map = MapData{};
+                return result;
+            }
+            unsigned parsed = 0;
+            for (std::size_t f = 0; f < flags->size(); ++f) {
+                if (!(*flags)[f].is_string()) {
+                    result.error = fail(MapErrorCode::WrongType, "flags[" + std::to_string(f) + "]");
+                    result.map = MapData{};
+                    return result;
+                }
+                const std::string token = (*flags)[f].get<std::string>();
+                const unsigned flag = parseLayerFlag(token);
+                if (flag == 0) {
+                    result.error = fail(MapErrorCode::UnknownLayerFlag,
+                                        layer.name + " flag '" + token + "'");
+                    result.map = MapData{};
+                    return result;
+                }
+                parsed |= flag;
+            }
+            layer.flags = parsed == 0 ? kLayerBelowEntities : parsed;
+            if ((layer.flags & kLayerBelowEntities) && (layer.flags & kLayerAboveEntities)) {
+                result.error = fail(MapErrorCode::ConflictingLayerFlags,
+                                    layer.name + " claims below-entities and above-entities");
+                result.map = MapData{};
+                return result;
+            }
+        }
+
         const auto tiles = entry.find("tiles");
         if (tiles == entry.end()) {
             result.error = fail(MapErrorCode::MissingField, "tiles");
@@ -287,6 +350,18 @@ std::string emitMap(const MapData& map) {
         json entry;
         entry["name"] = layer.name;
         entry["tiles"] = layer.tiles;
+        // Flags are written only when they differ from the ground default, so
+        // a flags-less a9 document emits back as exactly the a9 grammar.
+        if (layer.flags != kLayerBelowEntities) {
+            json tokens = json::array();
+            for (const unsigned flag : {kLayerBelowEntities, kLayerAboveEntities,
+                                        kLayerAnimated, kLayerOpaque}) {
+                if ((layer.flags & flag) == 0) continue;
+                const char* token = toString(flag);
+                if (token != nullptr) tokens.push_back(token);
+            }
+            entry["flags"] = std::move(tokens);
+        }
         layers.push_back(std::move(entry));
     }
     doc["layers"] = std::move(layers);
