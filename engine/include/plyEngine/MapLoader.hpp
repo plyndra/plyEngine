@@ -82,6 +82,13 @@ inline constexpr unsigned kLayerAllFlags = kLayerBelowEntities | kLayerAboveEnti
 /// kLayerBelowEntities, and emit writes the "flags" key only when the value
 /// differs from that default, so a document carrying no flags emits back as
 /// exactly the a9 grammar (the a9 compatibility pin).
+///
+/// Precondition for a hand-built layer (never reachable from a document): set
+/// only bits in kLayerAllFlags, and never both below- and above-entities.
+/// emit DROPS unknown bits (the a9 negative-id normalisation precedent) and
+/// treats 0 as the default; a layer claiming both draw orders is emitted as
+/// written and rejected loudly on reload, because that is an impossible draw
+/// order rather than something to repair silently.
 struct MapLayer {
     std::string name;
     std::vector<int> tiles;
