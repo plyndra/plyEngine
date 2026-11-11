@@ -30,6 +30,7 @@ const char* toString(MapErrorCode code) {
         case MapErrorCode::LayerSizeMismatch: return "LayerSizeMismatch";
         case MapErrorCode::MissingTileset: return "MissingTileset";
         case MapErrorCode::OutOfRangeTileId: return "OutOfRangeTileId";
+        case MapErrorCode::MaskOutOfRange: return "MaskOutOfRange";
     }
     return "None";  // unreachable; every enumerator is handled
 }

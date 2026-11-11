@@ -94,6 +94,9 @@ enum class MapErrorCode {
     LayerSizeMismatch,
     MissingTileset,
     OutOfRangeTileId,
+    /// b1 (TileSet.hpp): an autotile mask outside {-1} ∪ [0, 255]. Appended
+    /// after the a9 tokens so existing values stay stable.
+    MaskOutOfRange,
 };
 
 /// Stable token for the code, e.g. "OutOfRangeTileId". Never renamed.

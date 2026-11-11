@@ -1,0 +1,37 @@
+{
+  "name": "village",
+  "image": "tileset_village.png",
+  "tile_width": 16,
+  "tile_height": 16,
+  "tiles": [
+    {"id": 3, "region": {"x": 48, "y": 0, "w": 16, "h": 16}, "solid": false,
+     "mask": 31, "variant": "grass", "palette": "overworld"},
+    {"id": 0, "region": {"x": 0, "y": 0, "w": 16, "h": 16}, "solid": false,
+     "mask": 0, "variant": "grass", "palette": "overworld"},
+    {"id": 7, "region": {"x": 48, "y": 16, "w": 16, "h": 16}, "solid": false,
+     "palette": "cave"},
+    {"id": 5, "region": {"x": 16, "y": 16, "w": 16, "h": 16}, "solid": true},
+    {"id": 1, "region": {"x": 16, "y": 0, "w": 16, "h": 16}, "solid": false,
+     "mask": 5, "variant": "grass", "palette": "overworld"},
+    {"id": 8, "region": {"x": 0, "y": 32, "w": 16, "h": 16}, "solid": false,
+     "variant": "water", "palette": "overworld", "phase": 3,
+     "animation": [
+       {"region": {"x": 0, "y": 32, "w": 16, "h": 16}, "steps": 12},
+       {"region": {"x": 16, "y": 32, "w": 16, "h": 16}, "steps": 12},
+       {"region": {"x": 32, "y": 32, "w": 16, "h": 16}, "steps": 12},
+       {"region": {"x": 48, "y": 32, "w": 16, "h": 16}, "steps": 12}
+     ]},
+    {"id": 4, "region": {"x": 0, "y": 16, "w": 16, "h": 16}, "solid": false,
+     "mask": 255, "variant": "grass", "palette": "overworld"},
+    {"id": 9, "region": {"x": 0, "y": 48, "w": 16, "h": 16}, "solid": true,
+     "variant": "fence", "palette": "overworld",
+     "collision": [{"x": 0, "y": 10, "w": 16, "h": 6}]},
+    {"id": 2, "region": {"x": 32, "y": 0, "w": 16, "h": 16}, "solid": false,
+     "mask": 16, "variant": "grass", "palette": "overworld"},
+    {"id": 6, "region": {"x": 32, "y": 16, "w": 16, "h": 16}, "solid": true,
+     "variant": "dirt", "palette": "overworld",
+     "collision": [{"x": 0, "y": 0, "w": 16, "h": 4}, {"x": 0, "y": 12, "w": 16, "h": 4}]},
+    {"id": 10, "region": {"x": 16, "y": 48, "w": 16, "h": 16}, "solid": false,
+     "unknown_future_key": true, "mask": 5, "variant": "grass", "palette": "overworld"}
+  ]
+}
