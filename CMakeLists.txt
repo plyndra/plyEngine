@@ -290,6 +290,7 @@ add_library(plyEngine STATIC
     engine/src/Minimap.cpp
     engine/src/MapLoader.cpp
     engine/src/TileSet.cpp
+    engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
     engine/src/InputRouting.cpp
     engine/src/HudFrame.cpp
@@ -548,6 +549,18 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_tileset_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME tileset COMMAND ply_tileset_test)
+
+    # AutoTileResolver (E-b2.1): the blob-47 table resolved at load and
+    # cached — every canonical mask resolves against the b1.3 terrain
+    # fixture, every raw 8-neighbour mask canonicalises into the set, the
+    # first-by-id variant policy is pinned, and an incomplete terrain set
+    # fails loudly instead of drawing a hole. Pure data: no GL, no window,
+    # no clock, no float.
+    add_executable(ply_autotile_test tests/autotile.cpp)
+    target_link_libraries(ply_autotile_test PRIVATE plyEngine)
+    target_compile_definitions(ply_autotile_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME autotile COMMAND ply_autotile_test)
 
     # Margin derivation from the alpha contour (E-a3.1/E-a3.2): derived ==
     # declared on the ui.png fixture, and the derived caps stay fixed across
