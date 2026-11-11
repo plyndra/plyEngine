@@ -67,11 +67,17 @@ Rules:
 `[left, top, right, bottom]` in source pixels, pre-scale, with `margins_source`
 recording where they came from (`"declared"` or `"derived"`) — §4 is the
 normative field shape. When an entry declares none — generated art usually does
-not — margins are **derived from the alpha contour**: find the run-length of
-uniform border pixels per side and use that as the margin, then verify the
-corners are stretch-invariant. This mirrors what `slicewright` does for
-generated UI, and it is why provenance is a separate field rather than an
-overloaded `margins`.
+not — margins are **derived from the alpha contour**: walk inward from each edge
+and count the run of lines whose alpha equals that edge's corner alpha; that run
+is the margin. Colour is deliberately not consulted, so the rule is independent
+of palette. Corner stretch-invariance is then verified by *using* the derived
+margins: the region is sliced through a2's emitter with them, and the caps must
+come out fixed at every target size (a3's grader pins three sizes). This mirrors
+what `slicewright` does for generated UI, and it is why provenance is a separate
+field rather than an overloaded `margins`. Derivation refuses with `NoCentre`
+when the run consumes an axis — which is exactly what an opaque, unpadded region
+reports, so art with an opaque frame declares its margins instead of deriving
+them.
 
 **A source region must keep a centre**: an individual margin larger than half
 that axis, or a pair summing to the whole axis, is rejected at load with a named
