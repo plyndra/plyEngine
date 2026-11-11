@@ -24,6 +24,11 @@ namespace {
 
 int failures = 0;
 
+// Filled by the slices that measure them, so the EVIDENCE transcript is a live
+// readout rather than a literal that a broken build could still print.
+int lastToleranceCases = 0;
+int lastToleranceAccepted = 0;
+
 void check(bool condition, const char* what) {
     if (!condition) {
         std::fprintf(stderr, "  FAIL: %s\n", what);
@@ -236,7 +241,7 @@ void testDerivedEqualsDeclared() {
 // a2's reference panel sizes.
 constexpr int kTargets[3][2] = {{48, 48}, {96, 64}, {200, 120}};
 
-void testStableAcrossPanelSizes() {
+long long testStableAcrossPanelSizes() {
     long long sliced = 0;
     for (const MarginCase& c : kMarginCases) {
         const ply::UIAtlasRegion* entry = atlas().findRegion(c.region);
@@ -263,9 +268,12 @@ void testStableAcrossPanelSizes() {
 
             // Cap extents follow a2's slice contract: `nine` fixes both caps,
             // `three_h` fixes only the side caps (the quad spans the target
-            // height) and `three_v` only the top/bottom ones. So the pinned
-            // invariant is per-mode, and a mode that fixed the wrong axis would
-            // fail here rather than pass silently.
+            // height) and `three_v` only the top/bottom ones. The fixture
+            // exercises `Nine` (panel.wood, bar.frame) and `ThreeH`
+            // (panel.tooltip, divider.h); the `ThreeV` and `Plain` arms are
+            // recorded here for completeness and are not reached by this
+            // fixture, so they are not graded — stated plainly rather than
+            // implied by the comment.
             if (quads.empty()) continue;
             const ply::UIQuad& first = quads[0];
             const int capW = first.topRight.x - first.topLeft.x;
@@ -301,6 +309,7 @@ void testStableAcrossPanelSizes() {
         }
     }
     eq(sliced, 12, "4 regions x 3 panel sizes were sliced (one loop)");
+    return sliced;  // the EVIDENCE transcript reads this value, not a literal
 }
 
 // --- refusals, named --------------------------------------------------------
@@ -341,8 +350,11 @@ void testNamedRefusals() {
     if (!report.empty()) {
         eqStr(report[0].region, "bar.frame", "the checked entry is bar.frame");
         check(report[0].withinTolerance, "bar.frame re-derives within tolerance");
-        eq(report[0].dl + report[0].dt + report[0].dr + report[0].db, 0,
-           "bar.frame's re-derivation drift is 0 on every side");
+        // Per side, not a sum that could hide two opposite drifts.
+        eq(report[0].dl, 0, "bar.frame drift is 0 on the left");
+        eq(report[0].dt, 0, "bar.frame drift is 0 on the top");
+        eq(report[0].dr, 0, "bar.frame drift is 0 on the right");
+        eq(report[0].db, 0, "bar.frame drift is 0 on the bottom");
         eqMargins(report[0].derived, UIMargins{4, 4, 4, 4}, "bar.frame derives [4,4,4,4]");
     }
     // A zero tolerance still passes on exact art: the rule is an exact match
@@ -353,9 +365,65 @@ void testNamedRefusals() {
           "bar.frame re-derives exactly (tolerance 0)");
 }
 
+// --- the tolerance window, with drift that is genuinely non-zero -------------
+//
+// The fixture's own art re-derives with zero drift, so a tolerance test built
+// only on it cannot tell "reject non-zero drift" from "accept everything" —
+// which is exactly what the first review of this unit found. These cases move
+// the *recorded* margins of a copy of the atlas, so the derived-vs-recorded
+// delta is real: drift -1 and +1 inside a ±1 window, -3 outside it.
+
+ply::UIAtlas atlasWithRecorded(const char* regionName, const UIMargins& recorded) {
+    ply::UIAtlas copy = atlas();
+    for (ply::UIAtlasRegion& region : copy.regions) {
+        if (region.name != regionName) continue;
+        region.hasMargins = true;
+        region.margins = recorded;
+        region.marginSource = ply::MarginSource::Derived;
+    }
+    return copy;
+}
+
+struct DriftCase {
+    const char* what;
+    int recordedLeft;
+    int tolerancePx;
+    bool wantWithin;
+};
+
+void testToleranceWindow() {
+    // bar.frame derives [4,4,4,4]; only the recorded left margin moves.
+    constexpr DriftCase kCases[] = {
+        {"recorded == derived is within tolerance 0", 4, 0, true},
+        {"1 px short of the recording is rejected at tolerance 0", 5, 0, false},
+        {"1 px short of the recording is within tolerance 1", 5, 1, true},
+        {"1 px over the recording is within tolerance 1 (drift is signed)", 3, 1, true},
+        {"3 px short of the recording is outside tolerance 1", 7, 1, false},
+    };
+    long long within_ = 0;
+    for (const DriftCase& c : kCases) {
+        const ply::UIAtlas perturbed =
+            atlasWithRecorded("bar.frame", UIMargins{c.recordedLeft, 4, 4, 4});
+        const std::vector<ply::DerivedMarginCheck> report =
+            ply::checkDerivedMargins(perturbed, uiImage(), c.tolerancePx);
+        check(report.size() == 1, "the perturbed atlas still has one derived entry");
+        if (report.size() != 1) continue;
+        eq(report[0].dl, 4 - c.recordedLeft, "recorded left margin drift is derived-minus-recorded");
+        if (report[0].withinTolerance != c.wantWithin) {
+            std::fprintf(stderr, "  FAIL: %s (got %s)\n", c.what,
+                         report[0].withinTolerance ? "within" : "outside");
+            ++failures;
+        }
+        if (c.wantWithin) ++within_;
+    }
+    eq(within_, 3, "3 of the 5 drift cases are inside their window (one loop)");
+    lastToleranceCases = 5;
+    lastToleranceAccepted = static_cast<int>(within_);
+}
+
 // One line of measured values, printed so the ledger entry can be a verbatim
 // transcript instead of prose. Every value here is also asserted above.
-void printEvidence() {
+void printEvidence(long long sliced) {
     const auto derived = [](const char* name) {
         return ply::deriveMargins(uiImage(), regionRect(name)).margins;
     };
@@ -367,7 +435,7 @@ void printEvidence() {
 
     std::printf(
         "EVIDENCE ui_margins sha256=%s px=%dx%d wood=%d/%d/%d/%d bar=%d/%d/%d/%d "
-        "tip=%d/%d/%d/%d div=%d/%d/%d/%d derived_entries=%zu drift=%d sliced=12 "
+        "tip=%d/%d/%d/%d div=%d/%d/%d/%d derived_entries=%zu drift=%d sliced=%lld tol=%d/%d "
         "no_centre=%s bounds=%s\n",
         sha256Hex(readBytes(dataPath("ui.png"))).substr(0, 16).c_str(), uiImage().width(),
         uiImage().height(), wood.left, wood.top, wood.right, wood.bottom, bar.left, bar.top,
@@ -375,6 +443,7 @@ void printEvidence() {
         div.right, div.bottom, report.size(),
         report.empty() ? -1
                        : report[0].dl + report[0].dt + report[0].dr + report[0].db,
+        sliced, lastToleranceCases, lastToleranceAccepted,
         ply::deriveMargins(uiImage(), regionRect("slot.normal")).error.name(),
         ply::deriveMargins(uiImage(), UIRect{150, 120, 40, 40}).error.name());
 }
@@ -384,12 +453,13 @@ void printEvidence() {
 int main() {
     testFixtureIntegrity();
     testDerivedEqualsDeclared();
-    testStableAcrossPanelSizes();
+    const long long sliced = testStableAcrossPanelSizes();
     testNamedRefusals();
+    testToleranceWindow();
 
     if (failures == 0) {
         if (uiImage().valid() && atlas().findRegion("bar.frame") != nullptr) {
-            printEvidence();
+            printEvidence(sliced);
         } else {
             std::fprintf(stderr, "  FAIL: evidence preconditions\n");
             return 1;
