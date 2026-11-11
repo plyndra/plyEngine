@@ -42,7 +42,7 @@ is additive.
   divides the cursor by the present factor from the plan rather than a
   hardcoded 1.
 
-## [1.0.1] — 2026-11-09
+## [1.0.1] — 2026-11-11
 
 ### Fixed
 

@@ -12,22 +12,14 @@ through the engine's real phone input path.*
 ## Try it in 30 seconds
 
 No account, no compiler, no form. Download the archive for your OS from
-[Releases](https://github.com/plyndra/plyEngine/releases/latest), unpack it, run
-it, and open the printed URL on your phones (same Wi-Fi).
-
-> **The published archives are `v1.0.0`, and in that release every demo runs a
-> fixed number of frames and then exits.** Measured: `./ply_companion` prints a
-> room code and closes after 120 frames (about two seconds with vsync on), so
-> no phone can join it. The fix — each demo stays open until you close its
-> window, and `--frames` / `--verify` keep the bounded behaviour — is on `main`
-> as CHANGELOG `1.0.1` and ships with the next tagged release. To run the
-> interactive demo **today**, build the source checkout in
-> [Build it yourself](#build-it-yourself).
+[Releases](https://github.com/plyndra/plyEngine/releases/latest) (`v1.0.1`),
+unpack it, run it, and open the printed URL on your phones (same Wi-Fi). Each
+demo stays open until you close its window.
 
 ```sh
 # Linux x86-64 (glibc 2.35+, desktop OpenGL 3.3)
 tar xzf plyEngine-v*-linux-x86_64.tar.gz && cd plyEngine-v*/
-./ply_companion           # v1.0.0: prints a room code, then exits after 120 frames
+./ply_companion           # prints a room code and a LAN URL
 
 # macOS (Apple Silicon)
 tar xzf plyEngine-v*-macos-arm64.tar.gz && cd plyEngine-v*/
@@ -47,8 +39,7 @@ deaths and the win). No phones? Keyboard works: P1 arrows + Space, P2 A/D/W,
 ## Use it in your project
 
 The engine is one CMake target; C++20, include paths and dependencies
-propagate. Pin the tag you tested (`v1.0.0` is the newest tagged release;
-`1.0.1` — the demo-stays-open fix — is on `main` until the next tag):
+propagate. Pin the tag you tested (`v1.0.1` is the newest release):
 
 ```cmake
 include(FetchContent)
@@ -56,7 +47,7 @@ set(PLY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(PLY_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(plyEngine
     GIT_REPOSITORY https://github.com/plyndra/plyEngine.git
-    GIT_TAG        v1.0.0)
+    GIT_TAG        v1.0.1)
 FetchContent_MakeAvailable(plyEngine)
 target_link_libraries(mygame PRIVATE plyEngine)
 ```
@@ -70,8 +61,7 @@ vcpkg install plyengine --overlay-ports=ports   # in-repo registry; see packagin
 
 > **Status:** public API is frozen (additions are minor changes; removals or
 > renames need a deprecation cycle). Behaviour can still change to fix a bug.
-> `ply::kVersion` reports `1.0.1` on `main`; the newest tag — and the version in
-> the published archives — is `v1.0.0`.
+> The newest release — and what `ply::kVersion` reports — is `1.0.1`.
 > Prebuilt binaries and source: [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## What you'll be able to build

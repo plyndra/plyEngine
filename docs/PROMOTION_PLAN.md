@@ -70,9 +70,20 @@ a phone could join.
 
 That defect is fixed on `main` (`app.run()` is the no-flag default; CI now
 asserts each demo is still alive after 4 s with no flags) and recorded as
-`1.0.1` in `CHANGELOG.md`. **Phase 0's gate therefore now includes publishing
-1.0.1**: 0.6 cannot be marked done while the download a stranger actually gets
-is the broken build. Tagging is the owner's call.
+`1.0.1` in `CHANGELOG.md`. **Phase 0's gate included publishing 1.0.1**, and it
+is now **done**: `v1.0.1` was tagged and published 2026-11-11 as the latest
+release (all four assets), cut from the last commit before the 2.0 M1a engine
+work so the patch carries no unreleased API. Verified on the published archive
+itself: `./ply_companion --no-mdns` is still running after 4 s (exit 124 from
+`timeout`, i.e. the window is open and the URL is live), `--verify` still
+passes, and `companion/` ships the PWA.
+
+0.6 is therefore **done** — the block in the README now describes the download
+a stranger actually gets. The first publication attempt failed three times on a
+GitHub-side DNS outage (apt inside the runners could not resolve
+`archive.ubuntu.com`; the container and host jobs both failed while Windows and
+macOS passed); it cleared at ~17:00 UTC and the run published on the retry. No
+workflow change was needed, so the tag tree is the plain 1.0.1 tree.
 
 0.7's image is **generated and waiting** (`docs/announcements/social-preview.png`,
 1280x640: title, one-line pitch, a real capture frame). Uploading it through

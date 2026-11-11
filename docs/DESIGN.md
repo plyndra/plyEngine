@@ -463,6 +463,20 @@ explicitly accepted. That is a deliberate, recorded trade-off rather than an
 oversight: see the "1.0.0 promotion rule" section above and
 `docs/ROADMAP.md`.
 
+## 1.0.1 released (2026-11-11)
+
+A patch release fixing one shipped behaviour: when run with no flags every demo
+ran a fixed frame count and exited, so `./ply_companion` printed a room code and
+closed before a phone could join — the flagship download path was unusable. The
+no-flag default is now `app.run()`; `--frames`, `--verify` and `--screenshot`
+keep the bounded behaviour CI depends on, and CI asserts each demo is still
+alive after 4 s with no flags.
+
+Cut from the last commit before the 2.0 M1a engine work so the archive contains
+no unreleased API (the additive 2.0 additions belong in a minor release).
+Verified on the published Linux archive, not just the build tree: the demo is
+still running after 4 s with no flags, `--verify` passes, and the PWA ships.
+
 Next branch, in priority order: the **2.0 top-down simulation target** — the
 owner's pick after 1.0.1, planned in `docs/planning/ROADMAP_TARGET.md` with the
 decisions behind it in `docs/planning/adr/`. M1a (the UI framework, render
