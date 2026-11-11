@@ -290,6 +290,7 @@ add_library(plyEngine STATIC
     engine/src/MapLoader.cpp
     engine/src/UIMargins.cpp
     engine/src/InputRouting.cpp
+    engine/src/HudFrame.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -551,6 +552,13 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_input_routing_test tests/input_routing.cpp)
     target_link_libraries(ply_input_routing_test PRIVATE plyEngine)
     add_test(NAME input_routing COMMAND ply_input_routing_test)
+
+    # HUD-over-world composition: a7's world layers in internal px, the
+    # render-target plan, and the HUD above the upscale in output px — the
+    # composition half of the M1a gate, as data. No GL context.
+    add_executable(ply_hud_frame_test tests/hud_frame.cpp)
+    target_link_libraries(ply_hud_frame_test PRIVATE plyEngine)
+    add_test(NAME hud_frame COMMAND ply_hud_frame_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)
