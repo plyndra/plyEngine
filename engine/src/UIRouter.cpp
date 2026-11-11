@@ -24,6 +24,20 @@ int UIRouter::widgetAt(int x, int y) const {
     return -1;
 }
 
+KeyRouteResult UIRouter::routeKey(const KeyEvent& event) {
+    // Same ownership rule as the pointer, and deliberately no more: the router
+    // has no focus concept, so a key belongs to the gesture that is already
+    // running (if any) or to the world. The key itself changes no state — a key
+    // up edge is not a pointer release.
+    KeyRouteResult result;
+    if (captured_ >= 0) {
+        result.widget = captured_;
+        return result;
+    }
+    result.worldConsumed = true;
+    return result;
+}
+
 RouteResult UIRouter::route(const PointerEvent& event) {
     RouteResult result;
 
