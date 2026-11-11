@@ -127,7 +127,10 @@ assets/manifests/<name>.json     provenance: provider, model, seed, licence, sha
 
 **Must prove:** load → save → load round-trip equality for maps and tilesets;
 validator rejects (and names) out-of-range tile ids, unregistered tileset
-references, missing autotile masks, and prop collisions outside bounds.
+references, missing autotile masks, and prop collisions outside bounds. Each
+case lands with the unit that owns its data: tile ids and tileset references
+with a9's `MapLoader` validator, autotile masks with b1/b2, prop bounds with
+b5.1.
 
 ---
 
