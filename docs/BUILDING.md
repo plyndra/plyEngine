@@ -104,7 +104,7 @@ unpacked directory if Gatekeeper objects.
 | `PLY_BUILD_DEPS_INSTALL` | `ON` | Let GLM/json/SDL3 install themselves (needed by `PLY_INSTALL`) |
 | `PLY_BUILD_SCRIPTING` | `ON` | Build the Lua scripting layer (pulls in Lua 5.4) |
 | `PLY_USE_SYSTEM_DEPS` | `OFF` | Use `find_package`/staged sources instead of FetchContent (offline, package managers) |
-| `PLY_VERSION_STRING` | `1.0.0` | Version reported by `ply::kVersion` (generated header) |
+| `PLY_VERSION_STRING` | `1.0.1` | Version reported by `ply::kVersion` (generated header) |
 
 `ply::kVersion` lives in a **generated** header. `PLY_VERSION_STRING` in
 `CMakeLists.txt` is the only place the version is authored; the git tag must
@@ -220,6 +220,10 @@ the pit and the saw, player 2 moving independently, and a win.
 - **ASan reports leaks when running a demo** — if every stack frame is inside
   `libGLX_mesa.so`, it is Mesa's GLX state that is never torn down, not
   plyEngine (the equivalent GL-free `ctest` suites are clean). Suppress it with
-  `LSAN_OPTIONS=suppressions=<file>` if you need a quiet run. Note that
+  `LSAN_OPTIONS=suppressions=<file>` if you need a quiet run. The same applies
+  to `ctest`'s one GL-context suite (`present_gl`): its only LeakSanitizer
+  reports are libdbus and EGL/Mesa library globals with no engine frame in the
+  trace, so the suite runs with `ASAN_OPTIONS=detect_leaks=0`; every other
+  suite keeps full leak detection. Note that
   `--verify` always simulates a full playthrough (1800 frames), whatever
   `--frames` says.

@@ -5,6 +5,43 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html) with
 `-alpha.N` prerelease tags until 1.0.0.
 
+## [Unreleased]
+
+Work toward the 2.0 top-down simulation target (`docs/planning/ROADMAP_TARGET.md`),
+landed on `main` unit by unit. The 1.x public API stays frozen: everything below
+is additive.
+
+### Added
+
+- **UI framework (M1a)** — `UIAtlasLoader` (regions, 9-slice margins declared or
+  derived from the alpha contour, stretch/tile modes), `NineSlice` geometry,
+  anchor+offset+scale integer layout (`layoutWidgets`), the `Bar`/`Slot`/
+  `Hotbar`/`Panel`/`Tooltip` widgets, `PixelText` (BMFont, ink bounds, stable
+  glyph hashes), `UIRouter` with consume-before-world and press capture, the
+  source-agnostic input pump (`InputRouting`), `HudFrame` (the HUD-over-world
+  composition as data), `RenderTargetPlan` (integer upscale policy, floor
+  camera snap, scene layer order), `Minimap`, and `MapLoader` with the static
+  tileset slice.
+- **`PresentPass`** — the render-target GL half: a framebuffer + colour texture
+  at the plan's internal resolution, the scene drawn between `begin()`/`end()`,
+  and a `GL_NEAREST` present blit to `plan.destination` (exact k×k blocks, never
+  a blended pixel; a destination larger than the window is impossible above
+  factor 1, and the factor-1 clip is snapped to the factor grid).
+- **16 new headless test suites** (31 total), including the one GL-context
+  suite: the present blit is graded by structural readback under SDL's
+  offscreen video driver — computed from pattern data, not a pixel golden —
+  and skips loudly where no GL context exists.
+
+### Changed
+
+- The reference platformer demo renders its world through an integer-scaled
+  render target (nearest upsampling, letterboxed at the plan's destination) in
+  a7's layer order, with the HUD drawn above the upscale. Its pause plate is
+  now a real HUD widget: clickable to resume, routed through `UIRouter`
+  (interactive exactly while it is drawn), and the demo's input conversion
+  divides the cursor by the present factor from the plan rather than a
+  hardcoded 1.
+
 ## [1.0.1] — 2026-11-09
 
 ### Fixed

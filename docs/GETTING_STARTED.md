@@ -28,9 +28,12 @@ packages SDL3 needs on Linux.
 ctest --test-dir build --output-on-failure
 ```
 
-Fifteen headless suites cover the ECS, transforms, timestep, assets, physics,
-audio, scripting, the companion protocol and the reference demo's gameplay
-logic. They
+Thirty-one headless suites cover the ECS, transforms, timestep, assets, physics,
+audio, scripting, the companion protocol, the reference demo's gameplay logic,
+and the 2.0 UI framework (atlas loading, nine-slice, integer layout, widgets,
+pixel text, input routing, map loading, minimap, render-target plan and HUD
+composition) plus — the one suite that needs a GL context — the offscreen
+present blit. They
 also run under AddressSanitizer + UBSan:
 
 ```sh
@@ -80,7 +83,7 @@ synthesised sound cues (jump, coin, death, win).
 
    ```
    ========================================
-     plyEngine 1.0.0-beta.1 - platformer demo
+     plyEngine 1.0.1 - platformer demo
      room code: HL5W
      open:      http://192.168.x.x:8080
    ========================================

@@ -48,7 +48,13 @@ section() { printf '\n== %s ==\n' "$*"; }
 section "version consistency"
 
 cmake_version="$(sed -n 's/^set(PLY_VERSION_STRING "\([^"]*\)".*/\1/p' CMakeLists.txt | head -1)"
-changelog_version="$(sed -n 's/^## \[\([^]]*\)\].*/\1/p' CHANGELOG.md | head -1)"
+# The first NUMBERED heading, not the first heading: Keep a Changelog puts an
+# [Unreleased] section on top, and that section is by definition not a release,
+# so it must not be compared against PLY_VERSION_STRING (amended in the same
+# commit that added the tree's first [Unreleased] section, for the 2.0 M1a
+# work; the check's purpose — the latest released version agrees across
+# CMake/CHANGELOG/tag — is unchanged).
+changelog_version="$(sed -n 's/^## \[\([^]]*\)\].*/\1/p' CHANGELOG.md | grep -vx Unreleased | head -1)"
 
 if [ -z "$cmake_version" ]; then
     fail "PLY_VERSION_STRING not found in CMakeLists.txt"

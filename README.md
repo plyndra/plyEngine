@@ -112,7 +112,7 @@ git clone https://github.com/plyndra/plyEngine.git
 cd plyEngine
 cmake -B build -DCMAKE_BUILD_TYPE=Release   # needs SDL3/X11 dev packages, see docs/BUILDING.md
 cmake --build build -j
-ctest --test-dir build --output-on-failure     # 15 headless suites
+ctest --test-dir build --output-on-failure     # 31 headless suites
 ```
 
 Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md). The walkthrough
@@ -136,10 +136,15 @@ it. Each demo then runs interactively until you close its window:
 
 Every milestone ships with checks that can actually fail:
 
-- **15 `ctest` suites** — ECS, transforms, timestep, atlas math, assets,
-  physics, audio, scripting, companion protocol/server, and a scripted full
-  playthrough of the reference platformer (`platformer`), all green in Release
-  **and** under `-DPLY_SANITIZE=ON` (ASan + UBSan).
+- **31 `ctest` suites** — ECS, transforms, timestep, atlas math, assets,
+  physics, audio, scripting, companion protocol/server, a scripted full
+  playthrough of the reference platformer (`platformer`), and the 2.0 UI
+  framework: atlas loading, nine-slice, integer layout, the widgets, pixel
+  text, the input router, map loading, the minimap, the render-target plan,
+  the HUD composition, and the one GL-context suite that grades the render
+  target's nearest present blit by structural readback under SDL's offscreen
+  video driver (no pixel goldens in CI). All green in Release **and** under
+  `-DPLY_SANITIZE=ON` (ASan + UBSan).
 - **`--verify` on every demo** — headless assertions on real outcomes: the
   tutorial collects all five coins; `ply_companion --verify` plays a complete
   four-player match through the real companion-input queue and asserts coins,
@@ -166,8 +171,11 @@ Every milestone ships with checks that can actually fail:
 ## Roadmap
 
 M0 scaffold → M1 window → M2 renderer → M3 ECS → M4 assets → M5 simulation →
-M6 companion → **M7 1.0-alpha (done)**. Post-1.0-alpha branches (scripting,
-web build, mobile, internet play) are listed in
+M6 companion → **M7 1.0-alpha (done)**. The 2.0 target — a top-down simulation
+engine with a full HUD — is underway on `main`: the UI framework, render
+target and input router have landed, and the plan lives in
+[docs/planning/ROADMAP_TARGET.md](docs/planning/ROADMAP_TARGET.md). Post-1.0
+branches (web build, mobile, internet play) are listed in
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing

@@ -1,7 +1,10 @@
 # plyEngine — Roadmap
 
 > **1.x history only.** This file records the milestones that produced 1.0.x and
-> is complete. The 2.0 target — top-down simulation engine — is planned in
+> is complete. The 2.0 target — top-down simulation engine — is underway:
+> M1a's fourteen units (UI framework through input routing), the HUD-over-world
+> composition and the GL present half are landed on `main` (PRs #1–#15), with
+> the gate row amended to the exact suite list; the plan and what remains is in
 > [planning/ROADMAP_TARGET.md](planning/ROADMAP_TARGET.md), with the decisions
 > behind it in [planning/adr/](planning/adr/).
 

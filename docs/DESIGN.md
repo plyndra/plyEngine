@@ -463,6 +463,10 @@ explicitly accepted. That is a deliberate, recorded trade-off rather than an
 oversight: see the "1.0.0 promotion rule" section above and
 `docs/ROADMAP.md`.
 
-Next branch, in priority order: Web/WASM export (the post-1.0 branch the owner
-picked), then mobile, then internet play and any binary-protocol work the
-profiling demands.
+Next branch, in priority order: the **2.0 top-down simulation target** — the
+owner's pick after 1.0.1, planned in `docs/planning/ROADMAP_TARGET.md` with the
+decisions behind it in `docs/planning/adr/`. M1a (the UI framework, render
+target and input router) has landed unit by unit with eval-graded receipts;
+the design record for it lives there, not in this file. The post-1.0 branches
+(Web/WASM export, mobile, internet play and any binary-protocol work the
+profiling demands) stay on the shelf behind it.
