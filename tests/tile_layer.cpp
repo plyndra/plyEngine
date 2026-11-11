@@ -21,6 +21,13 @@ namespace {
 
 int failures = 0;
 
+/// Live counters for the EVIDENCE transcript: derived from the battery that
+/// actually ran, so a case added or removed without updating the format
+/// string changes the transcript (the "literal in a format string" defect
+/// this project has fixed twice before - O1 from the b3a verifier read).
+int batteryUnknownFlagCases = 0;
+int batteryConflictCases = 0;
+
 /// toString may legitimately return nullptr; the grader must not construct a
 /// std::string from it (the a5.1 harness lesson — a stub must fail its pins,
 /// not abort the suite).
@@ -194,6 +201,80 @@ void testRoundTrip() {
           "the flags-less document is still a fixed point");
 }
 
+// --- hand-built layers: emit normalises (O2 from the b3a verifier read) ----
+
+void testEmitNormalisation() {
+    // A hand-built layer never comes from a document, but b3b/b5 will build
+    // them programmatically, so emit must not produce a document this build
+    // would reload into different data. Unknown bits are dropped (a9's
+    // negative-id normalisation precedent); 0 is emitted as the default.
+    ply::MapData map;
+    map.name = "m";
+    map.tileset = "t";
+    map.width = 2;
+    map.height = 1;
+    ply::MapLayer unknownBits;
+    unknownBits.name = "A";
+    unknownBits.tiles = {0, 0};
+    unknownBits.flags = 1u << 4;  // a bit this build does not know
+    map.layers = {unknownBits};
+    const std::string emitted = ply::emitMap(map);
+    check(emitted.find("flags") == std::string::npos,
+          "an unknown-only flag set emits no flags key");
+    const ply::MapData reloaded = ply::loadMapFromString(emitted).map;
+    check(reloaded.layers.size() == 1, "the normalised document reloads");
+    check(reloaded.layers[0].flags == ply::kLayerBelowEntities,
+          "unknown bits normalise to the default on reload");
+
+    // 0 behaves the same way: it is not a flag set, so it emits as ground.
+    map.layers[0].flags = 0;
+    const std::string zeroEmitted = ply::emitMap(map);
+    check(zeroEmitted.find("flags") == std::string::npos, "flags 0 emits no flags key");
+    check(ply::loadMapFromString(zeroEmitted).map.layers[0].flags ==
+              ply::kLayerBelowEntities,
+          "flags 0 reloads as the default");
+
+    // A KNOWN extra bit is still emitted (the normalisation must not swallow
+    // real flags), and the round-trip is exact.
+    map.layers[0].flags = ply::kLayerAboveEntities | ply::kLayerOpaque;
+    const std::string known = ply::emitMap(map);
+    check(known.find("above-entities") != std::string::npos, "known flags still emit");
+    check(ply::loadMapFromString(known).map.layers[0].flags ==
+              (ply::kLayerAboveEntities | ply::kLayerOpaque),
+          "known flags round-trip exactly");
+}
+
+// --- every rejection clears the map (O4) -----------------------------------
+
+void testEveryRejectionClears() {
+    // The module's claim is "rejects the whole document", so the error kinds
+    // that are not about flags must clear too - the read found two that used
+    // to return a half-parsed map. Both are pinned here.
+    const char* docs[] = {
+        // a layer with no "tiles" key
+        "{\"name\": \"m\", \"tileset\": \"t\", \"width\": 2, \"height\": 1, "
+        "\"layers\": [{\"name\": \"A\", \"tiles\": [0, 0]}, {\"name\": \"B\"}]}",
+        // a layer whose tile ids are not integers
+        "{\"name\": \"m\", \"tileset\": \"t\", \"width\": 2, \"height\": 1, "
+        "\"layers\": [{\"name\": \"A\", \"tiles\": [0, 0]}, "
+        "{\"name\": \"B\", \"tiles\": [0, \"x\"]}]}",
+        // a layer with the wrong number of cells
+        "{\"name\": \"m\", \"tileset\": \"t\", \"width\": 2, \"height\": 1, "
+        "\"layers\": [{\"name\": \"A\", \"tiles\": [0, 0]}, "
+        "{\"name\": \"B\", \"tiles\": [0]}]}",
+        // a duplicate layer name
+        "{\"name\": \"m\", \"tileset\": \"t\", \"width\": 2, \"height\": 1, "
+        "\"layers\": [{\"name\": \"A\", \"tiles\": [0, 0]}, "
+        "{\"name\": \"A\", \"tiles\": [0, 0]}]}",
+    };
+    for (const char* doc : docs) {
+        const ply::MapLoadResult r = ply::loadMapFromString(doc);
+        check(!r.ok(), "a non-flag rejection is reported");
+        check(r.map.name.empty() && r.map.layers.empty(),
+              "a non-flag rejection clears the whole map");
+    }
+}
+
 // --- loud failures ---------------------------------------------------------
 
 void testLoudFailures() {
@@ -218,8 +299,15 @@ void testLoudFailures() {
          ply::MapErrorCode::ConflictingLayerFlags},
     };
     for (const Case& c : cases) {
+        if (c.code == ply::MapErrorCode::UnknownLayerFlag) ++batteryUnknownFlagCases;
+        if (c.code == ply::MapErrorCode::ConflictingLayerFlags) ++batteryConflictCases;
         const ply::MapLoadResult r = ply::loadMapFromString(mapDoc({c.fragment}));
         check(!r.ok(), (std::string(c.name) + " rejected").c_str());
+        // O4 (from the same read): EVERY rejection clears the map, so
+        // "rejects the whole document" is uniformly true and not only for the
+        // error kinds that happened to clear.
+        check(r.map.name.empty() && r.map.layers.empty(),
+              (std::string(c.name) + " leaves an empty map").c_str());
         check(r.error.code == c.code,
               (std::string(c.name) + " names " + ply::toString(c.code)).c_str());
         check(r.map.layers.empty() && r.map.name.empty(),
@@ -258,12 +346,13 @@ void printEvidence() {
 
     std::printf(
         "EVIDENCE tile_layer layers=%zu default=%u layer1=%u roundtrip=%s fixed=%s "
-        "tokens=%d a9_flags_key=%s conflicts=2 unknown=3\n",
+        "tokens=%d a9_flags_key=%s conflicts=%d unknown=%d\n",
         map.layers.size(), map.layers[0].flags, map.layers[1].flags,
         reloaded == map ? "identical" : "DIFFER",
         ply::emitMap(reloaded) == emitted ? "identical" : "DIFFER",
         4,  // below, above, animated, opaque — each pinned by toString above
-        plainEmitted.find("flags") == std::string::npos ? "absent" : "PRESENT");
+        plainEmitted.find("flags") == std::string::npos ? "absent" : "PRESENT",
+        batteryConflictCases, batteryUnknownFlagCases);
 }
 
 }  // namespace
@@ -273,6 +362,8 @@ int main() {
     testCombinations();
     testPerLayerIndependence();
     testRoundTrip();
+    testEmitNormalisation();
+    testEveryRejectionClears();
     testLoudFailures();
 
     if (failures == 0) {

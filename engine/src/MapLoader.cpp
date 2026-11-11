@@ -294,10 +294,12 @@ MapLoadResult loadMapFromString(std::string_view document) {
         const auto tiles = entry.find("tiles");
         if (tiles == entry.end()) {
             result.error = fail(MapErrorCode::MissingField, "tiles");
+            result.map = MapData{};  // O4: every rejection clears the map
             return result;
         }
         if (!tiles->is_array()) {
             result.error = fail(MapErrorCode::WrongType, "tiles");
+            result.map = MapData{};
             return result;
         }
         const std::size_t cells = static_cast<std::size_t>(result.map.width) *
@@ -314,6 +316,7 @@ MapLoadResult loadMapFromString(std::string_view document) {
         for (std::size_t c = 0; c < tiles->size(); ++c) {
             if (!(*tiles)[c].is_number_integer()) {
                 result.error = fail(MapErrorCode::WrongType, "tiles[" + std::to_string(c) + "]");
+                result.map = MapData{};
                 return result;
             }
             const int id = (*tiles)[c].get<int>();
@@ -352,11 +355,20 @@ std::string emitMap(const MapData& map) {
         entry["tiles"] = layer.tiles;
         // Flags are written only when they differ from the ground default, so
         // a flags-less a9 document emits back as exactly the a9 grammar.
-        if (layer.flags != kLayerBelowEntities) {
+        //
+        // Normalisation on emit (b3a follow-up, O2): unknown bits are DROPPED,
+        // the same way a9 normalises a negative tile id to -1 at load, so a
+        // hand-built MapLayer{flags = 0} or a future flag bit cannot make emit
+        // produce a document this build would reload differently. A layer
+        // claiming BOTH below and above is still emitted as written and will
+        // be rejected loudly on reload: that is an impossible draw order, not
+        // something to silently repair.
+        const unsigned emittedFlags = layer.flags & kLayerAllFlags;
+        if (emittedFlags != 0 && emittedFlags != kLayerBelowEntities) {
             json tokens = json::array();
             for (const unsigned flag : {kLayerBelowEntities, kLayerAboveEntities,
                                         kLayerAnimated, kLayerOpaque}) {
-                if ((layer.flags & flag) == 0) continue;
+                if ((emittedFlags & flag) == 0) continue;
                 const char* token = toString(flag);
                 if (token != nullptr) tokens.push_back(token);
             }
