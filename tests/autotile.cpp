@@ -265,6 +265,39 @@ void testIncompleteSet() {
           "raw 33 (31 + NE) canonicalises to 31, which is present");
 }
 
+// --- a large variant library: the count must not wrap --------------------
+
+void testLargeVariantSet() {
+    // F1 (found by the b2 verifier read, not by the unit's suite): the
+    // variant counter was an unsigned char, so the 256th claimant of one mask
+    // wrapped it to 0, the wrapped 0 re-triggered the first-wins branch, and
+    // first-by-id silently returned a LATER tile. A terrain set is not
+    // supposed to carry hundreds of variants of one mask, but the resolver's
+    // first-by-id contract must not depend on that: the policy is pinned here
+    // past the old 255 ceiling. 300 claimants, ids 0..299, so the winner must
+    // be id 0 and the count must be 300. With the old unsigned char this test
+    // fails with tileId 256 and variantCount 44 - the exact measured shape of
+    // the bug.
+    std::string tiles;
+    for (int id = 0; id < 300; ++id) {
+        if (id) tiles += ", ";
+        tiles += tile(id, 5);
+    }
+    const ply::AutoTileResolver resolver =
+        ply::AutoTileResolver::build(tilesetFrom(tiles.c_str()));
+
+    check(resolver.variantCount(5) == 300, "300 claimants are all counted");
+    check(resolver.resolve(5).ok(), "a 300-variant mask resolves");
+    check(resolver.resolve(5).tileId == 0, "first-by-id still wins past 255 variants");
+    check(resolver.resolve(5).tileId != 256,
+          "the wrapped-to-256 winner of the old counter is gone");
+    check(resolver.resolvedCount() == 1, "one mask resolved");
+    // The table is unaffected by the count: the mask-5 slot holds id 0.
+    const int slot5 = ply::blobMaskIndex(5);
+    check(slot5 >= 0 && resolver.tileAt(static_cast<std::size_t>(slot5)) == 0,
+          "the mask-5 slot holds id 0");
+}
+
 void printEvidence() {
     const ply::AutoTileResolver resolver = ply::AutoTileResolver::build(blob47Tileset());
 
@@ -299,6 +332,7 @@ int main() {
     testCompleteTerrain();
     testVariantPolicy();
     testIncompleteSet();
+    testLargeVariantSet();
 
     if (failures == 0) {
         printEvidence();

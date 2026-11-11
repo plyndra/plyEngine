@@ -25,7 +25,10 @@ namespace ply {
 //   hash, map-authored pick) can replace it later without touching the
 //   table shape, because the choice is a pure function of the tileset.
 // - Caching shape (same decision): the table is built once, at load, from
-//   the TileSet, and every query after that is an array index.
+//   the TileSet. A query after that is canonicalise + a bounded binary
+//   search over the 47 entries + one array read: constant-bounded with no
+//   per-cell map lookup, which is what the "O(1) per cell" claim means
+//   precisely (it is not literally one index read).
 
 /// Neighbour bit for "the cell in this direction is the same terrain".
 /// The conventional 8-way numbering is NOT used; these values are the ones
@@ -100,7 +103,13 @@ public:
 
 private:
     std::array<int, kBlobMaskCount> table_{};
-    std::array<unsigned char, kBlobMaskCount> variants_{};
+    // The variant count is a std::size_t, not an unsigned char: a mask with
+    // more than 255 claimants wrapped the old byte counter to 0, which
+    // re-triggered the first-wins branch and silently returned a later tile
+    // (the F1 defect the b2 verifier read measured; pinned by
+    // testLargeVariantSet). A count must not wrap at a value that also means
+    // "no claimants yet".
+    std::array<std::size_t, kBlobMaskCount> variants_{};
     TileSet tileset_{};
 };
 

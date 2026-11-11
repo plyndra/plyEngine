@@ -54,9 +54,9 @@ int neighbourMaskFromBits(bool n, bool ne, bool e, bool se, bool s, bool sw, boo
 
 AutoTileResolver AutoTileResolver::build(const TileSet& tileset) {
     // Resolved at load (the roadmap's words, and the operator's caching
-    // decision): one pass over the tiles, one entry per canonical mask. Every
-    // query after this is an array index, so the render path is O(1) per
-    // cell with no map lookups.
+    // decision): one pass over the tiles, one entry per canonical mask. A
+    // query after this is canonicalise + a bounded 47-entry binary search +
+    // one array read — constant-bounded, with no per-cell map lookup.
     AutoTileResolver resolver;
     resolver.tileset_ = tileset;
     resolver.table_.fill(-1);
