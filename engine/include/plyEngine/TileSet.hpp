@@ -42,10 +42,10 @@ namespace ply {
 // Unknown keys (root or per tile) are ignored at load and dropped by emit,
 // so a newer document still loads in an older build (a9's rule).
 //
-// Scope boundary: b1.1 lands this schema, the fixture and the round-trip.
-// The dedicated invalid-case battery (unknown-mask-as-unresolvable against
-// the 47-case table, and the remaining named-error cases) is b1.2; the
-// mask-table wiring to AutoTileResolver is b1.3.
+// Scope boundary: b1.1 lands the schema, the fixture and the round-trip;
+// b1.2 the dedicated invalid-case battery and the canonical table; b1.3 the
+// mask-table wiring (the shared canonical source above + the blob47 fixture
+// whose tile i carries kBlobMasks[i]). The AutoTileResolver itself is b2.
 
 /// No autotile role: the tile never participates in a blob resolution.
 inline constexpr int kNoTileMask = -1;
@@ -65,6 +65,21 @@ inline constexpr int kBlobMasks[kBlobMaskCount] = {
     112, 113, 116, 117, 119, 124, 125, 127, 193, 197, 199, 209, 213,
     215, 221, 223, 241, 245, 247, 253, 255,
 };
+
+// The mask table's SHARED canonical source (b1.3): the loader's UnknownMask
+// check and b2's AutoTileResolver both go through these two functions, so
+// the two sides cannot drift to two tables (plyengine::b13-b2-predecisions).
+// b2 consumes blobMaskIndex as its canonical index in kBlobMasks order and
+// must not re-derive a second table.
+
+/// True when mask is one of the 47 canonical blob masks. kNoTileMask (-1,
+/// "no autotile role") is NOT canonical - it is the absence of a role.
+bool isCanonicalBlobMask(int mask);
+
+/// The canonical index of mask in kBlobMasks (0..46), or -1 when the mask
+/// is not canonical. The index is the resolver's table position: tile i of
+/// the blob47 fixture carries kBlobMasks[i].
+int blobMaskIndex(int mask);
 
 /// One animation frame: a region in the tileset image and how many fixed
 /// sim steps it holds before advancing.

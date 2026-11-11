@@ -83,6 +83,21 @@ bool parseCollisionRect(const json& node, UIRect& out, int tileWidth, int tileHe
 
 }  // namespace
 
+// The mask table's shared canonical source (b1.3): both functions are
+// binary searches over the ONE table, so the loader's validation and the
+// resolver's future lookup cannot drift to two tables.
+
+bool isCanonicalBlobMask(int mask) {
+    return std::binary_search(kBlobMasks, kBlobMasks + kBlobMaskCount, mask);
+}
+
+int blobMaskIndex(int mask) {
+    const int* found =
+        std::lower_bound(kBlobMasks, kBlobMasks + kBlobMaskCount, mask);
+    if (found == kBlobMasks + kBlobMaskCount || *found != mask) return -1;
+    return static_cast<int>(found - kBlobMasks);
+}
+
 const TileData* TileSet::findTile(int id) const {
     for (const TileData& tile : tiles) {
         if (tile.id == id) return &tile;
@@ -171,12 +186,12 @@ TileSetLoadResult loadTileSetFromString(std::string_view document) {
                                         std::to_string(tile.mask));
                 return result;
             }
-            // ...and in-range, one of the 47 canonical blob masks (b1.2): an
-            // in-range value outside kBlobMasks sets a diagonal bit without
-            // both adjacent edges, which no blob tile represents and the
-            // resolver could never resolve.
-            if (tile.mask != kNoTileMask &&
-                !std::binary_search(kBlobMasks, kBlobMasks + kBlobMaskCount, tile.mask)) {
+            // ...and in-range, one of the 47 canonical blob masks (b1.2,
+            // wired through the shared predicate in b1.3): an in-range value
+            // outside kBlobMasks sets a diagonal bit without both adjacent
+            // edges, which no blob tile represents and the resolver could
+            // never resolve.
+            if (tile.mask != kNoTileMask && !isCanonicalBlobMask(tile.mask)) {
                 result.error = fail(MapErrorCode::UnknownMask,
                                     "tile " + std::to_string(tile.id) + " mask " +
                                         std::to_string(tile.mask));
