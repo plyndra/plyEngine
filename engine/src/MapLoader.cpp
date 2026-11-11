@@ -31,6 +31,7 @@ const char* toString(MapErrorCode code) {
         case MapErrorCode::MissingTileset: return "MissingTileset";
         case MapErrorCode::OutOfRangeTileId: return "OutOfRangeTileId";
         case MapErrorCode::MaskOutOfRange: return "MaskOutOfRange";
+        case MapErrorCode::UnknownMask: return "UnknownMask";
     }
     return "None";  // unreachable; every enumerator is handled
 }
