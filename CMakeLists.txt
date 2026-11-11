@@ -284,6 +284,7 @@ add_library(plyEngine STATIC
     engine/src/UIHotbar.cpp
     engine/src/UIPanel.cpp
     engine/src/RenderTarget.cpp
+    engine/src/PresentPass.cpp
     engine/src/PixelText.cpp
     engine/src/UIRouter.cpp
     engine/src/Minimap.cpp
@@ -559,6 +560,17 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_hud_frame_test tests/hud_frame.cpp)
     target_link_libraries(ply_hud_frame_test PRIVATE plyEngine)
     add_test(NAME hud_frame COMMAND ply_hud_frame_test)
+
+    # The GL present half of a7 (E-a7.4): FBO + texture at the plan's internal
+    # resolution, layers in a7's order, present blit at plan.destination —
+    # verified by structural readback under SDL's offscreen driver, not a
+    # pixel golden. The one GL-context suite: it needs no display, and where
+    # no context can be created it skips loudly (SKIP_RETURN_CODE 77) instead
+    # of passing vacuously.
+    add_executable(ply_present_gl_test tests/present_gl.cpp)
+    target_link_libraries(ply_present_gl_test PRIVATE plyEngine)
+    add_test(NAME present_gl COMMAND ply_present_gl_test)
+    set_tests_properties(present_gl PROPERTIES SKIP_RETURN_CODE 77)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)

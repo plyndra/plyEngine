@@ -23,6 +23,11 @@ namespace demo {
 inline constexpr int kMapW = 40;
 inline constexpr int kMapH = 18;
 inline constexpr float kTile = 32.0f;
+// The demo's internal resolution (a7): 1 world unit = 1 internal px, so the
+// render target is the world plane itself and the present blit is the integer
+// factor the window allows (1 at 1280x720, 2 at 2560x1440).
+inline constexpr int kInternalW = kMapW * 32;
+inline constexpr int kInternalH = kMapH * 32;
 inline constexpr int kPlayerCount = 4;
 
 // --- Gameplay tuning --------------------------------------------------------

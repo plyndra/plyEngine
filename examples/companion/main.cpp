@@ -22,6 +22,8 @@
 #include "plyEngine/CompanionServer.hpp"
 #include "plyEngine/Font.hpp"
 #include "plyEngine/PhysicsBody.hpp"
+#include "plyEngine/PresentPass.hpp"
+#include "plyEngine/RenderTarget.hpp"
 #include "plyEngine/Sprite.hpp"
 #include "plyEngine/SpriteAtlas.hpp"
 #include "plyEngine/SpriteBatch.hpp"
@@ -55,6 +57,11 @@ const char* kFontCandidates[] = {
     "/usr/share/fonts/TTF/DejaVuSans.ttf",
     "/usr/share/fonts/dejavu/DejaVuSans.ttf",
 };
+
+// The demo's one HUD widget: the plate drawn over the paused game. One literal
+// for the drawn string and the interactive rect, so what the router hit-tests
+// is what the HUD draws (M1a a11's adoption).
+const char* kPausePlate = "PAUSED - P or START to resume";
 
 double monotonicSeconds() {
     using Clock = std::chrono::steady_clock;
@@ -284,6 +291,17 @@ int main(int argc, char** argv) {
     demo::Autopilot autopilot;
     std::array<uint32_t, demo::kPlayerCount> synthSeq{};
 
+    // a7's present path (M1a gate): the world renders into an integer-scaled
+    // render target at the demo's internal resolution — its world plane, 1
+    // world unit = 1 internal px — and the blit lands it at plan.destination
+    // with nearest upsampling. The plan is a7's, called not copied, from the
+    // live window size every frame; the factor is 1 at 1280x720 and 2 at
+    // 2560x1440. The camera drawing into the target is the demo's own: same
+    // position, viewport at the internal size.
+    const ply::PresentPass::ClearColor kNavy{0.06f, 0.07f, 0.10f, 1.0f};
+    ply::OrthoCamera worldCamera;
+    std::unique_ptr<ply::PresentPass> present;
+
     // --- Audio: synthesise three cues, then play them on gameplay events ----
     ply::AudioSystem::Config audioConfig;
     // Headless verify must not require (or fight over) a real device.
@@ -359,9 +377,20 @@ int main(int argc, char** argv) {
                                          demo::kMapH * demo::kTile * 0.5f});
         a.camera().setZoom(1.0f);
 
+        // The world camera reads the plan's internal size; the present pass
+        // owns the target allocation and the letterboxed blit (the navy here
+        // is the same colour the window clear used to be).
+        const ply::RenderTargetPlan initialPlan = ply::makeRenderTargetPlan(
+            demo::kInternalW, demo::kInternalH, a.window().width(), a.window().height());
+        worldCamera.setViewport(initialPlan.internalWidth, initialPlan.internalHeight);
+        worldCamera.setPosition(a.camera().position());
+        worldCamera.setZoom(1.0f);
+        present = std::make_unique<ply::PresentPass>(initialPlan);
+
+        // Sprites and text blend; the scene quads are opaque either way. The
+        // window clear is present()'s letterbox clear now, not a manual one.
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glClearColor(0.06f, 0.07f, 0.10f, 1.0f);
     });
 
     app.onUpdate([&](ply::App& a, double dt) {
@@ -390,18 +419,79 @@ int main(int argc, char** argv) {
         // Keyboard goes through the UI router (M1a a11), the same one path the
         // HUD uses: a frame is built from the polled device state, pumped, and
         // a key only reaches gameplay when the router says the world consumed
-        // it. With no interactive rects yet — this demo draws no HUD, the
-        // composite pass adds them — every key is the world's, but the code
-        // path is the wired one, so a HUD button that captures the pointer also
+        // it. The interactive list is the demo's composite: the pause plate is
+        // interactive exactly while it is drawn (paused), so the router
+        // hit-tests what the HUD draws and routing clicks onto an undrawn HUD
+        // adds no invisible hit boxes. A widget that captures the pointer also
         // stops the player walking while it is dragged.
         static ply::UIRouter uiRouter;
         static ply::PumpState pumpState;
+        static bool pausePlateCaptured = false;
+        // The router's list is applied when the composite changes, not every
+        // frame: setInteractive clears any capture, so a per-frame call would
+        // end every press-capture after one frame and break the a10 invariant
+        // the demo's wiring exists to honour. UI_FRAMEWORK §2 rule 4 is the
+        // same discipline: the rect list is dirty only when the plate starts
+        // or stops being drawn, or the present factor moves its logical rect.
+        static std::vector<ply::UIRect> appliedInteractive;
         static const std::vector<ply::Key> kTrackedKeys = {
             ply::Key::Left, ply::Key::Right, ply::Key::Space, ply::Key::A,
             ply::Key::D,    ply::Key::W,     ply::Key::P,     ply::Key::R};
-        const ply::InputFrame frame =
-            ply::inputFrameFrom(a.input(), ply::PointerSource::HostMouse, 1, kTrackedKeys);
+
+        // The present factor is a7's, from the plan the frame is presented at —
+        // not a hardcoded 1, which was only correct while the interactive list
+        // stayed empty (the a11 receipt's residual risk, closed here).
+        const ply::RenderTargetPlan plan = ply::makeRenderTargetPlan(
+            demo::kInternalW, demo::kInternalH, a.window().width(), a.window().height());
+
+        // The pause plate, in the space the router hit-tests: the drawn plate's
+        // output rect converted by the same rule the pump applies to the
+        // cursor (logicalAxis divides by the present factor), not a second
+        // derivation of the layout.
+        std::vector<ply::UIRect> interactive;
+        if (text && game.state == demo::GameState::Paused) {
+            // Output px: 24 right of the left edge, 200 down from the top —
+            // the same offsets renderScene draws the plate from (36 top margin
+            // + the 164 gap to the state line), one list, not two.
+            const ply::UIRect plateOutput{
+                24, 200, static_cast<int>(text->measure(kPausePlate, 1.0f)),
+                static_cast<int>(text->lineHeight(1.0f))};
+            interactive.push_back(ply::UIRect{
+                ply::logicalAxis(plateOutput.x, plan.factor),
+                ply::logicalAxis(plateOutput.y, plan.factor),
+                ply::logicalAxis(plateOutput.w, plan.factor),
+                ply::logicalAxis(plateOutput.h, plan.factor)});
+        }
+        if (interactive != appliedInteractive) {
+            uiRouter.setInteractive(interactive);
+            appliedInteractive = interactive;
+        }
+
+        const ply::InputFrame frame = ply::inputFrameFrom(
+            a.input(), ply::PointerSource::HostMouse, plan.factor, kTrackedKeys);
         const ply::FrameRoute routed = ply::pumpFrame(uiRouter, pumpState, frame);
+
+        // Click-to-resume: the plate's press captures it (the world never sees
+        // that press), and the release the capture keeps is the click. The
+        // captured-then-released pair is tracked across frames, so a bare move
+        // over the plate — which the widget also takes — never toggles.
+        for (const ply::RouteResult& result : routed.pointer) {
+            if (result.widget == 0 && result.capturedWidget == 0) {
+                pausePlateCaptured = true;
+            } else if (result.capturedWidget < 0) {
+                if (pausePlateCaptured && result.widget == 0) {
+                    game.togglePause();
+                }
+                pausePlateCaptured = false;
+            }
+        }
+        // If the click resumed the game, the plate stopped being drawn this
+        // frame: drop its hit box now rather than leave it stale until the
+        // next update reads the new state.
+        if (!interactive.empty() && game.state != demo::GameState::Paused) {
+            uiRouter.setInteractive({});
+            appliedInteractive.clear();
+        }
         // Two different questions, and conflating them is a bug: an EDGE key
         // (jump, pause, restart) is decided by its own route result, while a
         // HELD key (movement) has no edge this frame and is decided by whether
@@ -484,12 +574,22 @@ int main(int argc, char** argv) {
     });
 
     auto renderScene = [&](ply::App& a, double) {
-        glClear(GL_COLOR_BUFFER_BIT);
         ply::World& world = a.world();
 
-        // Tiles + gameplay sprites share one atlas texture, so they batch
-        // together: draw the static map, then let drawSprites append.
-        batch.begin(*texture, a.camera().viewProj());
+        // a7's present path, from the live window size every frame: the world
+        // draws into the internal-resolution surface in a7's layer order —
+        // GroundTiles (the static map), then World (the gameplay sprites) —
+        // and the present blit lands it at plan.destination with nearest
+        // upsampling. The HUD below draws above the upscale at output
+        // resolution, with the window viewport present() leaves behind.
+        const ply::RenderTargetPlan plan = ply::makeRenderTargetPlan(
+            demo::kInternalW, demo::kInternalH, a.window().width(), a.window().height());
+        worldCamera.setViewport(plan.internalWidth, plan.internalHeight);
+        present->setPlan(plan);
+        present->begin(kNavy);
+
+        // GroundTiles: the static map.
+        batch.begin(*texture, worldCamera.viewProj());
         for (int y = 0; y < demo::kMapH; ++y) {
             for (int x = 0; x < demo::kMapW; ++x) {
                 if (!game.map.isSolid(x, y)) {
@@ -512,7 +612,10 @@ int main(int argc, char** argv) {
             }
         }
 
-        ply::drawSprites(world, batch, a.camera().viewProj());
+        // World: the gameplay sprites, above the map, below the HUD.
+        ply::drawSprites(world, batch, worldCamera.viewProj());
+        present->end();
+        present->present(plan, kNavy);
 
         if (text) {
             batch.begin(text->texture(), a.camera().viewProj());
@@ -561,7 +664,7 @@ int main(int argc, char** argv) {
             std::string stateLine;
             glm::vec4 stateColor{0.85f, 0.9f, 1.0f, 1.0f};
             if (game.state == demo::GameState::Paused) {
-                stateLine = "PAUSED - P or START to resume";
+                stateLine = kPausePlate;
                 stateColor = {1.0f, 0.85f, 0.5f, 1.0f};
             } else if (game.state == demo::GameState::Won) {
                 stateLine = "P" + std::to_string(game.winner + 1) +
