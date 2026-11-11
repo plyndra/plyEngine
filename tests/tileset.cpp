@@ -271,6 +271,100 @@ void testCanonicalMasks() {
     }
 }
 
+// --- the mask-table wiring (b1.3) ------------------------------------------
+
+const std::string& blob47Document() {
+    static const std::string doc = [] {
+        const std::string path =
+            std::string(PLY_TEST_DATA_DIR) + "/tileset_blob47.json";
+        const ply::TileSetLoadResult loaded = ply::loadTileSetFile(path);
+        if (!loaded.ok()) {
+            std::fprintf(stderr, "  FAIL: blob47 fixture does not load (%s)\n",
+                         loaded.error.message.c_str());
+        }
+        return ply::emitTileSet(loaded.tileset);
+    }();
+    return doc;
+}
+
+void testMaskTableWiring() {
+    // THE table identity, asserted against the fixture: the blob47 fixture
+    // carries exactly one tile per canonical mask, in kBlobMasks order, so
+    // fixture tile i's mask must equal kBlobMasks[i] for all 47 — the loader's
+    // validation table and the resolver's future lookup table are one table,
+    // and the fixture is where the two sides meet (the pre-decision record).
+    const ply::TileSetLoadResult loaded = ply::loadTileSetFromString(blob47Document());
+    check(loaded.ok(), "blob47 fixture loads");
+    // The guard is the tile count, not only ok(): an ok()-with-empty-model
+    // stub must fail its pins, not walk an empty vector (the a5.1 lesson).
+    if (!loaded.ok() || loaded.tileset.tiles.size() != 47) return;
+    const ply::TileSet& ts = loaded.tileset;
+
+    bool idsInOrder = true;
+    for (int i = 0; i < 47; ++i) {
+        idsInOrder = idsInOrder && ts.tiles[static_cast<std::size_t>(i)].id == i;
+    }
+    check(idsInOrder, "blob47 ids are 0..46 in table order");
+
+    bool identity = true;
+    for (int i = 0; i < 47; ++i) {
+        identity = identity && ts.tiles[static_cast<std::size_t>(i)].mask ==
+                                ply::kBlobMasks[i];
+    }
+    check(identity, "fixture tile i's mask == kBlobMasks[i] for all 47");
+
+    bool uniform = true;
+    for (const ply::TileData& t : ts.tiles) {
+        uniform = uniform && t.variant == "grass" && t.palette == "overworld" &&
+                  !t.solid && t.animation.empty() && t.collision.empty() &&
+                  t.region.w == 16 && t.region.h == 16;
+    }
+    check(uniform, "blob47 tiles are one uniform grass terrain skeleton");
+
+    // The predicate: exactly the 47 canonical masks are canonical;
+    // kNoTileMask (-1) is the ABSENCE of a role, not a role.
+    bool predicate = true;
+    for (int i = 0; i < 47; ++i) {
+        predicate = predicate && ply::isCanonicalBlobMask(ply::kBlobMasks[i]);
+    }
+    check(predicate, "isCanonicalBlobMask accepts every table entry");
+    check(!ply::isCanonicalBlobMask(ply::kNoTileMask),
+          "kNoTileMask is not canonical (no role is the absence of one)");
+    for (const int bad : {3, 2, 130, 256, -2}) {
+        check(!ply::isCanonicalBlobMask(bad),
+              (std::string("mask ") + std::to_string(bad) + " is not canonical").c_str());
+    }
+
+    // The index: blobMaskIndex inverts the table exactly, which is what the
+    // resolver will consume as its canonical position.
+    bool index = true;
+    for (int i = 0; i < 47; ++i) {
+        index = index && ply::blobMaskIndex(ply::kBlobMasks[i]) == i;
+    }
+    check(index, "blobMaskIndex(kBlobMasks[i]) == i for all 47");
+    check(ply::blobMaskIndex(ply::kNoTileMask) == -1, "index of no-role is -1");
+    for (const int bad : {3, 2, 130, 256, -2}) {
+        check(ply::blobMaskIndex(bad) == -1,
+              (std::string("index of mask ") + std::to_string(bad) + " is -1").c_str());
+    }
+    // The two views agree on the fixture: the index of every fixture tile's
+    // mask is that tile's id (the fixture IS the table, materialised).
+    bool inversion = true;
+    for (int i = 0; i < 47; ++i) {
+        inversion = inversion && ply::blobMaskIndex(ts.tiles[static_cast<std::size_t>(i)].mask) == i;
+    }
+    check(inversion, "every fixture tile's mask indexes back to its id");
+
+    // Loader identity, both directions: the blob47 fixture loading proves
+    // the loader accepts everything the predicate accepts (all 47 validated
+    // at load through the same predicate); the battery's UnknownMask cases
+    // prove it rejects everything the predicate rejects. And emit is
+    // stable for the terrain skeleton too.
+    const std::string emitted = ply::emitTileSet(ts);
+    check(ply::loadTileSetFromString(emitted).tileset == ts,
+          "blob47 round-trips through emit");
+}
+
 // --- structural errors (the minimal set b1.1 validates; the dedicated
 // invalid-case battery is b1.2) ---------------------------------------------
 
@@ -443,6 +537,16 @@ void printEvidence() {
     const std::string emitted = ply::emitTileSet(ts);
     const ply::TileSet reloaded = ply::loadTileSetFromString(emitted).tileset;
 
+    // The wiring transcript: the blob47 fixture's mask sequence vs the table.
+    int wiringMatch = 0;
+    const ply::TileSetLoadResult blob47 = ply::loadTileSetFromString(blob47Document());
+    if (blob47.ok() && blob47.tileset.tiles.size() == 47) {
+        for (int i = 0; i < 47; ++i) {
+            wiringMatch += blob47.tileset.tiles[static_cast<std::size_t>(i)].mask ==
+                           ply::kBlobMasks[i];
+        }
+    }
+
     std::size_t maskCount = 0;
     std::size_t collisionCount = 0;
     for (const ply::TileData& t : ts.tiles) {
@@ -453,7 +557,7 @@ void printEvidence() {
     std::printf(
         "EVIDENCE tileset tiles=%zu sorted=1/1 ids=0..10 masks=%zu anim=%zux%d "
         "phase=%d collision_rects=%zu defaults=1 roundtrip=%s fixed=%s a9_compat=%s "
-        "blob=%d errors=%zu\n",
+        "blob=%d errors=%zu blob47=%d identity=%d/47\n",
         ts.tiles.size(), maskCount, ts.tiles[8].animation.size(), ts.tiles[8].animation[0].steps,
         ts.tiles[8].phase, collisionCount,
         reloaded == ts ? "identical" : "DIFFER",
@@ -465,7 +569,7 @@ void printEvidence() {
                       .ok()
                   ? "identical"
                   : "DIFFER",
-        ply::kBlobMaskCount, errorCases().size());
+        ply::kBlobMaskCount, errorCases().size(), blob47.ok() ? 47 : 0, wiringMatch);
 }
 
 }  // namespace
@@ -475,6 +579,7 @@ int main() {
     testRoundTrip();
     testA9Compatibility();
     testCanonicalMasks();
+    testMaskTableWiring();
     testStructuralErrors();
 
     if (failures == 0) {
