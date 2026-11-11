@@ -49,15 +49,60 @@ struct TilesetSlice {
 
 // --- map ------------------------------------------------------------------
 
+// --- layer flags (b3a, ARCHITECTURE_TARGET.md §3) --------------------------
+//
+// "TileLayer: Int32 tile ids per cell; per-layer flags (below/above entities,
+// animated, opaque)". The roadmap calls this module `TileLayer`; it is the
+// struct below (aliased at the end of this block), because a9 already shipped
+// the ids half of it as MapLayer and a second type would be the same data
+// spelled twice.
+
+/// Draws under the entity layer — the ground. The default: a layer that says
+/// nothing about itself is ground.
+inline constexpr unsigned kLayerBelowEntities = 1u << 0;
+/// Draws over the entity layer (tree canopies, roofs, awnings).
+inline constexpr unsigned kLayerAboveEntities = 1u << 1;
+/// Contains animated tiles; TileAnimator (b4) advances it from the sim clock.
+inline constexpr unsigned kLayerAnimated = 1u << 2;
+/// Fully opaque: nothing below it needs drawing where it covers (a culling
+/// hint for b3b, not a blend mode).
+inline constexpr unsigned kLayerOpaque = 1u << 3;
+
+/// Every flag this build knows. An unknown token in a document is a named
+/// error (UnknownLayerFlag), not a silent drop: a typo in an authoring tool
+/// must not quietly turn a canopy into ground.
+inline constexpr unsigned kLayerAllFlags = kLayerBelowEntities | kLayerAboveEntities |
+                                           kLayerAnimated | kLayerOpaque;
+
 /// One map layer. `tiles` has width*height entries, row-major, row 0 being
 /// the map's TOP row (maps are authored as drawn, top-down). A negative id
 /// is an empty cell; loading normalises every negative id to -1.
+///
+/// `flags` is a bitmask over the kLayer* constants. It defaults to
+/// kLayerBelowEntities, and emit writes the "flags" key only when the value
+/// differs from that default, so a document carrying no flags emits back as
+/// exactly the a9 grammar (the a9 compatibility pin).
 struct MapLayer {
     std::string name;
     std::vector<int> tiles;
+    unsigned flags = kLayerBelowEntities;
 
     bool operator==(const MapLayer&) const = default;
+
+    bool hasFlag(unsigned flag) const { return (flags & flag) != 0; }
+    /// True when the layer draws above entities rather than below them.
+    bool aboveEntities() const { return hasFlag(kLayerAboveEntities); }
 };
+
+/// The roadmap's name for the module above (ARCHITECTURE_TARGET.md §3).
+using TileLayer = MapLayer;
+
+/// Stable token for a layer flag, e.g. "above-entities"; nullptr when the
+/// value does not name exactly one recognised flag. The tokens are the file
+/// format's contract.
+const char* toString(unsigned layerFlag);
+/// Parses a flag token; 0 when unknown. Exact match only.
+unsigned parseLayerFlag(std::string_view token);
 
 /// A map document (ARCHITECTURE_TARGET.md §4: "layers, tiles, props, spawns,
 /// map metadata" — the a9 slice is layers, tiles and metadata). Layer order
@@ -100,6 +145,11 @@ enum class MapErrorCode {
     /// b1.2 (TileSet.hpp): an in-range autotile mask that is not one of the
     /// 47 canonical blob masks (kBlobMasks) - no blob tile can represent it.
     UnknownMask,
+    /// b3a: a layer flag token this build does not know.
+    UnknownLayerFlag,
+    /// b3a: a layer claiming both below-entities and above-entities, which
+    /// cannot both be true of one draw order.
+    ConflictingLayerFlags,
 };
 
 /// Stable token for the code, e.g. "OutOfRangeTileId". Never renamed.

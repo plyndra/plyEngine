@@ -540,6 +540,15 @@ if(PLY_BUILD_TESTS)
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME map_loader COMMAND ply_map_loader_test)
 
+    # TileLayer (E-b3a.1): per-layer flags (below/above entities, animated,
+    # opaque) — defaults, the token table, combinations, per-layer
+    # independence, byte-level round-trip, the a9 compatibility rule (a
+    # flags-less document emits no flags key) and the two loud failures
+    # (unknown token, below+above conflict). Pure data: no GL, no clock.
+    add_executable(ply_tile_layer_test tests/tile_layer.cpp)
+    target_link_libraries(ply_tile_layer_test PRIVATE plyEngine)
+    add_test(NAME tile_layer COMMAND ply_tile_layer_test)
+
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
     # steps, phase offset, tile-local collision rects, palette id — over a
