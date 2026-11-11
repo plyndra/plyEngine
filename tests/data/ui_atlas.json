@@ -14,7 +14,7 @@
       "margins_source": "derived"
     },
     "icon.gear": {
-      "x": 64, "y": 0, "w": 16, "h": 16,
+      "x": 112, "y": 104, "w": 16, "h": 16,
       "slice": "plain"
     },
     "slot.normal": {
