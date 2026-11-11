@@ -316,6 +316,43 @@ void testLogicalConversion() {
     eq(ply::logicalCursor(-1, -1, 3).x, -1, "both axes floor the same way");
 }
 
+// --- the release-before-keys half of the order contract --------------------
+//
+// The order matters behaviourally, not only as hash input: in the frame that
+// releases a capture, the release must be routed FIRST so the capture is gone
+// before the keys are routed — otherwise a key up edge in that same frame is
+// still owned by a widget the pointer has already let go of.
+
+void testReleaseBeforeKeys() {
+    {
+        UIRouter router = makeRouter();
+        PumpState state;
+        InputFrame f;
+        f.cursorX = 300;
+        f.cursorY = 340;
+        ply::pumpFrame(router, state, f);          // establish position
+        f.primaryDown = true;
+        ply::pumpFrame(router, state, f);          // capture widget 0
+        eq(router.capturedWidget(), 0, "the press captured widget 0 before the release frame");
+
+        // One frame: release the button AND carry a key up edge.
+        f.primaryDown = false;
+        f.keys.clear();
+        f.keys.push_back(KeyEdge{Key::Space, false});
+        const ply::FrameRoute route = ply::pumpFrame(router, state, f);
+        eq(route.pointer.size(), 1, "the release frame routed the release");
+        eq(route.keys.size(), 1, "the release frame routed the key up edge");
+        if (!route.keys.empty()) {
+            // The pump must emit the release before the key, so by the time the
+            // key is routed the capture is already clear and the key is the
+            // world's. A key-first implementation would hand it to widget 0.
+            eq(route.pointer[0].capturedWidget, -1, "the release cleared the capture first");
+            eq(route.keys[0].widget, -1, "the key up edge is the world's, not the released widget's");
+            eq(route.keys[0].worldConsumed, 1, "the key up edge reached the world");
+        }
+    }
+}
+
 // --- the transcript hash ---------------------------------------------------
 
 std::uint64_t gestureHash() {
@@ -383,6 +420,18 @@ void printEvidence() {
     PumpState phoneState;
     long long identical = 0;
     long long frames = 0;
+    // A live count, not a literal: each source has to actually route a frame
+    // for the counter to rise, so a broken pump changes this field.
+    long long sourcesExercised = 0;
+    for (const PointerSource source : {PointerSource::HostMouse, PointerSource::VirtualCursor}) {
+        UIRouter probeRouter = makeRouter();
+        PumpState probeState;
+        InputFrame probe;
+        probe.source = source;
+        probe.cursorX = 10;
+        probe.cursorY = 10;
+        if (!ply::pumpFrame(probeRouter, probeState, probe).pointer.empty()) ++sourcesExercised;
+    }
     for (int i = 0; i < 4; ++i) {
         InputFrame m;
         m.source = PointerSource::HostMouse;
@@ -411,9 +460,9 @@ void printEvidence() {
     }
 
     std::printf(
-        "EVIDENCE input_routing sources=2 frames=%lld identical=%lld idle_silent=%lld "
+        "EVIDENCE input_routing sources=%lld frames=%lld identical=%lld idle_silent=%lld "
         "key_nocap=%d key_captured_widget=%d transcript=0x%016llx\n",
-        frames, identical, idle,
+        sourcesExercised, frames, identical, idle,
         makeRouter().routeKey(ply::KeyEvent{Key::Escape, true}).worldConsumed,
         [&]() {
             UIRouter r = makeRouter();
@@ -431,6 +480,7 @@ int main() {
     testKeyboard();
     testTranscriptHash();
     testLogicalConversion();
+    testReleaseBeforeKeys();
 
     if (failures == 0) {
         printEvidence();
