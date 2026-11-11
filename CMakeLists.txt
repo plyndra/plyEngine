@@ -289,6 +289,7 @@ add_library(plyEngine STATIC
     engine/src/UIRouter.cpp
     engine/src/Minimap.cpp
     engine/src/MapLoader.cpp
+    engine/src/WorldMap.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -548,6 +549,16 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_tile_layer_test tests/tile_layer.cpp)
     target_link_libraries(ply_tile_layer_test PRIVATE plyEngine)
     add_test(NAME tile_layer COMMAND ply_tile_layer_test)
+
+    # WorldMap (E-b3.1): chunked 16x16 storage with per-chunk dirty flags,
+    # view-frustum culling at an exact count (submitted quads == tiles
+    # intersecting the camera rect), chunk-boundary traversal, and the two
+    # jobs b3a's layer flags do here (opaque coverage culling, below/above
+    # entity pass assignment). Pure data: no GL, no window, no clock, no
+    # float.
+    add_executable(ply_worldmap_test tests/worldmap.cpp)
+    target_link_libraries(ply_worldmap_test PRIVATE plyEngine)
+    add_test(NAME worldmap COMMAND ply_worldmap_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
