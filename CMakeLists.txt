@@ -287,6 +287,7 @@ add_library(plyEngine STATIC
     engine/src/PixelText.cpp
     engine/src/UIRouter.cpp
     engine/src/Minimap.cpp
+    engine/src/MapLoader.cpp
     engine/src/SpatialHashGrid.cpp
     engine/src/DebugDrawer.cpp
     engine/src/AudioSystem.cpp
@@ -523,6 +524,15 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_minimap_test tests/minimap.cpp)
     target_link_libraries(ply_minimap_test PRIVATE plyEngine)
     add_test(NAME minimap COMMAND ply_minimap_test)
+
+    # Map loader: native JSON map + static tileset slice, load/save/load
+    # round-trip, named validator errors and the world-quad row flip
+    # (E-a9.1). Pure data, so no texture and no GL context.
+    add_executable(ply_map_loader_test tests/map_loader.cpp)
+    target_link_libraries(ply_map_loader_test PRIVATE plyEngine)
+    target_compile_definitions(ply_map_loader_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME map_loader COMMAND ply_map_loader_test)
 
     add_executable(ply_image_test tests/image.cpp)
     target_link_libraries(ply_image_test PRIVATE plyEngine)

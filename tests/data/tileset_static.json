@@ -1,0 +1,12 @@
+{
+  "name": "static",
+  "image": "tileset_static.png",
+  "tile_width": 16,
+  "tile_height": 16,
+  "tiles": [
+    {"id": 0, "region": {"x": 0, "y": 0, "w": 16, "h": 16}, "solid": false},
+    {"id": 1, "region": {"x": 16, "y": 0, "w": 16, "h": 16}, "solid": true},
+    {"id": 2, "region": {"x": 32, "y": 0, "w": 16, "h": 16}, "solid": true},
+    {"id": 3, "region": {"x": 0, "y": 16, "w": 16, "h": 16}, "solid": false}
+  ]
+}
