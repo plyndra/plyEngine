@@ -289,6 +289,7 @@ add_library(plyEngine STATIC
     engine/src/UIRouter.cpp
     engine/src/Minimap.cpp
     engine/src/MapLoader.cpp
+    engine/src/TileSet.cpp
     engine/src/UIMargins.cpp
     engine/src/InputRouting.cpp
     engine/src/HudFrame.cpp
@@ -537,6 +538,16 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_map_loader_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME map_loader COMMAND ply_map_loader_test)
+
+    # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
+    # tileset format — autotile mask, variant group, animation frames +
+    # steps, phase offset, tile-local collision rects, palette id — over a
+    # hand-authored fixture. Pure data, so no texture and no GL context.
+    add_executable(ply_tileset_test tests/tileset.cpp)
+    target_link_libraries(ply_tileset_test PRIVATE plyEngine)
+    target_compile_definitions(ply_tileset_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME tileset COMMAND ply_tileset_test)
 
     # Margin derivation from the alpha contour (E-a3.1/E-a3.2): derived ==
     # declared on the ui.png fixture, and the derived caps stay fixed across
