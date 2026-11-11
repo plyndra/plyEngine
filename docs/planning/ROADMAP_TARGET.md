@@ -61,6 +61,18 @@ can be created). Amended from the stale "7 new suites" in the commit that
 landed the GL present half: the wording predated the 14 units + composition
 grader it now counts, and a gate row must name what it gates on.
 
+**Closed 2026-11-11** (receipt: `evals/2.0.log`, `m1a-gate-closed`). Every
+clause was measured on the tree at `main` `2f7327e`: the demo renders its map
+through `PresentPass` with the HUD text + pause plate above the upscale
+(`ply_companion --verify` PASS offscreen, Won, winner 0, coins 4/5); ctest
+31/31 in Release and under ASan/UBSan; all 16 gate suites registered by name;
+no wall-clock or GPU dependency in any UI suite (`present_gl` is the one
+GL-context suite — a7's render half — and skips loudly where no context can be
+created); evidence and release checks PASS. Scope stated at closure: the
+demo's drawn HUD is the pause plate + text; the full widget kit is graded over
+the map as composition data (`E-gate.comp`) and ships as drawn art with c1.6.
+The M1 gate (two frames + rubric) is a separate, still-open gate.
+
 ### M1b — Tile worlds (≈2.5–3 weeks)
 
 | # | Unit | Done when |
