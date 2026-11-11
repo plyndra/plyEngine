@@ -51,7 +51,15 @@ plus the HUD that frames it. No AI, no economy, no generation beyond M1c's asset
 
 **Gate to leave M1a:** the HUD from `UI_FRAMEWORK.md` over a real map, with the
 world rendering through an integer-scaled render target; the router test green;
-7 new suites; no wall-clock or GPU dependency in any UI test.
+the sixteen suites the M1a work landed (`ui_atlas`, `nine_slice`, `ui_margins`,
+`ui_layout`, `ui_bar`, `ui_slot`, `ui_hotbar`, `ui_panel`, `pixel_text`,
+`render_target`, `minimap`, `map_loader`, `ui_router`, `input_routing`,
+`hud_frame`, `present_gl`); no wall-clock or GPU dependency in any UI test
+(`present_gl` is the one GL-context suite — a7's render half, not a UI test —
+needs no display under SDL's offscreen driver, and skips loudly where no GL
+can be created). Amended from the stale "7 new suites" in the commit that
+landed the GL present half: the wording predated the 14 units + composition
+grader it now counts, and a gate row must name what it gates on.
 
 ### M1b — Tile worlds (≈2.5–3 weeks)
 

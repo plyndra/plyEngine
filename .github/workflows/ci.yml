@@ -17,7 +17,8 @@ jobs:
           sudo apt-get install -y -qq \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
-            libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
+            libxss-dev libxfixes-dev \
             libxpresent-dev libxshmfence-dev libxtst-dev \
             fonts-dejavu-core
 
@@ -46,7 +47,8 @@ jobs:
           sudo apt-get install -y -qq \
             libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
             libxi-dev libxkbcommon-dev libwayland-dev libdecor-0-dev \
-            libgl1-mesa-dev libgles2-mesa-dev libxss-dev libxfixes-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
+            libxss-dev libxfixes-dev \
             libxpresent-dev libxshmfence-dev libxtst-dev \
             xvfb fonts-dejavu-core
 
@@ -67,6 +69,15 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      # present_gl (E-a7.4) is the one GL-context suite: plain ctest skips it
+      # where no EGL context can be created, so run it for real on Linux with
+      # software GL through SDL's displayless offscreen driver.
+      - name: GL present suite (Linux, offscreen)
+        if: runner.os == 'Linux'
+        run: |
+          LIBGL_ALWAYS_SOFTWARE=1 ctest --test-dir build -C Release \
+            -R present_gl --output-on-failure
 
       - name: Release readiness (version, API drift, links)
         if: runner.os == 'Linux'
