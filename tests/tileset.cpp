@@ -227,16 +227,66 @@ void testA9Compatibility() {
           "committed a9 fixture loads through the b1 loader");
 }
 
+// --- the canonical blob-47 table (b1.2) ------------------------------------
+
+void testCanonicalMasks() {
+    // The table is pinned by its characterization, re-derived HERE in the
+    // grader independently of the header's data: exactly the masks in 0..255
+    // where every set diagonal bit implies both adjacent edge bits. A wrong
+    // or incomplete hardcoded table fails this identity, not just a count.
+    std::vector<int> derived;
+    for (int m = 0; m < 256; ++m) {
+        const bool ne = (m & 2) != 0 && !(m & 1 && m & 4);
+        const bool se = (m & 8) != 0 && !(m & 4 && m & 16);
+        const bool sw = (m & 32) != 0 && !(m & 16 && m & 64);
+        const bool nw = (m & 128) != 0 && !(m & 64 && m & 1);
+        if (!(ne || se || sw || nw)) derived.push_back(m);
+    }
+    check(derived.size() == 47, "the characterization yields 47 masks");
+    check(static_cast<int>(derived.size()) == ply::kBlobMaskCount,
+          "kBlobMaskCount is 47");
+
+    bool identical = static_cast<int>(derived.size()) == ply::kBlobMaskCount;
+    for (int i = 0; identical && i < ply::kBlobMaskCount; ++i) {
+        identical = ply::kBlobMasks[i] == derived[static_cast<std::size_t>(i)];
+    }
+    check(identical, "kBlobMasks == the corner-constraint set, element by element");
+
+    bool sorted = true;
+    for (int i = 1; i < ply::kBlobMaskCount; ++i) {
+        sorted = sorted && ply::kBlobMasks[i - 1] < ply::kBlobMasks[i];
+    }
+    check(sorted, "kBlobMasks strictly ascending (binary-searchable)");
+
+    // Spread pins: the empty blob and the full blob are in; representative
+    // edge-only and diagonal cases are in at their exact values.
+    check(ply::kBlobMasks[0] == 0, "isolated blob is canonical");
+    check(ply::kBlobMasks[ply::kBlobMaskCount - 1] == 255,
+          "full blob is canonical");
+    for (const int m : {5, 16, 31}) {
+        bool found = false;
+        for (const int k : ply::kBlobMasks) found = found || k == m;
+        check(found, (std::string("mask ") + std::to_string(m) +
+                      " (a fixture mask) is canonical").c_str());
+    }
+}
+
 // --- structural errors (the minimal set b1.1 validates; the dedicated
 // invalid-case battery is b1.2) ---------------------------------------------
 
-void testStructuralErrors() {
-    struct Case {
-        const char* name;
-        std::string doc;
-        ply::MapErrorCode code;
-    };
-    const std::vector<Case> cases = {
+struct ErrorCase {
+    const char* name;
+    std::string doc;
+    ply::MapErrorCode code;
+};
+
+/// The consolidated invalid-case battery (b1.2): every way the tileset
+/// loader can reject a document, each with its named token. The four
+/// map-side tokens (EmptyLayerName, DuplicateLayer, LayerSizeMismatch,
+/// MissingTileset) are NOT reachable from a tileset document, and the
+/// coverage loop below pins that boundary.
+const std::vector<ErrorCase>& errorCases() {
+    static const std::vector<ErrorCase> cases = {
         {"malformed", "{not json", ply::MapErrorCode::MalformedJson},
         {"root array", "[]", ply::MapErrorCode::WrongType},
         {"missing name",
@@ -297,8 +347,33 @@ void testStructuralErrors() {
          "\"tiles\": [{\"id\": 0, \"region\": {\"x\": 0, \"y\": 0, \"w\": 16, \"h\": 16}, "
          "\"collision\": [{\"x\": 0, \"y\": 15, \"w\": 16, \"h\": 2}]}]}",
          ply::MapErrorCode::NegativeRegion},
+        // --- b1.2: the dedicated battery's own cases ---
+        {"unknown mask 3 (NE without E)",
+         "{\"name\": \"t\", \"image\": \"i.png\", \"tile_width\": 16, \"tile_height\": 16, "
+         "\"tiles\": [{\"id\": 0, \"region\": {\"x\": 0, \"y\": 0, \"w\": 16, \"h\": 16}, "
+         "\"mask\": 3}]}",
+         ply::MapErrorCode::UnknownMask},
+        {"unknown mask 2 (NE alone)",
+         "{\"name\": \"t\", \"image\": \"i.png\", \"tile_width\": 16, \"tile_height\": 16, "
+         "\"tiles\": [{\"id\": 0, \"region\": {\"x\": 0, \"y\": 0, \"w\": 16, \"h\": 16}, "
+         "\"mask\": 2}]}",
+         ply::MapErrorCode::UnknownMask},
+        {"unknown mask 130 (NW without W or N)",
+         "{\"name\": \"t\", \"image\": \"i.png\", \"tile_width\": 16, \"tile_height\": 16, "
+         "\"tiles\": [{\"id\": 0, \"region\": {\"x\": 0, \"y\": 0, \"w\": 16, \"h\": 16}, "
+         "\"mask\": 130}]}",
+         ply::MapErrorCode::UnknownMask},
+        {"negative tile id",
+         "{\"name\": \"t\", \"image\": \"i.png\", \"tile_width\": 16, \"tile_height\": 16, "
+         "\"tiles\": [{\"id\": -5, \"region\": {\"x\": 0, \"y\": 0, \"w\": 16, \"h\": 16}}]}",
+         ply::MapErrorCode::OutOfRangeTileId},
     };
-    for (const Case& c : cases) {
+    return cases;
+}
+
+void testStructuralErrors() {
+    const std::vector<ErrorCase>& cases = errorCases();
+    for (const ErrorCase& c : cases) {
         const ply::TileSetLoadResult r = ply::loadTileSetFromString(c.doc);
         check(!r.ok(), (std::string(c.name) + " rejected").c_str());
         check(r.error.code == c.code,
@@ -307,9 +382,43 @@ void testStructuralErrors() {
         check(r.tileset.tiles.empty() && r.tileset.name.empty(),
               (std::string(c.name) + " leaves an empty result").c_str());
     }
+    // Coverage: every token the tileset loader can produce has at least one
+    // case above; the four map-side tokens are NOT reachable from a tileset
+    // document, pinned by name so the boundary is explicit.
+    std::size_t covered = 0;
+    for (int t = 1; t <= static_cast<int>(ply::MapErrorCode::UnknownMask); ++t) {
+        const ply::MapErrorCode token = static_cast<ply::MapErrorCode>(t);
+        bool found = false;
+        for (const ErrorCase& c : cases) found = found || c.code == token;
+        if (token == ply::MapErrorCode::EmptyLayerName ||
+            token == ply::MapErrorCode::DuplicateLayer ||
+            token == ply::MapErrorCode::LayerSizeMismatch ||
+            token == ply::MapErrorCode::MissingTileset) {
+            check(!found, (std::string(ply::toString(token)) +
+                           " is map-side, unreachable from a tileset").c_str());
+        } else if (token == ply::MapErrorCode::FileNotReadable) {
+            // Only the file API can produce this one; covered below.
+            check(!found, "FileNotReadable lives on the file API, not the table");
+            ++covered;
+        } else {
+            check(found, (std::string("token ") + ply::toString(token) +
+                          " has a named case").c_str());
+            ++covered;
+        }
+    }
+    const ply::TileSetLoadResult unreadable =
+        ply::loadTileSetFile("/nonexistent/tileset.json");
+    check(!unreadable.ok() && unreadable.error.code == ply::MapErrorCode::FileNotReadable,
+          "unreadable file names FileNotReadable");
+    check(unreadable.tileset.tiles.empty(), "unreadable file leaves an empty result");
+    check(covered == 11, "11 loadable tokens covered");
+
     check(ply::toString(ply::MapErrorCode::MaskOutOfRange) ==
               std::string("MaskOutOfRange"),
           "new token is stable");
+    check(ply::toString(ply::MapErrorCode::UnknownMask) ==
+              std::string("UnknownMask"),
+          "UnknownMask token is stable");
 
     // Tolerance, positively: an unknown key on the document root and on a
     // tile both load.
@@ -318,6 +427,15 @@ void testStructuralErrors() {
         "\"future_root_key\": 1, \"tiles\": [{\"id\": 0, \"region\": {\"x\": 0, \"y\": 0, "
         "\"w\": 16, \"h\": 16}, \"future_tile_key\": true}]}");
     check(tolerant.ok() && tolerant.tileset.tiles.size() == 1, "unknown keys ignored");
+
+    // Positive control beside the battery: mask 7 (N+NE+E — NE's corner
+    // constraint satisfied) IS canonical and loads; id 0 is a valid id.
+    const ply::TileSetLoadResult positive = ply::loadTileSetFromString(
+        "{\"name\": \"t\", \"image\": \"i.png\", \"tile_width\": 16, \"tile_height\": 16, "
+        "\"tiles\": [{\"id\": 0, \"region\": {\"x\": 0, \"y\": 0, \"w\": 16, \"h\": 16}, "
+        "\"mask\": 7}]}");
+    check(positive.ok() && positive.tileset.tiles[0].mask == 7,
+          "mask 7 (canonical) loads; id 0 is a valid id");
 }
 
 void printEvidence() {
@@ -335,7 +453,7 @@ void printEvidence() {
     std::printf(
         "EVIDENCE tileset tiles=%zu sorted=1/1 ids=0..10 masks=%zu anim=%zux%d "
         "phase=%d collision_rects=%zu defaults=1 roundtrip=%s fixed=%s a9_compat=%s "
-        "errors=15\n",
+        "blob=%d errors=%zu\n",
         ts.tiles.size(), maskCount, ts.tiles[8].animation.size(), ts.tiles[8].animation[0].steps,
         ts.tiles[8].phase, collisionCount,
         reloaded == ts ? "identical" : "DIFFER",
@@ -346,7 +464,8 @@ void printEvidence() {
                                            .tileset))
                       .ok()
                   ? "identical"
-                  : "DIFFER");
+                  : "DIFFER",
+        ply::kBlobMaskCount, errorCases().size());
 }
 
 }  // namespace
@@ -355,6 +474,7 @@ int main() {
     testFixtureModel();
     testRoundTrip();
     testA9Compatibility();
+    testCanonicalMasks();
     testStructuralErrors();
 
     if (failures == 0) {

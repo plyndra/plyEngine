@@ -24,8 +24,10 @@ namespace ply {
 //                    (kNoTileMask = -1). Bit n set = the neighbour in that
 //                    direction belongs to the same terrain:
 //                    1=N, 2=NE, 4=E, 8=SE, 16=S, 32=SW, 64=W, 128=NW.
-//                    The 47 canonical blob masks are a subset; which masks
-//                    resolve is the resolver's (b2) contract, validated then.
+//                    Validated against kBlobMasks (the 47 canonical blob
+//                    masks): an in-range value outside the table is
+//                    UnknownMask (b1.2) - no blob tile can represent it, so
+//                    b2's resolver would never resolve it.
 //   variant   string variant group name; empty = none. Tiles sharing a group
 //                    are interchangeable fills for one terrain.
 //   animation array  of {region, steps} frames; absent/empty = static art.
@@ -47,6 +49,22 @@ namespace ply {
 
 /// No autotile role: the tile never participates in a blob resolution.
 inline constexpr int kNoTileMask = -1;
+
+/// The 47 canonical blob-47 neighbour masks, sorted ascending. A tile mask
+/// other than kNoTileMask must be one of these — any other in-range value is
+/// a configuration no blob tile can represent (a diagonal bit set without
+/// both adjacent edges), so the resolver would never resolve it. The table
+/// is pinned in the grader by its characterization: exactly the masks in
+/// 0..255 where every set diagonal bit implies both adjacent edge bits
+/// (NE ⇒ N∧E, SE ⇒ E∧S, SW ⇒ S∧W, NW ⇒ W∧N; bits 1=N, 2=NE, 4=E, 8=SE,
+/// 16=S, 32=SW, 64=W, 128=NW).
+inline constexpr int kBlobMaskCount = 47;
+inline constexpr int kBlobMasks[kBlobMaskCount] = {
+    0,   1,   4,   5,   7,   16,  17,  20,  21,  23,  28,  29,  31,
+    64,  65,  68,  69,  71,  80,  81,  84,  85,  87,  92,  93,  95,
+    112, 113, 116, 117, 119, 124, 125, 127, 193, 197, 199, 209, 213,
+    215, 221, 223, 241, 245, 247, 253, 255,
+};
 
 /// One animation frame: a region in the tileset image and how many fixed
 /// sim steps it holds before advancing.
@@ -98,11 +116,14 @@ struct TileSetLoadResult {
 // --- the function trio -----------------------------------------------------
 
 /// Parses and validates one document, reusing the a9 error vocabulary plus
-/// MaskOutOfRange for the schema's new range. Returns a named error and an
-/// empty result on failure. Unknown keys are ignored; emit writes the
-/// canonical form (sorted keys, tiles by id) and omits every metadata field
-/// still at its default, so an a9 slice document emits back as exactly the
-/// a9 grammar.
+/// MaskOutOfRange for the schema's new range and UnknownMask for an
+/// in-range mask no blob tile can represent (b1.2). Tile ids are rejected
+/// below 0 (OutOfRangeTileId): layer cells use negative ids for empty, so a
+/// tileset tile with a negative id could never be indexed. Returns a named
+/// error and an empty result on failure. Unknown keys are ignored; emit
+/// writes the canonical form (sorted keys, tiles by id) and omits every
+/// metadata field still at its default, so an a9 slice document emits back
+/// as exactly the a9 grammar.
 TileSetLoadResult loadTileSetFromString(std::string_view document);
 TileSetLoadResult loadTileSetFile(const std::string& path);
 

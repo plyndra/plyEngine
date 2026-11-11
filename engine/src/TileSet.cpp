@@ -129,6 +129,13 @@ TileSetLoadResult loadTileSetFromString(std::string_view document) {
         }
         TileData tile;
         if (!parseIntField(entry, "id", tile.id, result.error)) return result;
+        // Layer cells use negative ids for empty, so a tileset tile with a
+        // negative id could never be indexed by a map (b1.2).
+        if (tile.id < 0) {
+            result.error = fail(MapErrorCode::OutOfRangeTileId,
+                                "tileset tile id " + std::to_string(tile.id));
+            return result;
+        }
 
         const auto region = entry.find("region");
         if (region == entry.end()) {
@@ -157,9 +164,20 @@ TileSetLoadResult loadTileSetFromString(std::string_view document) {
                 return result;
             }
             tile.mask = mask->get<int>();
-            // {-1} (no role) or one of the 256 eight-neighbour masks.
+            // {-1} (no role) or one of the 256 eight-neighbour masks...
             if (tile.mask < kNoTileMask || tile.mask > 255) {
                 result.error = fail(MapErrorCode::MaskOutOfRange,
+                                    "tile " + std::to_string(tile.id) + " mask " +
+                                        std::to_string(tile.mask));
+                return result;
+            }
+            // ...and in-range, one of the 47 canonical blob masks (b1.2): an
+            // in-range value outside kBlobMasks sets a diagonal bit without
+            // both adjacent edges, which no blob tile represents and the
+            // resolver could never resolve.
+            if (tile.mask != kNoTileMask &&
+                !std::binary_search(kBlobMasks, kBlobMasks + kBlobMaskCount, tile.mask)) {
+                result.error = fail(MapErrorCode::UnknownMask,
                                     "tile " + std::to_string(tile.id) + " mask " +
                                         std::to_string(tile.mask));
                 return result;

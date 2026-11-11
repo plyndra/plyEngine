@@ -97,6 +97,9 @@ enum class MapErrorCode {
     /// b1 (TileSet.hpp): an autotile mask outside {-1} ∪ [0, 255]. Appended
     /// after the a9 tokens so existing values stay stable.
     MaskOutOfRange,
+    /// b1.2 (TileSet.hpp): an in-range autotile mask that is not one of the
+    /// 47 canonical blob masks (kBlobMasks) - no blob tile can represent it.
+    UnknownMask,
 };
 
 /// Stable token for the code, e.g. "OutOfRangeTileId". Never renamed.
