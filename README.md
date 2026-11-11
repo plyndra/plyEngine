@@ -15,10 +15,19 @@ No account, no compiler, no form. Download the archive for your OS from
 [Releases](https://github.com/plyndra/plyEngine/releases/latest), unpack it, run
 it, and open the printed URL on your phones (same Wi-Fi).
 
+> **The published archives are `v1.0.0`, and in that release every demo runs a
+> fixed number of frames and then exits.** Measured: `./ply_companion` prints a
+> room code and closes after 120 frames (about two seconds with vsync on), so
+> no phone can join it. The fix — each demo stays open until you close its
+> window, and `--frames` / `--verify` keep the bounded behaviour — is on `main`
+> as CHANGELOG `1.0.1` and ships with the next tagged release. To run the
+> interactive demo **today**, build the source checkout in
+> [Build it yourself](#build-it-yourself).
+
 ```sh
 # Linux x86-64 (glibc 2.35+, desktop OpenGL 3.3)
 tar xzf plyEngine-v*-linux-x86_64.tar.gz && cd plyEngine-v*/
-./ply_companion           # prints a room code and a LAN URL
+./ply_companion           # v1.0.0: prints a room code, then exits after 120 frames
 
 # macOS (Apple Silicon)
 tar xzf plyEngine-v*-macos-arm64.tar.gz && cd plyEngine-v*/
@@ -38,7 +47,8 @@ deaths and the win). No phones? Keyboard works: P1 arrows + Space, P2 A/D/W,
 ## Use it in your project
 
 The engine is one CMake target; C++20, include paths and dependencies
-propagate. Pin the tag you tested:
+propagate. Pin the tag you tested (`v1.0.0` is the newest tagged release;
+`1.0.1` — the demo-stays-open fix — is on `main` until the next tag):
 
 ```cmake
 include(FetchContent)
@@ -60,6 +70,8 @@ vcpkg install plyengine --overlay-ports=ports   # in-repo registry; see packagin
 
 > **Status:** public API is frozen (additions are minor changes; removals or
 > renames need a deprecation cycle). Behaviour can still change to fix a bug.
+> `ply::kVersion` reports `1.0.1` on `main`; the newest tag — and the version in
+> the published archives — is `v1.0.0`.
 > Prebuilt binaries and source: [Releases](https://github.com/plyndra/plyEngine/releases).
 
 ## What you'll be able to build
@@ -84,6 +96,20 @@ vcpkg install plyengine --overlay-ports=ports   # in-repo registry; see packagin
   under the fixed timestep, with a spatial-hash broadphase.
 - **Audio** — decoded sound effects with per-voice volume, pitch and pan.
 - **Debug draw** — collider, tile-grid and body overlays for development.
+- **Integer-scaled render target** — the world renders into a framebuffer at an
+  internal resolution and is presented with an exact integer nearest-neighbour
+  upscale (`RenderTargetPlan` + `PresentPass`), so one internal pixel is always
+  a whole k×k block of output pixels. The scene is drawn in a fixed layer order
+  and the camera snaps by flooring, so a fractional camera position cannot
+  change a frame.
+- **HUD framework** — UI atlas loading with nine-slice margins (declared, or
+  derived from the alpha contour), anchor+offset+integer-scale layout, bars,
+  slots, a hotbar, panels and clamped tooltips, pixel text with measurable ink
+  bounds, HUD-over-world composition as data (`HudFrame`), and a minimap.
+- **Input router** — one pump decides whether a pointer or key event belongs to
+  a widget or the world, with press-capture, so a drag that starts on a button
+  never becomes a world click; the same path serves a real mouse and a virtual
+  cursor.
 - **Phone controllers** — embedded HTTP+WebSocket server, mDNS discovery, room
   codes, and a reference PWA so players join from a browser with no install.
 - **Four-player reference demo** — coins, patrolling saws, a pit and a goal,
@@ -112,7 +138,7 @@ git clone https://github.com/plyndra/plyEngine.git
 cd plyEngine
 cmake -B build -DCMAKE_BUILD_TYPE=Release   # needs SDL3/X11 dev packages, see docs/BUILDING.md
 cmake --build build -j
-ctest --test-dir build --output-on-failure     # 31 headless suites
+ctest --test-dir build --output-on-failure     # 31 suites (30 headless + 1 GL)
 ```
 
 Full per-OS dependencies: [docs/BUILDING.md](docs/BUILDING.md). The walkthrough
@@ -136,15 +162,21 @@ it. Each demo then runs interactively until you close its window:
 
 Every milestone ships with checks that can actually fail:
 
-- **31 `ctest` suites** — ECS, transforms, timestep, atlas math, assets,
+- **31 `ctest` suites** — 30 headless plus one that needs a GL context. ECS,
+  transforms, timestep, atlas math, assets,
   physics, audio, scripting, companion protocol/server, a scripted full
   playthrough of the reference platformer (`platformer`), and the 2.0 UI
   framework: atlas loading, nine-slice, integer layout, the widgets, pixel
-  text, the input router, map loading, the minimap, the render-target plan,
-  the HUD composition, and the one GL-context suite that grades the render
+  text, the input router, map loading, the minimap, the render-target plan and
+  the HUD composition — all headless. The 31st (`present_gl`) grades the render
   target's nearest present blit by structural readback under SDL's offscreen
-  video driver (no pixel goldens in CI). All green in Release **and** under
-  `-DPLY_SANITIZE=ON` (ASan + UBSan).
+  video driver (pattern data compared at run time, no pixel goldens in CI).
+  Measured in CI: 31 passed on Linux, and 30 passed + 1 skipped on the macOS
+  and Windows runners, where the offscreen driver cannot create a GL context
+  and the suite reports a skip rather than a pass. All of it is green in
+  Release **and** under `-DPLY_SANITIZE=ON` (ASan + UBSan), with leak detection
+  scoped off for that one GL suite only — its only reports are libdbus and
+  EGL/Mesa library globals, with no engine frame in the trace.
 - **`--verify` on every demo** — headless assertions on real outcomes: the
   tutorial collects all five coins; `ply_companion --verify` plays a complete
   four-player match through the real companion-input queue and asserts coins,
