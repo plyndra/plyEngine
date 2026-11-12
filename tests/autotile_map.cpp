@@ -180,9 +180,14 @@ void testIdentityAndSelection() {
     pinAt(identityMatch, identityRan, autotile.terrainMaskAt(0, 15, 13) == 255,
           "variant-group identity: mixed fills of one group are one terrain");
     // The grass/water border: different groups are NOT same terrain.
+    // (The b3d read's O1: this fixture's terrains are MUTUALLY NON-ADJACENT,
+    // so this pin measures the grass region's corner against empty — named
+    // for what it measures. The both-ways cross-terrain rule is pinned
+    // transitively: the terrain keys differ and 255 resolves to 46 vs 146;
+    // the verifier confirmed both-ways on its own adjacency map.)
     pinAt(identityMatch, identityRan,
           autotile.terrainMaskAt(0, 2, 2) == 255 && autotile.terrainMaskAt(0, 10, 10) != 255,
-          "different groups are different terrain at the border");
+          "a region corner is not interior (empty neighbours are not same terrain)");
 
     // Every chunked mask equals the brute mask (variant identity, all 660).
     long long agree = 0;
@@ -261,8 +266,10 @@ void testAbsentTableIsLoud() {
     const ply::TileQuery query = autotile.resolvedAt(0, 31, 19);
     pinAt(loudMatch, loudRan, !query.ok() && query.tileId == -1,
           "absent terrain table fails loudly (ok false, tileId -1)");
-    pinAt(loudMatch, loudRan, query.mask == ply::kNoTileMask || query.mask >= 0,
-          "the loud failure names a mask (never a silent default)");
+    // (The b3d read's O2: the old mask-named pin was near-vacuous; the
+    // literal 199 is the lava cell's raw mask, verifier-derived independently.)
+    pinAt(loudMatch, loudRan, query.mask == 199,
+          "the loud failure names the mask (199 at the lava cell)");
 
     // And lava cells submit NOTHING (the b2 rule: draw nothing, say so).
     ply::WorldMapSubmission submission = autotile.submitResolved({0, 0, 528, 320});

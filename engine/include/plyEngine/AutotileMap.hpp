@@ -30,8 +30,11 @@ namespace ply {
 //   cell's variant group — a grass cell resolves against grass art, a
 //   water cell against water art.
 // - RESOLVE AT LOAD, not baked: the map file holds fills; the engine
-//   resolves them (this module) and submits resolved quads. (Runtime
-//   re-resolution on edit arrives with the M2 editor.)
+//   resolves them (this module) and submits resolved quads. (Tables are
+//   built eagerly at load and each query is a lazy canonicalise+lookup —
+//   observably identical to an eagerly materialised field through the
+//   query/submission API, the b3d read's O4. Runtime re-resolution on
+//   edit arrives with the M2 editor.)
 //
 // Conventions carried unchanged from WorldMap/b3c: map-grid directions (N
 // is the row above), out-of-map neighbours are not same terrain, the raw
