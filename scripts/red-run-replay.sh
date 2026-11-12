@@ -16,13 +16,14 @@
 #   light_pass    (b8a+b8b): 22 failures
 #   particles     (b9):  9 failures
 #   autotile_map  (b3d): 10 failures
+#   benchmark     (b10): 8 failures
 #   camera2d      (b7):  30 failures (re-anchored from 29 when the
 #                     b7 read's O1 re-pin moved the suite - the REPLAY-DIFF
 #                     tripwire fired exactly as designed)
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [...|particles|autotile_map|all]  (default all)
+# Usage: scripts/red-run-replay.sh [...|autotile_map|benchmark|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -41,13 +42,14 @@ light_impl="engine/src/LightMap.cpp"
 post_impl="engine/src/PostPass.cpp"
 particles_impl="engine/src/ParticleSystem.cpp"
 autotile_impl="engine/src/AutotileMap.cpp"
+bench_impl="engine/src/Benchmark.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" "$particles_impl" "$autotile_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" "$particles_impl" "$autotile_impl" "$bench_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -409,6 +411,33 @@ STUB
     report autotile_map "$n" 10
 }
 
+replay_benchmark() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b10 scaffold: the harness emits nothing — exactly the
+    # pre-implementation state the 8-failure figure was measured against.
+    cat > "$bench_impl" << 'STUB'
+// Benchmark (M1b b10) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the red run stays re-runnable).
+#include "plyEngine/Benchmark.hpp"
+
+namespace ply {
+
+long long workP95(std::vector<long long>) { return 0; }
+
+BenchmarkResult runBenchmark(AutotileMap&, const BenchmarkConfig&) {
+    return BenchmarkResult{};
+}
+
+}  // namespace ply
+STUB
+    local n
+    n="$(build_and_count ply_benchmark_test)" || exit 3
+    restore
+    cmake --build build --target ply_benchmark_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report benchmark "$n" 8
+}
+
 status=0
 case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
@@ -420,6 +449,7 @@ case "$target" in
     light_pass)    replay_light_pass    || status=1 ;;
     particles)     replay_particles     || status=1 ;;
     autotile_map)  replay_autotile_map  || status=1 ;;
+    benchmark)     replay_benchmark     || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
@@ -430,6 +460,7 @@ case "$target" in
         replay_light_pass    || status=1
         replay_particles     || status=1
         replay_autotile_map  || status=1
+        replay_benchmark     || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac

@@ -297,6 +297,7 @@ add_library(plyEngine STATIC
     engine/src/PostPass.cpp
     engine/src/ParticleSystem.cpp
     engine/src/AutotileMap.cpp
+    engine/src/Benchmark.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -634,6 +635,16 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_autotile_map_test tests/autotile_map.cpp)
     target_link_libraries(ply_autotile_map_test PRIVATE plyEngine)
     add_test(NAME autotile_map COMMAND ply_autotile_map_test)
+
+    # Benchmark (E-b10.1): the headless harness over the real submission
+    # path — quads/frame, draw calls and the step-work p95 against the
+    # ADR-0012 budget, all deterministic (the determinism contract: no
+    # wall-clock in a byte-stable transcript). Pure data.
+    add_executable(ply_benchmark_test tests/benchmark.cpp)
+    target_link_libraries(ply_benchmark_test PRIVATE plyEngine)
+    target_compile_definitions(ply_benchmark_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME benchmark COMMAND ply_benchmark_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +

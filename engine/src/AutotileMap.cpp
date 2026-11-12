@@ -137,6 +137,14 @@ WorldMapSubmission AutotileMap::submitResolved(const UIRect& camera) {
     return out;
 }
 
+int AutotileMap::mapWidthPx() const { return world_.width() * world_.tileWidth(); }
+
+int AutotileMap::mapHeightPx() const { return world_.height() * world_.tileHeight(); }
+
+int AutotileMap::widthCells() const { return world_.width(); }
+
+int AutotileMap::heightCells() const { return world_.height(); }
+
 std::uint64_t AutotileMap::resolvedFieldHash(std::size_t layer) {
     StructuralHasher hasher;
     hasher.u64(static_cast<std::uint64_t>(world_.width()));

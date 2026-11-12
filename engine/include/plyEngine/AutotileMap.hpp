@@ -73,6 +73,12 @@ public:
     /// resolved art id. Cells that fail to resolve submit nothing.
     WorldMapSubmission submitResolved(const UIRect& camera);
 
+    /// The map's size in world px and in cells (the benchmark's geometry).
+    int mapWidthPx() const;
+    int mapHeightPx() const;
+    int widthCells() const;
+    int heightCells() const;
+
     /// The ADR-0014 structural hash of a layer's resolved-id field
     /// (row-major, the full map) — the no-seam measurement.
     std::uint64_t resolvedFieldHash(std::size_t layer);
