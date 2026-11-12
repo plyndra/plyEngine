@@ -36,8 +36,11 @@ struct ParticleEmitter {
     int spreadX = 0, spreadY = 0;     // +- spawn jitter (seeded)
     int velocityX = 0, velocityY = 0; // initial velocity, px per step
     int gravity = 0;                  // added to velocityY each step
-    int lifetime = 1;                 // steps before respawn
-    int maxParticles = 0;             // this emitter's pool size
+    int lifetime = 1;                 // steps before respawn; <= 0 clamps to 1
+    int maxParticles = 0;             // this emitter's pool size; <= 0 clamps
+                                      // to an empty pool (defensive — the b9
+                                      // read's O1: the clamps are implemented
+                                      // and must be visible here too)
 };
 
 class ParticleSystem {
