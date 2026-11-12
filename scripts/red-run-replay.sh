@@ -53,6 +53,7 @@ report() {
 }
 
 replay_worldmap() {
+    restore  # replay from the pristine implementation, never from a leftover
     # The exact b3b scaffold: the map's metadata copied, no chunk grid, no
     # cell storage, empty submissions, hash() real (a leaf utility). Every
     # E-b3.1 pin fails cleanly against it — that is the 69.
@@ -144,6 +145,7 @@ STUB
 }
 
 replay_neighbour() {
+    restore  # replay from the pristine implementation, never from a leftover
     # The b3c scaffold: the b3b implementation kept REAL (the neighbour suite
     # pins chunking too), the two query bodies hollowed — the centre always
     # "no terrain" and resolveAt always "no tile", exactly as the scaffold.
