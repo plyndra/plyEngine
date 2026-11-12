@@ -13,10 +13,11 @@
 #   tile_animator (b4):  34 failures
 #   prop_layer    (b5):  46 failures
 #   ysort         (b6):  12 failures
+#   camera2d      (b7):  29 failures
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|all]  (default all)
+# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|camera2d|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -30,13 +31,14 @@ impl="engine/src/WorldMap.cpp"
 anim_impl="engine/src/TileAnimator.cpp"
 map_impl="engine/src/MapLoader.cpp"
 ysort_impl="engine/src/YSort.cpp"
+camera_impl="engine/src/Camera2D.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -252,6 +254,40 @@ replay_ysort() {
     report ysort "$n" 12
 }
 
+replay_camera2d() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b7 scaffold: the camera never moves and the view rect is empty —
+    # exactly the hollow state the 29-failure figure was measured against.
+    cat > "$camera_impl" << 'STUB'
+// Camera2D (M1b b7) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the 29-failure red run stays re-runnable).
+#include "plyEngine/Camera2D.hpp"
+
+namespace ply {
+
+Camera2D::Camera2D(const Config& config) : config_(config) {}
+
+int Camera2D::x() const { return x_; }
+int Camera2D::y() const { return y_; }
+
+UIRect Camera2D::viewRect() const { return UIRect{}; }
+
+void Camera2D::follow(double, double) {}
+
+void Camera2D::snapTo(double, double) {}
+
+void Camera2D::clampToMap() {}
+
+}  // namespace ply
+STUB
+    local n
+    n="$(build_and_count ply_camera2d_test)" || exit 3
+    restore
+    cmake --build build --target ply_camera2d_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report camera2d "$n" 29
+}
+
 status=0
 case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
@@ -259,12 +295,14 @@ case "$target" in
     tile_animator) replay_tile_animator || status=1 ;;
     prop_layer)    replay_prop_layer    || status=1 ;;
     ysort)         replay_ysort         || status=1 ;;
+    camera2d)      replay_camera2d      || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
         replay_tile_animator || status=1
         replay_prop_layer    || status=1
         replay_ysort         || status=1
+        replay_camera2d      || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac

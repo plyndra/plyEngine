@@ -292,6 +292,7 @@ add_library(plyEngine STATIC
     engine/src/WorldMap.cpp
     engine/src/TileAnimator.cpp
     engine/src/YSort.cpp
+    engine/src/Camera2D.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -599,6 +600,13 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_ysort_test tests/ysort.cpp)
     target_link_libraries(ply_ysort_test PRIVATE plyEngine)
     add_test(NAME ysort COMMAND ply_ysort_test)
+
+    # Camera2D (E-b7.1): follow with a deadzone, clamp to the map at all
+    # four edges, integer snap — the camera state is integer world px; the
+    # one float is the follow input, floored at the door. Pure data.
+    add_executable(ply_camera2d_test tests/camera2d.cpp)
+    target_link_libraries(ply_camera2d_test PRIVATE plyEngine)
+    add_test(NAME camera2d COMMAND ply_camera2d_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
