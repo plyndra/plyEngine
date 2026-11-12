@@ -291,6 +291,7 @@ add_library(plyEngine STATIC
     engine/src/MapLoader.cpp
     engine/src/WorldMap.cpp
     engine/src/TileAnimator.cpp
+    engine/src/YSort.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -590,6 +591,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_prop_layer_test tests/prop_layer.cpp)
     target_link_libraries(ply_prop_layer_test PRIVATE plyEngine)
     add_test(NAME prop_layer COMMAND ply_prop_layer_test)
+
+    # YSort (E-b6.1): the y-sorted world layer's draw order — descending
+    # feet y (back to front in y-up), ascending-id ties, permutation
+    # output, stable on repeat. Pure data: no GL, no window, no clock, no
+    # float.
+    add_executable(ply_ysort_test tests/ysort.cpp)
+    target_link_libraries(ply_ysort_test PRIVATE plyEngine)
+    add_test(NAME ysort COMMAND ply_ysort_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
