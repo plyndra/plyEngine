@@ -233,4 +233,35 @@ WorldMapSubmission WorldMap::submit(const UIRect& camera) {
     return out;
 }
 
+// --- cross-chunk neighbour queries (b3c, E-b3.2) -----------------------------
+//
+// Directions are map-grid: N is the row ABOVE the cell (cy-1, world +y —
+// row 0 is the map's top row), NE is (cx+1, cy-1), and so on around the
+// compass. Every read goes through tileAt, which addresses the RIGHT chunk
+// for any coordinate — that is what makes the query cross seams: a cell's
+// neighbour is read whether it lives in this chunk, the next one, or no
+// chunk at all (out of the map).
+
+int WorldMap::neighbourMaskAt(std::size_t layer, int cx, int cy) const {
+    const int centre = tileAt(layer, cx, cy);
+    if (centre < 0) return kNoTileMask;  // empty or out of range: no terrain
+    static constexpr int kDX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+    static constexpr int kDY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+    static constexpr int kBit[8] = {kNeighbourN,  kNeighbourNE, kNeighbourE, kNeighbourSE,
+                                    kNeighbourS,  kNeighbourSW, kNeighbourW, kNeighbourNW};
+    int mask = 0;
+    for (int i = 0; i < 8; ++i) {
+        // Out-of-map reads return -1 != centre, so the map edge is a terrain
+        // edge. The raw diagonal is reported as truth; dropping it onto the
+        // blob-47 set is canonicalizeBlobMask's job at resolve time.
+        if (tileAt(layer, cx + kDX[i], cy + kDY[i]) == centre) mask |= kBit[i];
+    }
+    return mask;
+}
+
+TileQuery WorldMap::resolveAt(std::size_t layer, int cx, int cy,
+                              const AutoTileResolver& resolver) const {
+    return resolver.resolve(neighbourMaskAt(layer, cx, cy));
+}
+
 }  // namespace ply
