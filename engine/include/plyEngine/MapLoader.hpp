@@ -142,7 +142,11 @@ struct Prop {
     bool occlusion = false;
     /// Prop-local art px rects that block movement (b5.2: partial tiles
     /// welcome — a trunk, not the whole footprint). Absent/empty = the
-    /// whole art footprint. NegativeRegion when a rect leaves the art.
+    /// whole art footprint. The check split (the b5 read's O1): INTRINSIC
+    /// geometry (negative origin, non-positive size) is rejected at load
+    /// with NegativeRegion; the ART-FOOTPRINT and map-bounds halves need
+    /// the tile size and land in validateMap (NegativeRegion /
+    /// PropOutOfBounds).
     std::vector<UIRect> collision;
     /// Optional interaction id (M2+ acts on it; carried verbatim).
     std::string interaction;
@@ -314,9 +318,11 @@ std::string emitMap(const MapData& map);
 /// the validator "rejects (and names)" bad references and ids). `map.tileset`
 /// must resolve to a registered tileset of that name (else MissingTileset),
 /// every non-negative tile id in every layer AND every prop must exist in it
-/// (else OutOfRangeTileId), and every prop collision (world px) must lie
-/// within the map's bounds (else PropOutOfBounds — the §4 prop-bounds half,
-/// b5.1/E-b5.x).
+/// (else OutOfRangeTileId), every prop collision must fit its art footprint
+/// (else NegativeRegion — the footprint half of the load/validate split),
+/// and every EFFECTIVE prop collision (authored rects, or the whole art
+/// footprint when none are authored) must lie within the map's bounds (else
+/// PropOutOfBounds — the §4 prop-bounds half, b5.1/E-b5.x).
 MapError validateMap(const MapData& map, const std::vector<TilesetSlice>& registered);
 
 /// The world-px quad each non-empty cell covers, in file order (row-major,

@@ -393,6 +393,25 @@ void testErrors() {
         pinAt(errorMatch, errorRan,
               ply::validateMap(outOfFootprint, {ts}).code == ply::MapErrorCode::NegativeRegion,
               "validator rejects a collision outside the art footprint");
+
+        // THE FOUR BOUNDS GUARDS, one pin each (the b5 read's F1: only the
+        // RIGHT edge was pinned above, and disabling the worldX<0/worldY<0
+        // sub-guards ran GREEN — a mutation there would have landed
+        // silently). Each prop is a default-footprint 1x1 whose art exits
+        // the map through one edge of the 160x128 world.
+        const auto pinBoundsEdge = [&](const char* propsJson, const char* what) {
+            const ply::MapLoadResult r = ply::loadMapFromString(docWith(propsJson));
+            pinAt(errorMatch, errorRan,
+                  r.ok() && ply::validateMap(r.map, {ts}).code ==
+                                ply::MapErrorCode::PropOutOfBounds,
+                  what);
+        };
+        pinBoundsEdge("[{\"name\": \"west\", \"tile\": 1, \"x\": 2, \"y\": 100}]",
+                      "collision exits LEFT of the map (worldX < 0 guard)");
+        pinBoundsEdge("[{\"name\": \"south\", \"tile\": 1, \"x\": 80, \"y\": 140}]",
+                      "collision exits BELOW the map (worldY < 0 guard)");
+        pinBoundsEdge("[{\"name\": \"north\", \"tile\": 1, \"x\": 80, \"y\": -10}]",
+                      "collision exits ABOVE the map (top guard)");
     }
 }
 
