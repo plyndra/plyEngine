@@ -305,10 +305,14 @@ void testChunkSeams() {
 
     // Literal seam masks: (15,13) and (16,13) sit either side of the x=256
     // seam, both interior to the region — their E/W reads CROSS the seam and
-    // must still see same terrain (255 -> tile 46).
+    // must still see same terrain (255 -> tile 46). (12,15) and (12,16) do
+    // the same for the y=64 seam: the S read of the first and the N read of
+    // the second cross the cy=15|16 chunk-row boundary (the b3c read's O1 —
+    // both seams now have named anchors, not just the sweep).
     pinAt(seamMatch, seamRan,
-          wm.neighbourMaskAt(0, 15, 13) == 255 && wm.neighbourMaskAt(0, 16, 13) == 255,
-          "seam-interior masks 255 on both sides");
+          wm.neighbourMaskAt(0, 15, 13) == 255 && wm.neighbourMaskAt(0, 16, 13) == 255 &&
+              wm.neighbourMaskAt(0, 12, 15) == 255 && wm.neighbourMaskAt(0, 12, 16) == 255,
+          "seam-interior masks 255 on both sides of BOTH seams");
     pinAt(resolvedMatch, resolvedRan,
           wm.resolveAt(0, 15, 13, resolver).tileId == 46 &&
               wm.resolveAt(0, 16, 13, resolver).tileId == 46,
