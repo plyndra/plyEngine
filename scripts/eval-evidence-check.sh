@@ -9,6 +9,9 @@
 #
 # A suite opts in simply by printing a line beginning with "EVIDENCE ". Suites
 # that print nothing are skipped, so the check is cheap to adopt per unit.
+# Blind spot, stated (the b4 read's O2): a hollowed or broken suite that
+# prints nothing VANISHES from this report instead of failing it — run a
+# clean build (and the red-run replay) before trusting an all-ok list.
 #
 # Usage: scripts/eval-evidence-check.sh [build-dir]
 # Exit: 0 when every printed transcript is present, 1 otherwise.

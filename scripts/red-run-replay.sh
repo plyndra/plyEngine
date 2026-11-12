@@ -6,7 +6,8 @@
 # — every read has flagged it as historical. This script makes the figure
 # re-runnable by construction: it hollows the unit's implementation in
 # place exactly as the grader-first scaffold was, builds, counts the
-# grader's FAIL lines, and restores the tree. Replay figures for M1b:
+# grader's FAIL lines, and restores the tree AND the build (the b4 read's
+# O1: the first version left build/ stub-linked). Replay figures for M1b:
 #   worldmap      (b3b): 69 failures
 #   neighbour     (b3c): 29 failures
 #   tile_animator (b4):  34 failures
@@ -143,6 +144,9 @@ WorldMap::Chunk* WorldMap::chunkAt(int, int) { return nullptr; }
 STUB
     local n
     n="$(build_and_count ply_worldmap_test)"
+    restore
+    cmake --build build --target ply_worldmap_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
     report worldmap "$n" 69
 }
 
@@ -160,6 +164,9 @@ replay_neighbour() {
     fi
     local n
     n="$(build_and_count ply_neighbour_test)"
+    restore
+    cmake --build build --target ply_neighbour_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
     report neighbour "$n" 29
 }
 
@@ -193,6 +200,9 @@ long long TileAnimator::cycleOf(int) const { return 0; }
 STUB
     local n
     n="$(build_and_count ply_tile_animator_test)"
+    restore
+    cmake --build build --target ply_tile_animator_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
     report tile_animator "$n" 34
 }
 
