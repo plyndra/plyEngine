@@ -12,10 +12,11 @@
 #   neighbour     (b3c): 29 failures
 #   tile_animator (b4):  34 failures
 #   prop_layer    (b5):  46 failures
+#   ysort         (b6):  12 failures
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|all]  (default all)
+# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -28,13 +29,14 @@ target="${1:-all}"
 impl="engine/src/WorldMap.cpp"
 anim_impl="engine/src/TileAnimator.cpp"
 map_impl="engine/src/MapLoader.cpp"
+ysort_impl="engine/src/YSort.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -232,17 +234,37 @@ replay_prop_layer() {
     report prop_layer "$n" 46
 }
 
+replay_ysort() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b6 scaffold: the sort returns nothing (the hollow sort the
+    # 12-failure figure was measured against).
+    cp "$ysort_impl" /tmp/red-run-ysort-backup.cpp
+    sed -i 's/return order;/return {};/' "$ysort_impl"
+    if diff -q /tmp/red-run-ysort-backup.cpp "$ysort_impl" >/dev/null; then
+        echo "red-run-replay: NO-OP hollowing (source drifted; refusing)" >&2
+        exit 2
+    fi
+    local n
+    n="$(build_and_count ply_ysort_test)" || exit 3
+    restore
+    cmake --build build --target ply_ysort_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report ysort "$n" 12
+}
+
 status=0
 case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
     neighbour)     replay_neighbour     || status=1 ;;
     tile_animator) replay_tile_animator || status=1 ;;
     prop_layer)    replay_prop_layer    || status=1 ;;
+    ysort)         replay_ysort         || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
         replay_tile_animator || status=1
         replay_prop_layer    || status=1
+        replay_ysort         || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac
