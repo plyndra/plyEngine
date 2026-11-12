@@ -290,6 +290,7 @@ add_library(plyEngine STATIC
     engine/src/Minimap.cpp
     engine/src/MapLoader.cpp
     engine/src/WorldMap.cpp
+    engine/src/TileAnimator.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -571,6 +572,16 @@ if(PLY_BUILD_TESTS)
     target_compile_definitions(ply_neighbour_test PRIVATE
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME neighbour COMMAND ply_neighbour_test)
+
+    # TileAnimator (E-b4.1): per-tile frame sequences advanced from the sim
+    # step with a per-cell phase offset — frame index after n steps, phases
+    # differ as configured, exact reduction for huge and negative clocks.
+    # Pure data: no GL, no window, no clock object, no float.
+    add_executable(ply_tile_animator_test tests/tile_animator.cpp)
+    target_link_libraries(ply_tile_animator_test PRIVATE plyEngine)
+    target_compile_definitions(ply_tile_animator_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME tile_animator COMMAND ply_tile_animator_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +

@@ -7,12 +7,13 @@
 # re-runnable by construction: it hollows the unit's implementation in
 # place exactly as the grader-first scaffold was, builds, counts the
 # grader's FAIL lines, and restores the tree. Replay figures for M1b:
-#   worldmap  (b3b): 69 failures
-#   neighbour (b3c): 29 failures
+#   worldmap      (b3b): 69 failures
+#   neighbour     (b3c): 29 failures
+#   tile_animator (b4):  34 failures
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|all]   (default all)
+# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -23,13 +24,14 @@ cd "$repo_root"
 
 target="${1:-all}"
 impl="engine/src/WorldMap.cpp"
+anim_impl="engine/src/TileAnimator.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -161,13 +163,48 @@ replay_neighbour() {
     report neighbour "$n" 29
 }
 
+replay_tile_animator() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b4 scaffold: metadata copied, every query hollow (unknown tile
+    # loud, nothing animates) — exactly as the 34-failure figure was
+    # measured (the guard/differential pins pass by construction).
+    cat > "$anim_impl" << 'STUB'
+// TileAnimator (M1b b4) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the 34-failure red run stays re-runnable).
+#include "plyEngine/TileAnimator.hpp"
+
+namespace ply {
+
+TileAnimator TileAnimator::build(const TileSet& tileset) {
+    TileAnimator a;
+    a.tileset_ = tileset;
+    return a;
+}
+
+int TileAnimator::phaseOf(int) const { return 0; }
+
+int TileAnimator::frameIndexAt(int, long long, long long) const { return -1; }
+
+UIRect TileAnimator::regionAt(int, long long, long long) const { return UIRect{}; }
+
+long long TileAnimator::cycleOf(int) const { return 0; }
+
+}  // namespace ply
+STUB
+    local n
+    n="$(build_and_count ply_tile_animator_test)"
+    report tile_animator "$n" 34
+}
+
 status=0
 case "$target" in
-    worldmap)  replay_worldmap  || status=1 ;;
-    neighbour) replay_neighbour || status=1 ;;
+    worldmap)      replay_worldmap      || status=1 ;;
+    neighbour)     replay_neighbour     || status=1 ;;
+    tile_animator) replay_tile_animator || status=1 ;;
     all)
-        replay_worldmap  || status=1
-        replay_neighbour || status=1
+        replay_worldmap      || status=1
+        replay_neighbour     || status=1
+        replay_tile_animator || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac
