@@ -94,6 +94,7 @@ The M1 gate (two frames + rubric) is a separate, still-open gate.
 | b8a | `LightMap`: ambient tint × light sprites | structural light hash from (clock, lights); noon vs cave fixtures differ |
 | b8b | `PostPass`: vignette (+ optional palette LUT) | off/on hashes differ; off is the default in tests |
 | b9 | `ParticleSystem` (seeded, fixed-step, visual-only) | same seed → same positions; gameplay hash unchanged with particles on |
+| b3d | `Autotile submission`: terrain layer → resolved ids → quads, per-terrain blob tables selected by variant group (the M1b-gate pre-decision; slotted before b10 so the benchmark measures the real path) | multi-terrain fixture map resolves at load with no seam and submits resolved quads; absent terrain table fails loudly |
 | b10 | Headless benchmark harness | emits quads/frame, draw calls, step p95 against the budget |
 
 **Gate to leave M1b:** 96×72 village and 64×48 cave maps, autotiled grass/dirt/
