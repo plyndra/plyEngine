@@ -30,7 +30,9 @@ namespace ply {
 //   the submission — one batch per pass per layer that has content.
 // - step work: the VISIBLE CELL COUNT for the frame's camera — the cells
 //   whose world rect overlaps it (a geometric, deterministic cost proxy for
-//   the per-frame submission work).
+//   the per-frame submission work; it counts empty cells too — the exact
+//   definition is the overlap, not what the path visited, the b10 read's
+//   O1).
 // - step p95: the 95th percentile of the step-work series over the run,
 //   defined as the SMALLEST value v such that at least 95% of the steps
 //   have work <= v (a nearest-rank convention, pinned on synthetic series:
