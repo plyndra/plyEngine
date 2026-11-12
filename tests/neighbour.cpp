@@ -320,9 +320,12 @@ void testChunkSeams() {
     pinAt(resolvedMatch, resolvedRan,
           wm.resolveAt(0, 16, 10, resolver).tileId == 31, "seam edge resolves to tile 31");
     // (15,17): the region's bottom-left corner region cell, with NE/E reads
-    // across the y=64 chunk seam (mask 199 -> tile 36).
+    // crossing the x=256 chunk seam from chunk (0,1) to (1,1) (mask 199 ->
+    // tile 36). No named literal pin exercises a cross-y-SEAM read — the
+    // y=64 seam is covered by the 660-mask sweep, the field equality and
+    // the translation pin (the b3c read's O1).
     pinAt(seamMatch, seamRan, wm.neighbourMaskAt(0, 15, 17) == 199,
-          "y-seam corner mask 199 (NE+E cross the seam)");
+          "x-seam corner mask 199 (NE+E cross the seam)");
     pinAt(resolvedMatch, resolvedRan,
           wm.resolveAt(0, 15, 17, resolver).tileId == 36, "y-seam corner resolves to tile 36");
 
