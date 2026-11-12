@@ -17,7 +17,11 @@ namespace ply {
 // - The AMBIENT tint is a two-keypoint day/night schedule driven by the
 //   sim step (the clock, FixedTimestep's counter): midnightTint at each
 //   day's start and end, noonTint at the midpoint, integer-linear between
-//   (the day wraps: the tint is a function of step % stepsPerDay).
+//   with C++ TRUNCATION TOWARD ZERO (the b8 read's O1: the descending leg
+//   is asymmetric with the ascending one — +103.5 -> +103 but -103.5 ->
+//   -103 — and a header-only reader must be able to derive the pinned
+//   151/152 pair). The day wraps: the tint is a function of
+//   step % stepsPerDay.
 // - A LIGHT SPRITE is an additive pool: at world (x, y) its contribution
 //   is intensity * (radius² - dist²) / radius² for dist² < radius² (integer
 //   falloff — squared distances, no sqrt), 0 beyond.

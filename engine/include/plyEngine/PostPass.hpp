@@ -15,9 +15,13 @@ namespace ply {
 // Model (documented once, pinned literally):
 // - The vignette darkens toward the frame's corners: at frame px (x, y)
 //   the darkening FACTOR is 255 - strength * d² / maxd², where d² is the
-//   squared distance from the frame's centre and maxd² the squared
-//   half-diagonal (the corner's d²) — integer math, no sqrt. The centre
-//   keeps 255 (untouched); the corners land exactly on 255 - strength.
+//   squared distance from the frame's centre and maxd² = (w/2)² + (h/2)²
+//   — integer math, TRUNCATION TOWARD ZERO, no sqrt. The centre keeps 255
+//   (untouched). The (0,0) corner lands exactly on 255 - strength (its d²
+//   IS maxd²); the opposite discrete corner sits 1px shy of the continuous
+//   half-diagonal and lands on its truncated twin (255 - strength + 1 on
+//   the 640x360 frame — the b8 read's O2: "the corners" is true of one
+//   corner, and both are pinned).
 // - OFF (the default — the b8b clause) means the factor is 255 everywhere.
 // - The palette LUT is optional (empty by default): 256 entries mapping an
 //   8-bit palette index to a palette index; it participates in the hash
