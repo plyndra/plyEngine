@@ -11,10 +11,11 @@
 #   worldmap      (b3b): 69 failures
 #   neighbour     (b3c): 29 failures
 #   tile_animator (b4):  34 failures
+#   prop_layer    (b5):  46 failures
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|all]  (default all)
+# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -26,23 +27,27 @@ cd "$repo_root"
 target="${1:-all}"
 impl="engine/src/WorldMap.cpp"
 anim_impl="engine/src/TileAnimator.cpp"
+map_impl="engine/src/MapLoader.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
     local binary="$1"
     if ! cmake --build build --target "$binary" -j8 >/tmp/red-run-build.log 2>&1; then
         echo "red-run-replay: BUILD-FAIL for $binary (see /tmp/red-run-build.log)" >&2
-        exit 3
+        return 1
     fi
     "./build/$binary" >/tmp/red-run-out.log 2>&1
-    grep -c 'FAIL:' /tmp/red-run-out.log
+    # The SUITE's own failure count (its "tests: N failure(s)" summary), not
+    # the FAIL-line count: a suite may print more than one line per failure
+    # (load-shim diagnostics), and the recorded figure is the suite's count.
+    sed -n 's/.*tests: \([0-9][0-9]*\) failure(s).*/\1/p' /tmp/red-run-out.log | head -1
 }
 
 report() {
@@ -143,7 +148,7 @@ WorldMap::Chunk* WorldMap::chunkAt(int, int) { return nullptr; }
 }  // namespace ply
 STUB
     local n
-    n="$(build_and_count ply_worldmap_test)"
+    n="$(build_and_count ply_worldmap_test)" || exit 3
     restore
     cmake --build build --target ply_worldmap_test -j8 >/dev/null 2>&1 || {
         echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
@@ -163,7 +168,7 @@ replay_neighbour() {
         exit 2
     fi
     local n
-    n="$(build_and_count ply_neighbour_test)"
+    n="$(build_and_count ply_neighbour_test)" || exit 3
     restore
     cmake --build build --target ply_neighbour_test -j8 >/dev/null 2>&1 || {
         echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
@@ -199,11 +204,32 @@ long long TileAnimator::cycleOf(int) const { return 0; }
 }  // namespace ply
 STUB
     local n
-    n="$(build_and_count ply_tile_animator_test)"
+    n="$(build_and_count ply_tile_animator_test)" || exit 3
     restore
     cmake --build build --target ply_tile_animator_test -j8 >/dev/null 2>&1 || {
         echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
     report tile_animator "$n" 34
+}
+
+replay_prop_layer() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b5 scaffold: the props key accepted and ignored on parse, nothing
+    # emitted, PropLayer and the validator iterating nothing — exactly the
+    # pre-implementation state the 46-failure figure was measured against.
+    cp "$map_impl" /tmp/red-run-prop-backup.cpp
+    sed -i 's/if (props != doc.end()) {/if (false) {/' "$map_impl"
+    sed -i 's/if (!map.props.empty()) {/if (false) {/' "$map_impl"
+    sed -i 's/for (const Prop& prop : map.props) {/for (const Prop\& prop : std::vector<Prop>{}) {/g' "$map_impl"
+    if diff -q /tmp/red-run-prop-backup.cpp "$map_impl" >/dev/null; then
+        echo "red-run-replay: NO-OP hollowing (source drifted; refusing)" >&2
+        exit 2
+    fi
+    local n
+    n="$(build_and_count ply_prop_layer_test)" || exit 3
+    restore
+    cmake --build build --target ply_prop_layer_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report prop_layer "$n" 46
 }
 
 status=0
@@ -211,10 +237,12 @@ case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
     neighbour)     replay_neighbour     || status=1 ;;
     tile_animator) replay_tile_animator || status=1 ;;
+    prop_layer)    replay_prop_layer    || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
         replay_tile_animator || status=1
+        replay_prop_layer    || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac
