@@ -15,13 +15,14 @@
 #   ysort         (b6):  12 failures
 #   light_pass    (b8a+b8b): 22 failures
 #   particles     (b9):  9 failures
+#   autotile_map  (b3d): 10 failures
 #   camera2d      (b7):  30 failures (re-anchored from 29 when the
 #                     b7 read's O1 re-pin moved the suite - the REPLAY-DIFF
 #                     tripwire fired exactly as designed)
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|camera2d|light_pass|particles|all]  (default all)
+# Usage: scripts/red-run-replay.sh [...|particles|autotile_map|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -39,13 +40,14 @@ camera_impl="engine/src/Camera2D.cpp"
 light_impl="engine/src/LightMap.cpp"
 post_impl="engine/src/PostPass.cpp"
 particles_impl="engine/src/ParticleSystem.cpp"
+autotile_impl="engine/src/AutotileMap.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" "$particles_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" "$particles_impl" "$autotile_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -374,6 +376,39 @@ STUB
     report particles "$n" 9
 }
 
+replay_autotile_map() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b3d scaffold: no tables, no keys, nothing resolves — exactly the
+    # pre-implementation state the 10-failure figure was measured against.
+    cat > "$autotile_impl" << 'STUB'
+// AutotileMap (M1b b3d) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the red run stays re-runnable).
+#include "plyEngine/AutotileMap.hpp"
+
+namespace ply {
+
+AutotileMap AutotileMap::build(const MapData&, const TileSet&) { return AutotileMap{}; }
+
+std::string AutotileMap::terrainKeyAt(std::size_t, int, int) const { return {}; }
+
+int AutotileMap::terrainMaskAt(std::size_t, int, int) const { return kNoTileMask; }
+
+TileQuery AutotileMap::resolvedAt(std::size_t, int, int) const { return TileQuery{}; }
+
+WorldMapSubmission AutotileMap::submitResolved(const UIRect&) { return WorldMapSubmission{}; }
+
+std::uint64_t AutotileMap::resolvedFieldHash(std::size_t) { return 0; }
+
+}  // namespace ply
+STUB
+    local n
+    n="$(build_and_count ply_autotile_map_test)" || exit 3
+    restore
+    cmake --build build --target ply_autotile_map_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report autotile_map "$n" 10
+}
+
 status=0
 case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
@@ -384,6 +419,7 @@ case "$target" in
     camera2d)      replay_camera2d      || status=1 ;;
     light_pass)    replay_light_pass    || status=1 ;;
     particles)     replay_particles     || status=1 ;;
+    autotile_map)  replay_autotile_map  || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
@@ -393,6 +429,7 @@ case "$target" in
         replay_camera2d      || status=1
         replay_light_pass    || status=1
         replay_particles     || status=1
+        replay_autotile_map  || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac

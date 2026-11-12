@@ -73,6 +73,9 @@ inline constexpr int kChunkSize = 16;
 struct WorldMapQuad {
     int tileId = -1;
     int cellX = 0, cellY = 0;
+    /// The source layer index (b3d: a resolved submission must know which
+    /// layer's terrain table to consult). Not part of the hash wires.
+    std::size_t layer = 0;
     UIRect rect{};
 
     bool operator==(const WorldMapQuad&) const = default;

@@ -177,6 +177,7 @@ void WorldMap::buildChunk(Chunk& chunk, int chunkX, int chunkY) const {
                 q.tileId = id;
                 q.cellX = cx;
                 q.cellY = cy;
+                q.layer = l;
                 q.rect = {cx * tileWidth_, (height_ - 1 - cy) * tileHeight_, tileWidth_,
                           tileHeight_};
                 chunk.quads[l].push_back(q);

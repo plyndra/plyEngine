@@ -296,6 +296,7 @@ add_library(plyEngine STATIC
     engine/src/LightMap.cpp
     engine/src/PostPass.cpp
     engine/src/ParticleSystem.cpp
+    engine/src/AutotileMap.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -625,6 +626,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_particles_test tests/particles.cpp)
     target_link_libraries(ply_particles_test PRIVATE plyEngine)
     add_test(NAME particles COMMAND ply_particles_test)
+
+    # AutotileMap (b3d, the gate-gap pre-decision's glue): terrain fills
+    # resolve at load through per-variant-group blob tables and submit
+    # RESOLVED quads — the no-seam and exact-count invariants on the
+    # resolved path, and a missing table fails loudly. Pure data.
+    add_executable(ply_autotile_map_test tests/autotile_map.cpp)
+    target_link_libraries(ply_autotile_map_test PRIVATE plyEngine)
+    add_test(NAME autotile_map COMMAND ply_autotile_map_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +

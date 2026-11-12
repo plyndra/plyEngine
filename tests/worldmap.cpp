@@ -191,11 +191,12 @@ const std::vector<LayerSpec> fixtureDSpecs() {
 // --- the independent brute-force expectation --------------------------------
 
 ply::WorldMapQuad quadFor(const ply::TilesetSlice& ts, const ply::MapData& map, int cx,
-                          int cy, int id) {
+                          int cy, int id, std::size_t layer = 0) {
     ply::WorldMapQuad q;
     q.tileId = id;
     q.cellX = cx;
     q.cellY = cy;
+    q.layer = layer;
     q.rect = {cx * ts.tileWidth, (map.height - 1 - cy) * ts.tileHeight, ts.tileWidth,
               ts.tileHeight};
     return q;
@@ -257,7 +258,7 @@ std::vector<ply::WorldMapQuad> brutePass(const ply::MapData& map, const ply::Til
                         const int id = map.layers[l].tiles[index];
                         if (id < 0) continue;
                         if (coveredAt(map, l, cx, cy)) continue;
-                        const ply::WorldMapQuad q = quadFor(ts, map, cx, cy, id);
+                        const ply::WorldMapQuad q = quadFor(ts, map, cx, cy, id, l);
                         if (!overlaps(q.rect, cam)) continue;
                         out.push_back(q);
                     }
@@ -356,11 +357,15 @@ void testExactCounts() {
 
     // Literal quads spell their rects outright, so a wrong y flip or cell
     // size fails the literal, not just the brute comparison.
-    const auto q = [](int id, int cx, int cy, int x, int y) {
+    // The expected quads carry their SOURCE LAYER (b3d added the field to
+    // WorldMapQuad; the literals pin it like every other field). Default 0:
+    // only the canopy quads name layer 1.
+    const auto q = [](int id, int cx, int cy, int x, int y, std::size_t layer = 0) {
         ply::WorldMapQuad quad;
         quad.tileId = id;
         quad.cellX = cx;
         quad.cellY = cy;
+        quad.layer = layer;
         quad.rect = {x, y, 16, 16};
         return quad;
     };
@@ -376,9 +381,9 @@ void testExactCounts() {
             q(10, 2, 2, 32, 0), q(11, 3, 2, 48, 0),
         };
         const std::vector<ply::WorldMapQuad> expAbove = {
-            q(20, 1, 0, 16, 32),
-            q(21, 2, 1, 32, 16),
-            q(22, 3, 2, 48, 0),
+            q(20, 1, 0, 16, 32, 1),
+            q(21, 2, 1, 32, 16, 1),
+            q(22, 3, 2, 48, 0, 1),
         };
         pinAt(exactMatch, exactRan, s.below == expBelow, "A whole-map below literal");
         pinAt(exactMatch, exactRan, s.above == expAbove, "A whole-map above literal");
@@ -418,7 +423,7 @@ void testExactCounts() {
         const ply::WorldMapSubmission s = a.submit(cam);
         pinAt(exactMatch, exactRan,
               s.below == std::vector<ply::WorldMapQuad>{q(5, 1, 1, 16, 16), q(6, 2, 1, 32, 16)} &&
-                  s.above == std::vector<ply::WorldMapQuad>{q(21, 2, 1, 32, 16)},
+                  s.above == std::vector<ply::WorldMapQuad>{q(21, 2, 1, 32, 16, 1)},
               "A holes row: only non-empty cells");
     }
 
@@ -554,8 +559,9 @@ void testOpaqueAndPasses() {
     const ply::UIRect cam{0, 0, 96, 32};
     const ply::WorldMapSubmission s = wm.submit(cam);
 
+    std::size_t literalLayer = 0;
     const auto q = [&](int id, int cx, int cy) {
-        return quadFor(ts, map, cx, cy, id);
+        return quadFor(ts, map, cx, cy, id, literalLayer);
     };
 
     // The whole fixture, in contract order (layers authored, cells row-major):
@@ -563,21 +569,27 @@ void testOpaqueAndPasses() {
     // where it draws, anim (flags "animated" only) draws BELOW entities and
     // survives its own opaque slab, canopy survives the empty roof cell, and
     // roof culls ground across the pass boundary.
-    const std::vector<ply::WorldMapQuad> expBelow = {
-        // ground: (0,0) culled by slab, (2,0)+(3,0) by roof/slab, (0,1) by roof.
-        q(2, 1, 0), q(5, 4, 0), q(6, 5, 0), q(8, 1, 1), q(9, 2, 1), q(10, 3, 1), q(11, 4, 1),
-        q(12, 5, 1),
-        // slab: opaque, draws over ground; nothing later covers (0,0)/(3,0).
-        q(13, 0, 0), q(14, 3, 0),
-        // anim: flags "animated" only -> below-entities pass; the slab before
-        // it does not cull it (opaque never culls what draws after it).
-        q(15, 0, 0), q(16, 1, 0),
-    };
-    const std::vector<ply::WorldMapQuad> expAbove = {
-        q(17, 0, 0),  // canopy: roof is EMPTY at (0,0) -> nothing covered
-        q(18, 2, 0),  // roof
-        q(19, 0, 1),
-    };
+    std::vector<ply::WorldMapQuad> expBelow;
+    // ground (layer 0): (0,0) culled by slab, (2,0)+(3,0) by roof/slab, (0,1) by roof.
+    for (const auto& [id, cx, cy] :
+         std::vector<std::tuple<int, int, int>>{{2, 1, 0}, {5, 4, 0}, {6, 5, 0}, {8, 1, 1},
+                                                {9, 2, 1}, {10, 3, 1}, {11, 4, 1}, {12, 5, 1}}) {
+        expBelow.push_back(q(id, cx, cy));
+    }
+    literalLayer = 1;  // slab: opaque, draws over ground
+    for (const auto& [id, cx, cy] : std::vector<std::tuple<int, int, int>>{{13, 0, 0}, {14, 3, 0}}) {
+        expBelow.push_back(q(id, cx, cy));
+    }
+    literalLayer = 2;  // anim: flags "animated" only -> below pass
+    for (const auto& [id, cx, cy] : std::vector<std::tuple<int, int, int>>{{15, 0, 0}, {16, 1, 0}}) {
+        expBelow.push_back(q(id, cx, cy));
+    }
+    literalLayer = 3;
+    std::vector<ply::WorldMapQuad> expAbove;
+    expAbove.push_back(q(17, 0, 0));  // canopy: roof is EMPTY at (0,0)
+    literalLayer = 4;
+    expAbove.push_back(q(18, 2, 0));  // roof
+    expAbove.push_back(q(19, 0, 1));
     pinAt(opaqueMatch, opaqueRan, s.below == expBelow, "C below literal (coverage applied)");
     pinAt(opaqueMatch, opaqueRan, s.above == expAbove, "C above literal");
 
