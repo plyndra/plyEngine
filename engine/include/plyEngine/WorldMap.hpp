@@ -1,5 +1,6 @@
 #pragma once
 
+#include "plyEngine/AutoTileResolver.hpp"
 #include "plyEngine/MapLoader.hpp"
 
 #include <cstddef>
@@ -51,12 +52,13 @@ namespace ply {
 //   rebuilds each dirty chunk it touches exactly once and reuses clean ones
 //   (chunkBuilds() is the observability counter — UILayoutCache::recomputes()
 //   is the precedent). A dirty chunk outside the camera is not built.
-// - b3c boundary, stated plainly: this unit pins TRAVERSAL at chunk seams —
-//   a camera spanning a boundary submits exactly the tiles the brute-force
-//   scan finds, none dropped and none duplicated across the seam. The
-//   resolution seam (cross-chunk neighbour queries feeding AutoTileResolver,
-//   E-b3.2's "chunk-boundary fixture produces no seam in resolved ids") is
-//   b3c and is explicitly deferred there; WorldMap does not resolve ids.
+// - Chunk seams, stated plainly: b3b pins TRAVERSAL at chunk seams — a
+//   camera spanning a boundary submits exactly the tiles the brute-force
+//   scan finds, none dropped and none duplicated across the seam. b3c adds
+//   the RESOLUTION seam half (E-b3.2's "chunk-boundary fixture produces no
+//   seam in resolved ids"): the cross-chunk neighbour queries below feed
+//   AutoTileResolver, and a terrain region crossing a chunk border resolves
+//   to exactly the ids it would resolve to with no chunks at all.
 // - kLayerAnimated is inert until b4 (TileAnimator) — it is carried and
 //   visible in layerFlags() but changes no submission here.
 
@@ -137,6 +139,41 @@ public:
     /// ordered as documented above. Non-const because it maintains the
     /// chunk cache (UILayoutCache::rects() is the precedent).
     WorldMapSubmission submit(const UIRect& camera);
+
+    // --- cross-chunk neighbour queries (b3c, E-b3.2) -----------------------
+
+    /// The raw 8-neighbour same-terrain mask for the cell: bit kNeighbourN..
+    /// kNeighbourNW (AutoTileResolver.hpp) set when that neighbour is in the
+    /// map and holds the same non-negative tile id as this cell. Directions
+    /// are map-grid: N is the row above (cy-1, world +y), NE is (cx+1,
+    /// cy-1), and so on around the compass.
+    ///
+    /// - Same terrain is TILE-ID EQUALITY at this level: WorldMap holds the
+    ///   a9 slice, which carries no variant data. TileSet.hpp variant groups
+    ///   ("interchangeable fills for one terrain") arrive when the render
+    ///   pipeline threads the full TileSet through; the no-seam property is
+    ///   identity-rule-independent — it is about where the reads come from
+    ///   (any cell of any chunk), not what they compare.
+    /// - A neighbour OUTSIDE the map is not the same terrain: the map edge
+    ///   is a terrain edge (pinned at corners).
+    /// - The query reports the RAW truth: a same-terrain diagonal sets its
+    ///   bit even when its edge neighbours differ. Canonicalisation onto the
+    ///   blob-47 set is canonicalizeBlobMask's job (b2), at resolve time.
+    /// - An empty centre or an out-of-range cell has no terrain and no mask:
+    ///   kNoTileMask.
+    int neighbourMaskAt(std::size_t layer, int cx, int cy) const;
+
+    /// The autotiling composition this unit exists for:
+    /// resolver.resolve(neighbourMaskAt(layer, cx, cy)) — one call so the
+    /// render path cannot wire the two stages differently per caller. A
+    /// failed resolve (absent mask, or an empty/out-of-range cell) is
+    /// returned as-is: ok() false, tileId -1, the canonical mask named —
+    /// loud failure, never a fallback tile (b2's contract: an unknown case
+    /// errors rather than drawing a hole). `layer` is the map layer holding
+    /// terrain; the RESOLVER stays per-tileset — its own layer selector
+    /// still waits on per-layer tileset roles (b2's scope note).
+    TileQuery resolveAt(std::size_t layer, int cx, int cy,
+                        const AutoTileResolver& resolver) const;
 
 private:
     struct Chunk {

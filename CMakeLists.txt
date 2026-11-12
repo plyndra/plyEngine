@@ -560,6 +560,18 @@ if(PLY_BUILD_TESTS)
     target_link_libraries(ply_worldmap_test PRIVATE plyEngine)
     add_test(NAME worldmap COMMAND ply_worldmap_test)
 
+    # Cross-chunk neighbour queries (E-b3.2): the raw 8-neighbour
+    # same-terrain mask from any cell of any chunk, composed with the
+    # AutoTileResolver — a chunk-boundary terrain fixture must produce no
+    # seam in resolved ids (equal to an unchunked reference, and
+    # translation-invariant across chunk borders). Pure data: no GL, no
+    # window, no clock, no float.
+    add_executable(ply_neighbour_test tests/neighbour.cpp)
+    target_link_libraries(ply_neighbour_test PRIVATE plyEngine)
+    target_compile_definitions(ply_neighbour_test PRIVATE
+        PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+    add_test(NAME neighbour COMMAND ply_neighbour_test)
+
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
     # steps, phase offset, tile-local collision rects, palette id — over a
