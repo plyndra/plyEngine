@@ -293,6 +293,8 @@ add_library(plyEngine STATIC
     engine/src/TileAnimator.cpp
     engine/src/YSort.cpp
     engine/src/Camera2D.cpp
+    engine/src/LightMap.cpp
+    engine/src/PostPass.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -607,6 +609,14 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_camera2d_test tests/camera2d.cpp)
     target_link_libraries(ply_camera2d_test PRIVATE plyEngine)
     add_test(NAME camera2d COMMAND ply_camera2d_test)
+
+    # LightMap + PostPass (E-b8.1/E-b8.2, b8a+b8b as one family): the
+    # per-map light field from (clock, lights) with its structural hash
+    # (noon vs cave fixtures differ), and the vignette/palette-LUT post
+    # pass (off/on hashes differ; off is the default). Pure integer data.
+    add_executable(ply_light_pass_test tests/light_pass.cpp)
+    target_link_libraries(ply_light_pass_test PRIVATE plyEngine)
+    add_test(NAME light_pass COMMAND ply_light_pass_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +

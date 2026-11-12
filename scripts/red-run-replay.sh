@@ -13,13 +13,14 @@
 #   tile_animator (b4):  34 failures
 #   prop_layer    (b5):  46 failures
 #   ysort         (b6):  12 failures
+#   light_pass    (b8a+b8b): 22 failures
 #   camera2d      (b7):  30 failures (re-anchored from 29 when the
 #                     b7 read's O1 re-pin moved the suite - the REPLAY-DIFF
 #                     tripwire fired exactly as designed)
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|camera2d|all]  (default all)
+# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|camera2d|light_pass|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -34,13 +35,15 @@ anim_impl="engine/src/TileAnimator.cpp"
 map_impl="engine/src/MapLoader.cpp"
 ysort_impl="engine/src/YSort.cpp"
 camera_impl="engine/src/Camera2D.cpp"
+light_impl="engine/src/LightMap.cpp"
+post_impl="engine/src/PostPass.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -290,6 +293,52 @@ STUB
     report camera2d "$n" 30
 }
 
+replay_light_pass() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b8 scaffold: both modules hollow (the schedule/field/hash and the
+    # vignette do nothing) — exactly the pre-implementation state.
+    cat > "$light_impl" << 'STUB'
+// LightMap (M1b b8a) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the red run stays re-runnable).
+#include "plyEngine/LightMap.hpp"
+
+namespace ply {
+
+LightMap::LightMap(const Config& config) : config_(config) {}
+
+LightTint LightMap::ambientAt(long long) const { return LightTint{}; }
+
+LightTint LightMap::sampleAt(int, int, long long) const { return LightTint{}; }
+
+std::uint64_t LightMap::hashAt(long long) const { return 0; }
+
+}  // namespace ply
+STUB
+    cat > "$post_impl" << 'STUB'
+// PostPass (M1b b8b) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the red run stays re-runnable).
+#include "plyEngine/PostPass.hpp"
+
+namespace ply {
+
+PostPass::PostPass(const Config& config) : config_(config) {}
+
+bool PostPass::vignetteEnabled() const { return false; }
+
+int PostPass::vignetteFactorAt(int, int) const { return 255; }
+
+std::uint64_t PostPass::hash() const { return 0; }
+
+}  // namespace ply
+STUB
+    local n
+    n="$(build_and_count ply_light_pass_test)" || exit 3
+    restore
+    cmake --build build --target ply_light_pass_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report light_pass "$n" 22
+}
+
 status=0
 case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
@@ -298,6 +347,7 @@ case "$target" in
     prop_layer)    replay_prop_layer    || status=1 ;;
     ysort)         replay_ysort         || status=1 ;;
     camera2d)      replay_camera2d      || status=1 ;;
+    light_pass)    replay_light_pass    || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
@@ -305,6 +355,7 @@ case "$target" in
         replay_prop_layer    || status=1
         replay_ysort         || status=1
         replay_camera2d      || status=1
+        replay_light_pass    || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac
