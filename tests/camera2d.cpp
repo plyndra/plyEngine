@@ -125,11 +125,15 @@ void testSnap() {
           "500.4 and 500.6 are one target (floor snap)");
     pinAt(snapMatch, snapRan, x1 == 500 && y1 == 400, "snap lands on the floor");
 
-    // The E-a7.3 literal: x=10.4 vs 10.6 -> identical camera.
-    camera.snapTo(10.4, 400.0);
+    // The E-a7.3 literal: two fractional targets that floor together give
+    // one camera state — pinned INSIDE the clamp range (the b7 read's O1:
+    // the original 10.4/10.6 pair was clamp-masked at 320 and carried no
+    // floor-vs-round information; a round snap splits 410.4/410.6).
+    camera.snapTo(410.4, 400.0);
     const int xa = camera.x();
-    camera.snapTo(10.6, 400.0);
-    pinAt(snapMatch, snapRan, camera.x() == xa, "x 10.4 vs 10.6 -> identical (a7.3 rule)");
+    camera.snapTo(410.6, 400.0);
+    pinAt(snapMatch, snapRan, camera.x() == xa && xa == 410,
+          "410.4 vs 410.6 -> identical (a7.3 rule, in range)");
 
     // Zero deadzone: the camera centres on the target exactly (floored).
     camera.snapTo(577.9, 333.1);
@@ -247,11 +251,20 @@ void printEvidence() {
     camera.snapTo(500.4, 400.6);
     const int snapX = camera.x();
     camera.snapTo(500.6, 400.4);
+    // The small-map probe, measured live (the b7 read's O2: the old
+    // small_map=1 was a gated format-string constant).
+    ply::Camera2D::Config small = defaultConfig();
+    small.mapWidth = 320;
+    small.mapHeight = 180;
+    small.deadzoneWidth = 0;
+    small.deadzoneHeight = 0;
+    ply::Camera2D smallCamera(small);
+    smallCamera.snapTo(-500, 9000);
     std::printf(
         "EVIDENCE camera2d view=640x360 clamp=%d/%d snap=%d/%d deadzone=%d/%d edge=%d/%d "
-        "snap_repeat=%d small_map=1\n",
+        "snap_repeat=%d small_cx=%d\n",
         clampMatch, clampRan, snapMatch, snapRan, deadzoneMatch, deadzoneRan, edgeMatch,
-        edgeRan, camera.x() == snapX ? 1 : 0);
+        edgeRan, camera.x() == snapX ? 1 : 0, smallCamera.x());
 }
 
 }  // namespace
