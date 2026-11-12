@@ -295,6 +295,7 @@ add_library(plyEngine STATIC
     engine/src/Camera2D.cpp
     engine/src/LightMap.cpp
     engine/src/PostPass.cpp
+    engine/src/ParticleSystem.cpp
     engine/src/TileSet.cpp
     engine/src/AutoTileResolver.cpp
     engine/src/UIMargins.cpp
@@ -617,6 +618,13 @@ if(PLY_BUILD_TESTS)
     add_executable(ply_light_pass_test tests/light_pass.cpp)
     target_link_libraries(ply_light_pass_test PRIVATE plyEngine)
     add_test(NAME light_pass COMMAND ply_light_pass_test)
+
+    # ParticleSystem (E-b9.1): seeded, fixed-step, visual-only — same seed
+    # gives identical positions, and a gameplay state hash is unchanged
+    # with particles on. Pure integer data (a documented LCG).
+    add_executable(ply_particles_test tests/particles.cpp)
+    target_link_libraries(ply_particles_test PRIVATE plyEngine)
+    add_test(NAME particles COMMAND ply_particles_test)
 
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
