@@ -13,7 +13,9 @@
 #   tile_animator (b4):  34 failures
 #   prop_layer    (b5):  46 failures
 #   ysort         (b6):  12 failures
-#   camera2d      (b7):  29 failures
+#   camera2d      (b7):  30 failures (re-anchored from 29 when the
+#                     b7 read's O1 re-pin moved the suite - the REPLAY-DIFF
+#                     tripwire fired exactly as designed)
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
@@ -285,7 +287,7 @@ STUB
     restore
     cmake --build build --target ply_camera2d_test -j8 >/dev/null 2>&1 || {
         echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
-    report camera2d "$n" 29
+    report camera2d "$n" 30
 }
 
 status=0
