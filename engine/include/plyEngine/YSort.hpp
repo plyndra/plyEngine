@@ -27,9 +27,10 @@ namespace ply {
 // once, in draw order), so callers keep their own payloads and a broken
 // sort cannot silently drop or duplicate an item.
 
-/// One sortable thing in the world layer. `kind` is carried for callers and
-/// fixtures (props/NPCs/items/player interleave in ONE order — the kind
-/// never affects the sort).
+/// One sortable thing in the world layer. The KIND (props/NPCs/items/player)
+/// is carried by callers and fixtures — this struct deliberately holds only
+/// the sort key and the tiebreaker, so the rule cannot consult it: the kinds
+/// interleave in ONE order.
 struct YSortItem {
     int feetY = 0;
     int id = 0;
