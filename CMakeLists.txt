@@ -583,6 +583,14 @@ if(PLY_BUILD_TESTS)
         PLY_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     add_test(NAME tile_animator COMMAND ply_tile_animator_test)
 
+    # PropLayer (E-b5.x, b5.1-b5.4 as one subsystem): prop data + loader
+    # (multi-tile, pivot, layer flag), collision on the art footprint,
+    # generated shadow anchored at the feet, occlusion flipping exactly at
+    # the player's y. Pure data: no GL, no window, no clock, no float.
+    add_executable(ply_prop_layer_test tests/prop_layer.cpp)
+    target_link_libraries(ply_prop_layer_test PRIVATE plyEngine)
+    add_test(NAME prop_layer COMMAND ply_prop_layer_test)
+
     # TileSet metadata schema (E-b1.1): the b1 slice of the native JSON
     # tileset format — autotile mask, variant group, animation frames +
     # steps, phase offset, tile-local collision rects, palette id — over a

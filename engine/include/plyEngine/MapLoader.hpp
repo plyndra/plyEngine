@@ -104,6 +104,103 @@ struct MapLayer {
 /// The roadmap's name for the module above (ARCHITECTURE_TARGET.md §3).
 using TileLayer = MapLayer;
 
+// --- props (b5.1, ARCHITECTURE_TARGET.md §3) --------------------------------
+//
+// "PropLayer: Placed objects: multi-tile sprites, collision rects, pivot,
+// shadow, occlusion flag, optional interaction". The placement is map-format
+// data (the document's `props` array); the world-space geometry is derived
+// once by PropLayer below.
+//
+// Coordinate model, spelled once (the Minimap.hpp precedent): the DOCUMENT
+// frame is map px, y-DOWN from the map's top-left, exactly as authored —
+// `x, y` is the prop's PIVOT (its feet point), and the art sits above it:
+// the art's top-left is (x - artW/2, y - artH) in document px. The WORLD
+// frame is y-up (OrthoCamera.hpp): worldY = mapHeightPx - docY, where
+// mapHeightPx = map.height * tileset.tileHeight. Collision rects are
+// prop-local ART px, y-down from the art's top-left (the b1 tile-collision
+// convention).
+struct MapData;  // defined below; PropLayer::build consumes it
+
+/// One prop placement as authored (the document frame).
+struct Prop {
+    /// Non-empty and unique per map (EmptyPropName / DuplicateProp).
+    std::string name;
+    /// Art tile id in the map's tileset (its region is the art). Validated
+    /// against the tileset by validateMap (OutOfRangeTileId).
+    int tile = -1;
+    /// Pivot (feet point) in map px, y-down from the map's top-left.
+    int x = 0, y = 0;
+    /// Art footprint in TILES (multi-tile sprites: buildings 5-7 wide);
+    /// >= 1 each (NonPositiveSize). Defaults 1x1.
+    int widthTiles = 1, heightTiles = 1;
+    /// The b3a layer flag bitmask (kLayer* tokens, same grammar and the
+    /// same loud failures: UnknownLayerFlag / ConflictingLayerFlags). The
+    /// default is below-entities; aboveEntities() selects the draw pass.
+    unsigned flags = kLayerBelowEntities;
+    /// Occlusion flag (b5.4): a roof/canopy that can draw over the player
+    /// when the player is behind its pivot line.
+    bool occlusion = false;
+    /// Prop-local art px rects that block movement (b5.2: partial tiles
+    /// welcome — a trunk, not the whole footprint). Absent/empty = the
+    /// whole art footprint. NegativeRegion when a rect leaves the art.
+    std::vector<UIRect> collision;
+    /// Optional interaction id (M2+ acts on it; carried verbatim).
+    std::string interaction;
+
+    bool operator==(const Prop&) const = default;
+
+    bool aboveEntities() const { return (flags & kLayerAboveEntities) != 0; }
+};
+
+/// The world-space view of a map's props (the b5 derivations). Built once
+/// from (map, tileset); pure data after (the WorldMap::build shape).
+class PropLayer {
+public:
+    static PropLayer build(const MapData& map, const TilesetSlice& tileset);
+
+    std::size_t size() const;
+    /// The authored placement (document frame).
+    const Prop& prop(std::size_t index) const;
+
+    /// World px, y-up: the art rect — widthTiles*tileWidth x
+    /// heightTiles*tileHeight with the pivot (feet) at its BOTTOM-CENTRE.
+    UIRect artRect(std::size_t index) const;
+
+    /// World px: the generated shadow (ART_PIPELINE.md §7: "shadow generated
+    /// procedurally (ellipse, never AI); pivot recorded at feet") — an
+    /// ellipse's bounding rect centred ON THE PIVOT (the feet), never the
+    /// art's centre: width = the art width, height = tileHeight/2 (min 1).
+    UIRect shadowRect(std::size_t index) const;
+
+    /// World px: the collision rects transformed onto the art (b5.2:
+    /// "collision matches the art footprint"). Absent/empty collision is
+    /// the whole art rect.
+    const std::vector<UIRect>& collisionRects(std::size_t index) const;
+
+    /// The prop's feet line in world px (the occlusion boundary).
+    int pivotY(std::size_t index) const;
+
+    /// b5.4: does this prop draw over an entity whose feet are at
+    /// `playerFeetY` (world px)? True iff the occlusion flag is set AND the
+    /// player is at or behind the pivot line (playerFeetY >= pivotY) — the
+    /// ordering flips EXACTLY at the player's y (the E-b5.x clause).
+    bool occludes(std::size_t index, int playerFeetY) const;
+
+    /// The b3a pass selector: above-entities props draw in the above pass.
+    bool drawsAboveEntities(std::size_t index) const;
+
+private:
+    struct Entry {
+        Prop prop;
+        UIRect art{};
+        UIRect shadow{};
+        std::vector<UIRect> collision;
+        int pivotY = 0;
+    };
+
+    std::vector<Entry> entries_;
+};
+
 /// Stable token for a layer flag, e.g. "above-entities"; nullptr when the
 /// value does not name exactly one recognised flag. The tokens are the file
 /// format's contract.
@@ -122,6 +219,8 @@ struct MapData {
     int width = 0, height = 0;
     /// Authored order preserved.
     std::vector<MapLayer> layers;
+    /// Placements (b5.1), authored order preserved. Absent in a9 documents.
+    std::vector<Prop> props;
 
     bool operator==(const MapData&) const = default;
 };
@@ -157,6 +256,13 @@ enum class MapErrorCode {
     /// b3a: a layer claiming both below-entities and above-entities, which
     /// cannot both be true of one draw order.
     ConflictingLayerFlags,
+    /// b5.1: a prop with an empty name.
+    EmptyPropName,
+    /// b5.1: two props sharing a name.
+    DuplicateProp,
+    /// b5.1: a prop collision (world px) outside the map's bounds — the
+    /// ARCHITECTURE_TARGET.md §4 validator clause, E-b5.x.
+    PropOutOfBounds,
 };
 
 /// Stable token for the code, e.g. "OutOfRangeTileId". Never renamed.
@@ -206,10 +312,11 @@ std::string emitMap(const MapData& map);
 
 /// Cross-checks a map against registered tilesets (ARCHITECTURE_TARGET.md §4:
 /// the validator "rejects (and names)" bad references and ids). `map.tileset`
-/// must resolve to a registered tileset of that name (else MissingTileset)
-/// and every non-negative tile id in every layer must exist in it (else
-/// OutOfRangeTileId). The prop-bounds half of §4's validator list lands with
-/// b5.1 (E-b5.x): a9's maps carry no props.
+/// must resolve to a registered tileset of that name (else MissingTileset),
+/// every non-negative tile id in every layer AND every prop must exist in it
+/// (else OutOfRangeTileId), and every prop collision (world px) must lie
+/// within the map's bounds (else PropOutOfBounds — the §4 prop-bounds half,
+/// b5.1/E-b5.x).
 MapError validateMap(const MapData& map, const std::vector<TilesetSlice>& registered);
 
 /// The world-px quad each non-empty cell covers, in file order (row-major,
