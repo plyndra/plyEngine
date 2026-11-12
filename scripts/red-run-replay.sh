@@ -14,13 +14,14 @@
 #   prop_layer    (b5):  46 failures
 #   ysort         (b6):  12 failures
 #   light_pass    (b8a+b8b): 22 failures
+#   particles     (b9):  9 failures
 #   camera2d      (b7):  30 failures (re-anchored from 29 when the
 #                     b7 read's O1 re-pin moved the suite - the REPLAY-DIFF
 #                     tripwire fired exactly as designed)
 # The unit's own suite must be unchanged since the figure was recorded; a
 # mismatch here is a loud discrepancy to investigate, not to adjust.
 #
-# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|camera2d|light_pass|all]  (default all)
+# Usage: scripts/red-run-replay.sh [worldmap|neighbour|tile_animator|prop_layer|ysort|camera2d|light_pass|particles|all]  (default all)
 # Exit: 0 when every replayed figure matches, 1 on a mismatch, 2 on a dirty
 # tree, 3 on a build failure (tree restored either way).
 
@@ -37,13 +38,14 @@ ysort_impl="engine/src/YSort.cpp"
 camera_impl="engine/src/Camera2D.cpp"
 light_impl="engine/src/LightMap.cpp"
 post_impl="engine/src/PostPass.cpp"
+particles_impl="engine/src/ParticleSystem.cpp"
 
 [ -z "$(git status --porcelain)" ] || {
     echo "red-run-replay: working tree is dirty; refusing" >&2
     exit 2
 }
 
-restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" >/dev/null 2>&1; }
+restore() { git checkout -- "$impl" "$anim_impl" "$map_impl" "$ysort_impl" "$camera_impl" "$light_impl" "$post_impl" "$particles_impl" >/dev/null 2>&1; }
 trap restore EXIT
 
 build_and_count() {
@@ -339,6 +341,39 @@ STUB
     report light_pass "$n" 22
 }
 
+replay_particles() {
+    restore  # replay from the pristine implementation, never from a leftover
+    # The b9 scaffold: the pool empty and every query hollow — exactly the
+    # pre-implementation state the 9-failure figure was measured against.
+    cat > "$particles_impl" << 'STUB'
+// ParticleSystem (M1b b9) — STUB, grader-first scaffold (kept by
+// scripts/red-run-replay.sh so the red run stays re-runnable).
+#include "plyEngine/ParticleSystem.hpp"
+
+namespace ply {
+
+ParticleSystem::ParticleSystem(const Config& config) : config_(config) {}
+
+void ParticleSystem::step() {}
+
+long long ParticleSystem::stepCount() const { return 0; }
+
+std::vector<ParticleSystem::Particle> ParticleSystem::particles() const { return {}; }
+
+std::uint64_t ParticleSystem::stateHash() const { return 0; }
+
+int ParticleSystem::nextJitter(std::size_t, int) { return 0; }
+
+}  // namespace ply
+STUB
+    local n
+    n="$(build_and_count ply_particles_test)" || exit 3
+    restore
+    cmake --build build --target ply_particles_test -j8 >/dev/null 2>&1 || {
+        echo "red-run-replay: clean rebuild failed" >&2; exit 3; }
+    report particles "$n" 9
+}
+
 status=0
 case "$target" in
     worldmap)      replay_worldmap      || status=1 ;;
@@ -348,6 +383,7 @@ case "$target" in
     ysort)         replay_ysort         || status=1 ;;
     camera2d)      replay_camera2d      || status=1 ;;
     light_pass)    replay_light_pass    || status=1 ;;
+    particles)     replay_particles     || status=1 ;;
     all)
         replay_worldmap      || status=1
         replay_neighbour     || status=1
@@ -356,6 +392,7 @@ case "$target" in
         replay_ysort         || status=1
         replay_camera2d      || status=1
         replay_light_pass    || status=1
+        replay_particles     || status=1
         ;;
     *) echo "red-run-replay: unknown target '$target'" >&2; exit 2 ;;
 esac
